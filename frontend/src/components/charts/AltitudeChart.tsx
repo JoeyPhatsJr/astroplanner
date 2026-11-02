@@ -11,7 +11,8 @@ import {
   YAxis,
 } from "recharts";
 import type { VisibilityResponse } from "../../api/types";
-import { BAND_FILL, BAND_LABEL, bandSegments, skyBand } from "../../lib/sky";
+import { BAND_LABEL, bandSegments, skyBand } from "../../lib/sky";
+import { useThemeColors } from "../../lib/theme";
 import { formatTime, tzAbbrev } from "../../lib/time";
 
 interface Row {
@@ -25,6 +26,7 @@ interface Row {
 
 export function AltitudeChart({ data, minAlt }: { data: VisibilityResponse; minAlt: number }) {
   const tz = data.night.timezone;
+  const c = useThemeColors();
   const s = data.visibility.series;
   const from = new Date(data.night.display_start_utc).getTime();
   const to = new Date(data.night.display_end_utc).getTime();
@@ -54,7 +56,7 @@ export function AltitudeChart({ data, minAlt }: { data: VisibilityResponse; minA
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
             {bands.map((b) => (
-              <ReferenceArea key={`${b.band}-${b.start}`} x1={b.start} x2={b.end} fill={BAND_FILL[b.band]} fillOpacity={1} strokeOpacity={0} ifOverflow="hidden" />
+              <ReferenceArea key={`${b.band}-${b.start}`} x1={b.start} x2={b.end} fill={c.sky[b.band]} fillOpacity={1} strokeOpacity={0} ifOverflow="hidden" />
             ))}
             {best && (
               <ReferenceArea
@@ -62,9 +64,9 @@ export function AltitudeChart({ data, minAlt }: { data: VisibilityResponse; minA
                 x2={new Date(best.end_utc).getTime()}
                 y1={minAlt}
                 y2={90}
-                fill="#86d3e3"
-                fillOpacity={0.07}
-                stroke="#86d3e3"
+                fill={c.accent}
+                fillOpacity={0.09}
+                stroke={c.accent}
                 strokeOpacity={0.35}
                 ifOverflow="hidden"
               />
@@ -75,13 +77,13 @@ export function AltitudeChart({ data, minAlt }: { data: VisibilityResponse; minA
                 x2={new Date(fav.end_utc).getTime()}
                 y1={86}
                 y2={90}
-                fill="#e2b86a"
-                fillOpacity={0.7}
+                fill={c.ink2}
+                fillOpacity={0.75}
                 strokeOpacity={0}
                 ifOverflow="hidden"
               />
             )}
-            <CartesianGrid stroke="#29344d" strokeOpacity={0.45} vertical={false} />
+            <CartesianGrid stroke={c.line} strokeOpacity={0.45} vertical={false} />
             <XAxis
               dataKey="t"
               type="number"
@@ -89,26 +91,26 @@ export function AltitudeChart({ data, minAlt }: { data: VisibilityResponse; minA
               domain={[from, to]}
               ticks={ticks}
               tickFormatter={(v: number) => formatTime(v, tz)}
-              stroke="#8d9ab2"
+              stroke={c.muted}
               tick={{ fontSize: 11 }}
               tickLine={false}
-              axisLine={{ stroke: "#29344d" }}
+              axisLine={{ stroke: c.line }}
             />
-            <YAxis domain={[-10, 90]} ticks={[0, 30, 60, 90]} tickFormatter={(v: number) => `${v}°`} stroke="#8d9ab2" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
-            <ReferenceLine y={minAlt} stroke="#e2b86a" strokeDasharray="4 4" strokeOpacity={0.8} />
-            <ReferenceLine y={0} stroke="#8d9ab2" strokeOpacity={0.5} />
-            <Line type="monotone" dataKey="moon" name="Moon" stroke="#c9d3e3" strokeOpacity={0.6} strokeDasharray="3 3" dot={false} strokeWidth={1.5} isAnimationActive={false} />
-            <Line type="monotone" dataKey="alt" name={data.target.name} stroke="#86d3e3" dot={false} strokeWidth={2.2} isAnimationActive={false} />
-            <Tooltip content={<AltTooltip tz={tz} name={data.target.name} />} cursor={{ stroke: "#86d3e3", strokeOpacity: 0.5 }} />
+            <YAxis domain={[-10, 90]} ticks={[0, 30, 60, 90]} tickFormatter={(v: number) => `${v}°`} stroke={c.muted} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={44} />
+            <ReferenceLine y={minAlt} stroke={c.ink2} strokeDasharray="4 4" strokeOpacity={0.6} />
+            <ReferenceLine y={0} stroke={c.muted} strokeOpacity={0.5} />
+            <Line type="monotone" dataKey="moon" name="Moon" stroke={c.ink} strokeOpacity={0.7} strokeDasharray="3 3" dot={false} strokeWidth={1.5} isAnimationActive={false} />
+            <Line type="monotone" dataKey="alt" name={data.target.name} stroke={c.accent} dot={false} strokeWidth={2.2} isAnimationActive={false} />
+            <Tooltip content={<AltTooltip tz={tz} name={data.target.name} />} cursor={{ stroke: c.accent, strokeOpacity: 0.5 }} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
       <figcaption className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
         <span className="inline-flex items-center gap-1.5"><span className="h-0.5 w-4 bg-ice" />{data.target.name}</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t-2 border-dashed border-[#c9d3e3]/70" />Moon</span>
-        <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t-2 border-dashed border-gold" />{minAlt}° limit</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t-2 border-dashed border-ink/70" />Moon</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t-2 border-dashed border-ink-2/70" />{minAlt}° limit</span>
         {best && <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm bg-ice/20 ring-1 ring-ice/50" />Best window</span>}
-        {fav && <span className="inline-flex items-center gap-1.5"><span className="h-1 w-4 bg-gold" />Forecast-favorable</span>}
+        {fav && <span className="inline-flex items-center gap-1.5"><span className="h-1 w-4 bg-ink-2" />Forecast-favorable</span>}
         <span>Times in {tz}</span>
       </figcaption>
     </figure>

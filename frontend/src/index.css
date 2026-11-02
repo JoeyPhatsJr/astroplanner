@@ -1,32 +1,82 @@
 @import "tailwindcss";
-@import "@fontsource-variable/newsreader";
-@import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource-variable/inter";
+@import "./styles/starfield.css";
 
+/*
+ * Theme: "Clean Planetarium". Near-black sky with a static starfield, white type,
+ * one blue accent for interactive and "best" highlights, muted orange for cautions.
+ * Every colour is a CSS variable so night-vision mode ([data-vision="night"])
+ * can swap the whole palette to dim red without touching components.
+ * Token names are kept from the first theme: "ice" is now the blue accent.
+ */
 @theme {
-  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Newsreader Variable", ui-serif, Georgia, serif;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 
-  --color-night: #0b1426;
-  --color-night-deep: #070d1a;
-  --color-panel: #141c2d;
-  --color-panel-2: #1b2538;
-  --color-line: #29344d;
-  --color-line-soft: #202a40;
-  --color-ink: #e4eaf4;
-  --color-ink-2: #b9c4d6;
-  --color-muted: #8d9ab2;
-  --color-ice: #86d3e3;
-  --color-ice-dim: #4f8fa0;
-  --color-gold: #e2b86a;
-  --color-warn: #e59a7b;
-  --color-ok: #8fcfa7;
+  --color-night: #02030a;
+  --color-night-deep: #05070d;
+  --color-panel: rgb(10 13 19 / 0.92);
+  --color-panel-2: #121722;
+  --color-line: #232a37;
+  --color-line-soft: #171c26;
+  --color-ink: #f5f7fa;
+  --color-ink-2: #c5ccd6;
+  --color-muted: #8a93a3;
+  --color-ice: #5aa9ff;
+  --color-ice-dim: #3d77ba;
+  --color-on-accent: #00152e;
+  --color-warn: #f0a35e;
+  --color-ok: #7fcf9f;
 
-  /* twilight bands for timeline shading */
-  --color-sky-day: #2b4466;
-  --color-sky-civil: #22385a;
-  --color-sky-nautical: #182a47;
-  --color-sky-astro: #101d36;
-  --color-sky-dark: #0b1426;
+  /* score segments: one family of greys, accent last */
+  --color-seg-1: #f5f7fa;
+  --color-seg-2: #b4bcc8;
+  --color-seg-3: #7d8696;
+  --color-seg-4: #5aa9ff;
+
+  /* twilight bands for chart shading (lighter = brighter sky) */
+  --color-sky-day: #1b2539;
+  --color-sky-civil: #141c2c;
+  --color-sky-nautical: #0e1421;
+  --color-sky-astronomical: #090d17;
+  --color-sky-dark: #04060c;
+}
+
+:root {
+  --star-rgb: 255 255 255;
+  --star-k: 1;
+  --sky-glow-top: radial-gradient(120% 60% at 50% -12%, rgb(45 70 140 / 0.3), transparent 62%);
+  --sky-glow-corner: radial-gradient(70% 55% at 100% 110%, rgb(80 55 140 / 0.14), transparent 60%);
+}
+
+/* Night vision: dim red only. No white or blue light anywhere. */
+:root[data-vision="night"] {
+  --color-night: #050000;
+  --color-night-deep: #080101;
+  --color-panel: rgb(18 3 3 / 0.94);
+  --color-panel-2: #1c0505;
+  --color-line: #3a0b0b;
+  --color-line-soft: #260707;
+  --color-ink: #d9473c;
+  --color-ink-2: #b83a31;
+  --color-muted: #8a2b22;
+  --color-ice: #e0352b;
+  --color-ice-dim: #8f1f18;
+  --color-on-accent: #140000;
+  --color-warn: #ef6a4a;
+  --color-ok: #c4453a;
+  --color-seg-1: #d9473c;
+  --color-seg-2: #a5352d;
+  --color-seg-3: #72241e;
+  --color-seg-4: #e0352b;
+  --color-sky-day: #2a0606;
+  --color-sky-civil: #1f0404;
+  --color-sky-nautical: #160303;
+  --color-sky-astronomical: #0e0202;
+  --color-sky-dark: #070101;
+  --star-rgb: 255 60 45;
+  --star-k: 0.5;
+  --sky-glow-top: radial-gradient(120% 60% at 50% -12%, rgb(90 10 8 / 0.25), transparent 62%);
+  --sky-glow-corner: none;
 }
 
 @layer base {
@@ -34,7 +84,7 @@
     color-scheme: dark;
   }
   body {
-    background: var(--color-night);
+    background-color: var(--color-night);
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-feature-settings: "tnum" 1, "cv11" 1;
@@ -53,13 +103,17 @@
   textarea {
     color-scheme: dark;
   }
+  /* Native date/select icons are drawn light grey by the browser; tint them red at night. */
+  :root[data-vision="night"] ::-webkit-calendar-picker-indicator {
+    filter: brightness(0.45) sepia(1) saturate(6) hue-rotate(-45deg);
+  }
 }
 
 @layer components {
   .panel {
     background: var(--color-panel);
     border: 1px solid var(--color-line-soft);
-    border-radius: 14px;
+    border-radius: 12px;
   }
   .field {
     width: 100%;
@@ -86,7 +140,7 @@
     border: 1px solid var(--color-line);
     background: var(--color-panel-2);
     color: var(--color-ink);
-    transition: background-color 120ms ease, border-color 120ms ease;
+    transition: background-color 120ms ease, border-color 120ms ease, filter 120ms ease;
   }
   .btn:hover:not(:disabled) {
     border-color: var(--color-ice-dim);
@@ -97,16 +151,11 @@
   }
   .btn-primary {
     background: var(--color-ice);
-    color: #06202a;
+    color: var(--color-on-accent);
     border-color: transparent;
   }
   .btn-primary:hover:not(:disabled) {
-    background: #a3e1ee;
-    border-color: transparent;
-  }
-  .btn-gold {
-    background: var(--color-gold);
-    color: #2a1d05;
+    filter: brightness(1.12);
     border-color: transparent;
   }
   .btn-ghost {
@@ -140,7 +189,7 @@
     white-space: nowrap;
   }
   .skeleton {
-    background: linear-gradient(90deg, var(--color-panel-2), #232e45, var(--color-panel-2));
+    background: linear-gradient(90deg, var(--color-panel-2), var(--color-line-soft), var(--color-panel-2));
     background-size: 200% 100%;
     animation: shimmer 1.4s ease-in-out infinite;
     border-radius: 8px;

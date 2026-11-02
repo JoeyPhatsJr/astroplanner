@@ -8,7 +8,7 @@ export function ScoreChip({ total, max }: { total: number | null; max: number | 
   if (total === null || max === null) return null;
   return (
     <div className="text-right">
-      <p className="font-serif text-2xl leading-none text-ink">
+      <p className="font-semibold tracking-tight text-2xl leading-none text-ink">
         {Math.round(total)}
         <span className="font-sans text-xs text-muted">/{max}</span>
       </p>
@@ -37,10 +37,10 @@ export function TargetCard({
   const { target: t, visibility: v, score } = rec;
   const w = v.best_window;
   return (
-    <article className={`panel flex flex-col gap-3 p-4 ${inSession ? "border-gold/50" : ""}`}>
+    <article className={`panel flex flex-col gap-3 p-4 ${inSession ? "border-ice/50" : ""}`}>
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="truncate font-serif text-lg leading-tight text-ink">
+          <h3 className="truncate font-semibold tracking-tight text-lg leading-tight text-ink">
             <button type="button" onClick={onOpen} className="text-left hover:text-ice focus-visible:text-ice">
               {t.name}
             </button>
@@ -93,7 +93,7 @@ export function TargetCard({
         </button>
         <button
           type="button"
-          className={`btn flex-1 ${inSession ? "btn-ghost text-gold" : "btn-primary"}`}
+          className={`btn flex-1 ${inSession ? "btn-ghost text-ice" : "btn-primary"}`}
           onClick={onAdd}
           disabled={inSession || adding || !v.can_observe}
           aria-label={inSession ? `${t.name} is in your session` : `Add ${t.name} to session`}

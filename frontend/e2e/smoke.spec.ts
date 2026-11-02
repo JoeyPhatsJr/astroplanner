@@ -79,6 +79,32 @@ test("Explore search opens a target with its altitude chart", async ({ page }) =
   expect(errors).toEqual([]);
 });
 
+test("Night vision turns the palette red and survives a reload", async ({ page }) => {
+  await page.goto("/");
+  const html = page.locator("html");
+  await expect(html).toHaveAttribute("data-vision", "normal");
+  const ink = () => page.evaluate(() => getComputedStyle(document.body).color);
+  const normalInk = await ink();
+
+  const toggle = page.getByRole("button", { name: "Night vision" });
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await expect(html).toHaveAttribute("data-vision", "night");
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+  // Body text must be red-dominant (no white/blue light): R well above G and B
+  const [r, g, b] = (await ink()).match(/\d+/g)!.map(Number);
+  expect(r).toBeGreaterThan(150);
+  expect(g).toBeLessThan(90);
+  expect(b).toBeLessThan(90);
+  expect(await ink()).not.toBe(normalInk);
+
+  await page.reload();
+  await expect(html).toHaveAttribute("data-vision", "night"); // applied before React via index.html
+  await page.getByRole("button", { name: "Night vision" }).click();
+  await expect(html).toHaveAttribute("data-vision", "normal");
+});
+
 test("Research Lab is an honest preview with no fake controls", async ({ page }) => {
   await page.goto("/research");
   await expect(page.getByText("Preview: Variable Hunter arrives in Phase 3")).toBeVisible();

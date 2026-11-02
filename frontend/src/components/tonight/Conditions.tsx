@@ -48,7 +48,7 @@ export function ConditionTiles({ night, forecast }: { night: NightSummary; forec
       <Tile icon={<Cloud className="size-4" aria-hidden />} title="Clouds" basis="forecast">
         {cloud ? (
           <>
-            <p className="font-serif text-3xl text-ink">{Math.round(cloud.mean)}%</p>
+            <p className="font-semibold tracking-tight text-3xl text-ink">{Math.round(cloud.mean)}%</p>
             <p className="text-xs text-muted">
               Mean {scope} · range {cloud.min}–{cloud.max}%{cloud.missing ? ` · ${cloud.missing} h missing` : ""}
             </p>
@@ -60,7 +60,7 @@ export function ConditionTiles({ night, forecast }: { night: NightSummary; forec
       <Tile icon={<CloudRain className="size-4" aria-hidden />} title="Rain risk" basis="forecast">
         {rain ? (
           <>
-            <p className="font-serif text-3xl text-ink">{Math.round(rain.max)}%</p>
+            <p className="font-semibold tracking-tight text-3xl text-ink">{Math.round(rain.max)}%</p>
             <p className="text-xs text-muted">
               Highest hourly precipitation probability {scope}
               {rain.missing ? ` · ${rain.missing} h missing` : ""}
@@ -71,7 +71,7 @@ export function ConditionTiles({ night, forecast }: { night: NightSummary; forec
         )}
       </Tile>
       <Tile icon={<Moon className="size-4" aria-hidden />} title="Moon" basis="calculated">
-        <p className="font-serif text-3xl text-ink">{Math.round(night.moon.illumination * 100)}%</p>
+        <p className="font-semibold tracking-tight text-3xl text-ink">{Math.round(night.moon.illumination * 100)}%</p>
         <p className="text-xs text-muted">
           {night.moon.phase_name} · up {Math.round(night.moon.up_fraction_of_dark * 100)}% of {night.has_darkness ? "darkness" : "the night"}
         </p>
@@ -84,7 +84,7 @@ export function ConditionTiles({ night, forecast }: { night: NightSummary; forec
       <Tile icon={<Sparkles className="size-4" aria-hidden />} title={night.darkness === "nautical" ? "Nautical darkness" : "Astronomical darkness"} basis="calculated">
         {night.has_darkness ? (
           <>
-            <p className="font-serif text-3xl text-ink">{formatDuration(night.dark_minutes)}</p>
+            <p className="font-semibold tracking-tight text-3xl text-ink">{formatDuration(night.dark_minutes)}</p>
             <p className="text-xs text-muted">
               {night.dark_intervals.map((d) => `${formatTime(d.start_utc, tz)}–${formatTime(d.end_utc, tz)}`).join(", ")} {tzAbbrev(night.dark_intervals[0].start_utc, tz)}
             </p>
@@ -136,7 +136,7 @@ export function ForecastMeta({ forecast, tz }: { forecast: ForecastPayload; tz: 
         </span>
         .
       </p>
-      {forecast.note && <p className="text-gold">Note: {forecast.note}</p>}
+      {forecast.note && <p className="text-ice">Note: {forecast.note}</p>}
       {missing.length > 0 && <p className="text-warn">Missing values: {missing.map(([k, n]) => `${k.replace(/_/g, " ")} (${n} h)`).join(", ")}. Missing hours are not treated as clear.</p>}
     </div>
   );

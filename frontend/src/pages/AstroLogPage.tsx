@@ -41,7 +41,7 @@ function SessionList({ sessions }: { sessions: ObservingSession[] }) {
   return (
     <div className="mx-auto flex max-w-[960px] flex-col gap-5">
       <div>
-        <h1 className="font-serif text-3xl tracking-tight md:text-[2.4rem]">AstroLog</h1>
+        <h1 className="font-semibold tracking-tight text-3xl  md:text-[2.4rem]">AstroLog</h1>
         <p className="mt-1 max-w-prose text-sm text-ink-2">Your saved session plans. Logging what you actually captured, with notes and images, arrives in Phase 2.</p>
       </div>
       <Notice>
@@ -118,7 +118,7 @@ function SessionDetail({ session }: { session: ObservingSession }) {
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-serif text-3xl tracking-tight">{session.title}</h1>
+          <h1 className="font-semibold tracking-tight text-3xl ">{session.title}</h1>
           <p className="mt-1 text-sm text-ink-2">
             {nightLabel(session.local_night_date)}
             {loc ? ` · ${loc.label}` : ""}
@@ -145,7 +145,7 @@ function SessionDetail({ session }: { session: ObservingSession }) {
       {err && <Notice tone="warn">{err instanceof Error ? err.message : String(err)}</Notice>}
 
       <section className="panel flex flex-col gap-4 p-5" aria-labelledby="sd-details">
-        <h2 id="sd-details" className="font-serif text-xl">
+        <h2 id="sd-details" className="font-semibold tracking-tight text-xl">
           Details
         </h2>
         <div>
@@ -186,7 +186,7 @@ function SessionDetail({ session }: { session: ObservingSession }) {
       </section>
 
       <section className="panel flex flex-col gap-3 p-5" aria-labelledby="sd-targets">
-        <h2 id="sd-targets" className="font-serif text-xl">
+        <h2 id="sd-targets" className="font-semibold tracking-tight text-xl">
           Targets in order
         </h2>
         {session.targets.length ? (

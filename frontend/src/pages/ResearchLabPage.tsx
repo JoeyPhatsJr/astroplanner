@@ -18,8 +18,8 @@ export function ResearchLabPage() {
   return (
     <div className="mx-auto flex max-w-[960px] flex-col gap-6">
       <div>
-        <p className="badge border-gold/40 text-gold">Preview: Variable Hunter arrives in Phase 3</p>
-        <h1 className="mt-3 font-serif text-3xl tracking-tight md:text-[2.4rem]">Research Lab</h1>
+        <p className="badge border-ice/40 text-ice">Preview: Variable Hunter arrives in Phase 3</p>
+        <h1 className="mt-3 font-semibold tracking-tight text-3xl  md:text-[2.4rem]">Research Lab</h1>
         <p className="mt-2 max-w-prose leading-relaxed text-ink-2">
           The Research Lab will help you go from pretty pictures to careful brightness measurements of variable stars. Nothing here is interactive yet: there are no missions,
           light curves or measurements until they can be backed by real data.
@@ -27,7 +27,7 @@ export function ResearchLabPage() {
       </div>
 
       <section className="panel p-5 md:p-6" aria-labelledby="rl-what">
-        <h2 id="rl-what" className="font-serif text-xl">
+        <h2 id="rl-what" className="font-semibold tracking-tight text-xl">
           What variable-star work involves
         </h2>
         <div className="mt-3 grid gap-5 text-sm leading-relaxed text-ink-2 md:grid-cols-2">
@@ -51,13 +51,13 @@ export function ResearchLabPage() {
       </section>
 
       <section aria-labelledby="rl-roadmap">
-        <h2 id="rl-roadmap" className="font-serif text-xl">
+        <h2 id="rl-roadmap" className="font-semibold tracking-tight text-xl">
           Roadmap
         </h2>
         <ol className="mt-3 flex flex-col gap-2">
           {ROADMAP.map((r) => (
             <li key={r.title} className="panel flex flex-col gap-1 p-4 sm:flex-row sm:gap-5">
-              <span className="w-24 shrink-0 text-sm font-semibold text-gold">{r.phase}</span>
+              <span className="w-24 shrink-0 text-sm font-semibold text-ice">{r.phase}</span>
               <span>
                 <span className="font-medium text-ink">{r.title}</span>
                 <span className="mt-0.5 block text-sm text-ink-2">{r.body}</span>
@@ -68,7 +68,7 @@ export function ResearchLabPage() {
       </section>
 
       <section aria-labelledby="rl-links">
-        <h2 id="rl-links" className="font-serif text-xl">
+        <h2 id="rl-links" className="font-semibold tracking-tight text-xl">
           Authoritative resources
         </h2>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">

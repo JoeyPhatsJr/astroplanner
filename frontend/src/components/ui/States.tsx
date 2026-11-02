@@ -41,7 +41,7 @@ export function EmptyState({
   return (
     <div className="panel flex flex-col items-start gap-3 p-6">
       {icon && <div className="text-ice">{icon}</div>}
-      <p className="font-serif text-xl text-ink">{title}</p>
+      <p className="font-semibold tracking-tight text-xl text-ink">{title}</p>
       {children && <div className="max-w-prose text-sm leading-relaxed text-ink-2">{children}</div>}
       {action}
     </div>
@@ -56,6 +56,6 @@ export function Notice({ tone = "info", children }: { tone?: "info" | "warn"; ch
 export function BasisBadge({ basis }: { basis: "forecast" | "calculated" | "heuristic" }) {
   const label = { forecast: "Forecast", calculated: "Calculated", heuristic: "Heuristic" }[basis];
   const tone =
-    basis === "forecast" ? "border-ice/40 text-ice" : basis === "calculated" ? "border-line text-ink-2" : "border-gold/40 text-gold";
+    basis === "forecast" ? "border-ice/40 text-ice" : basis === "calculated" ? "border-line text-ink-2" : "border-ice/40 text-ice";
   return <span className={`badge ${tone}`}>{label}</span>;
 }

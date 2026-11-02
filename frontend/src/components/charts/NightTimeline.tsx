@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import type { ForecastPayload, NightSummary } from "../../api/types";
 import { BAND_FILL, BAND_LABEL, bandSegments, nearestHour, skyBand } from "../../lib/sky";
+import { useThemeColors } from "../../lib/theme";
 import { formatTime, tzAbbrev } from "../../lib/time";
 
 interface Row {
@@ -24,6 +25,7 @@ interface Row {
 
 export function NightTimeline({ night, forecast }: { night: NightSummary; forecast: ForecastPayload }) {
   const tz = night.timezone;
+  const c = useThemeColors();
   const from = new Date(night.display_start_utc).getTime();
   const to = new Date(night.display_end_utc).getTime();
 
@@ -69,13 +71,13 @@ export function NightTimeline({ night, forecast }: { night: NightSummary; foreca
                 x1={b.start}
                 x2={b.end}
                 yAxisId="alt"
-                fill={BAND_FILL[b.band]}
+                fill={c.sky[b.band]}
                 fillOpacity={1}
                 strokeOpacity={0}
                 ifOverflow="hidden"
               />
             ))}
-            <CartesianGrid stroke="#29344d" strokeOpacity={0.45} vertical={false} />
+            <CartesianGrid stroke={c.line} strokeOpacity={0.45} vertical={false} />
             <XAxis
               dataKey="t"
               type="number"
@@ -83,17 +85,17 @@ export function NightTimeline({ night, forecast }: { night: NightSummary; foreca
               domain={[from, to]}
               ticks={hourTicks}
               tickFormatter={(v: number) => formatTime(v, tz)}
-              stroke="#8d9ab2"
+              stroke={c.muted}
               tick={{ fontSize: 11 }}
               tickLine={false}
-              axisLine={{ stroke: "#29344d" }}
+              axisLine={{ stroke: c.line }}
             />
             <YAxis
               yAxisId="alt"
               domain={[-10, 90]}
               ticks={[0, 30, 60, 90]}
               tickFormatter={(v: number) => `${v}°`}
-              stroke="#8d9ab2"
+              stroke={c.muted}
               tick={{ fontSize: 11 }}
               tickLine={false}
               axisLine={false}
@@ -105,7 +107,7 @@ export function NightTimeline({ night, forecast }: { night: NightSummary; foreca
               domain={[0, 100]}
               ticks={[0, 50, 100]}
               tickFormatter={(v: number) => `${v}%`}
-              stroke="#8d9ab2"
+              stroke={c.muted}
               tick={{ fontSize: 11 }}
               tickLine={false}
               axisLine={false}
@@ -116,9 +118,9 @@ export function NightTimeline({ night, forecast }: { night: NightSummary; foreca
               type="stepAfter"
               dataKey="cloud"
               name="Cloud cover"
-              stroke="#b9c4d6"
+              stroke={c.ink2}
               strokeOpacity={0.55}
-              fill="#b9c4d6"
+              fill={c.ink2}
               fillOpacity={0.16}
               connectNulls={false}
               isAnimationActive={false}
@@ -128,7 +130,7 @@ export function NightTimeline({ night, forecast }: { night: NightSummary; foreca
               type="stepAfter"
               dataKey="precip"
               name="Precipitation probability"
-              stroke="#5aa6bb"
+              stroke={c.accent}
               strokeDasharray="4 3"
               dot={false}
               strokeWidth={1.5}
@@ -140,19 +142,20 @@ export function NightTimeline({ night, forecast }: { night: NightSummary; foreca
               type="monotone"
               dataKey="moon"
               name="Moon altitude"
-              stroke="#e2b86a"
+              stroke={c.ink}
+              strokeDasharray="5 4"
               dot={false}
-              strokeWidth={2}
+              strokeWidth={1.8}
               isAnimationActive={false}
             />
-            <Tooltip content={<TimelineTooltip tz={tz} />} cursor={{ stroke: "#86d3e3", strokeOpacity: 0.5 }} />
+            <Tooltip content={<TimelineTooltip tz={tz} />} cursor={{ stroke: c.accent, strokeOpacity: 0.5 }} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
       <figcaption className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
-        <Legend swatch={<span className="h-0.5 w-4 bg-gold" />} label="Moon altitude (left axis)" />
+        <Legend swatch={<span className="h-0 w-4 border-t-2 border-dashed border-ink" />} label="Moon altitude (left axis)" />
         <Legend swatch={<span className="h-2.5 w-4 rounded-sm bg-ink-2/25 ring-1 ring-ink-2/50" />} label="Cloud cover (right axis)" />
-        <Legend swatch={<span className="h-0 w-4 border-t-2 border-dashed border-[#5aa6bb]" />} label="Precipitation probability" />
+        <Legend swatch={<span className="h-0 w-4 border-t-2 border-dashed border-ice" />} label="Precipitation probability" />
         {(["day", "civil", "nautical", "astronomical", "dark"] as const).map((b) => (
           <Legend key={b} swatch={<span className="size-2.5 rounded-sm ring-1 ring-line" style={{ background: BAND_FILL[b] }} />} label={BAND_LABEL[b]} />
         ))}
@@ -180,9 +183,9 @@ function TimelineTooltip({ active, payload, tz }: { active?: boolean; payload?: 
         {formatTime(r.t, tz)} {tzAbbrev(r.t, tz)}
       </p>
       <p className="text-muted">{BAND_LABEL[skyBand(r.sun)]} (Sun {r.sun.toFixed(1)}°)</p>
-      <p className="mt-1 text-gold">Moon {r.moon.toFixed(1)}°{r.moon < -0.833 ? " (below horizon)" : ""}</p>
+      <p className="mt-1 text-ink">Moon {r.moon.toFixed(1)}°{r.moon < -0.833 ? " (below horizon)" : ""}</p>
       <p className="text-ink-2">Cloud {r.cloud === null ? "no forecast" : `${r.cloud}%`}</p>
-      <p className="text-[#7cc0d3]">Precip. probability {r.precip === null ? "no forecast" : `${r.precip}%`}</p>
+      <p className="text-ice">Precip. probability {r.precip === null ? "no forecast" : `${r.precip}%`}</p>
     </div>
   );
 }

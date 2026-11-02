@@ -23,6 +23,9 @@ It is tuned first for the **ZWO Seestar S30** (original, not the S30 Pro).
   geolocation), the read-only **verified S30 preset** plus custom equipment, and observing
   preferences (minimum altitude, astronomical vs nautical darkness).
 - **Research Lab / AstroLog:** honest previews of later phases (no fake data or controls).
+- **Night vision:** one toggle turns the whole app dim red to protect dark-adapted eyes at the telescope.
+
+![Night-vision mode](docs/screenshots/tonight-night-vision.png)
 
 ## Accuracy
 
@@ -66,7 +69,7 @@ Optional environment variables:
 cd backend && .venv/bin/python -m pytest -q        # 66 tests: astronomy references, DST, scoring, weather, API
 cd frontend && npm run typecheck && npm test       # 23 tests: timezone/DST formatting, RA/Dec, components
 cd frontend && npm run build
-cd frontend && npx playwright install chromium && npm run test:e2e   # 8 end-to-end smoke tests (desktop + mobile)
+cd frontend && npx playwright install chromium && npm run test:e2e   # 10 end-to-end smoke tests (desktop + mobile)
 ```
 
 The end-to-end suite starts its own backend (fresh SQLite file) and Vite server on ports

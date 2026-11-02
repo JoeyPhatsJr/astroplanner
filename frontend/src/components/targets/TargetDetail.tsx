@@ -45,13 +45,13 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
       className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-[640px] overflow-y-auto border-l border-line bg-night p-0 text-ink backdrop:bg-black/60 sm:w-[min(640px,92vw)]"
     >
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-line-soft bg-night px-5 py-3.5">
-        <h2 id="target-detail-title" className="min-w-0 flex-1 truncate font-serif text-xl">
+        <h2 id="target-detail-title" className="min-w-0 flex-1 truncate font-semibold tracking-tight text-xl">
           {t ? t.name : "Target"}
         </h2>
         {t && (
           <button
             type="button"
-            className={`btn ${inSession ? "btn-ghost text-gold" : "btn-primary"}`}
+            className={`btn ${inSession ? "btn-ghost text-ice" : "btn-primary"}`}
             disabled={inSession || active.isAdding || !v?.can_observe}
             onClick={() => active.addTarget(t.id, data?.score.forecast_window ?? v?.best_window ?? null)}
           >
@@ -96,7 +96,7 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
                 </p>
               )}
               {data.score.forecast_window && (
-                <p className="mt-0.5 text-gold">
+                <p className="mt-0.5 text-ice">
                   Forecast-favorable {formatTime(data.score.forecast_window.start_utc, tz)}–{formatTime(data.score.forecast_window.end_utc, tz)} (
                   {data.score.forecast_window.rule})
                 </p>
@@ -125,7 +125,7 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
 
             {data.score.components.length > 0 && (
               <section className="flex flex-col gap-3" aria-labelledby="ts-heading">
-                <h3 id="ts-heading" className="font-serif text-lg">
+                <h3 id="ts-heading" className="font-semibold tracking-tight text-lg">
                   Why this score
                 </h3>
                 <SegmentedScoreBar components={data.score.components} height={10} />

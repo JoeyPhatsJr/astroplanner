@@ -4,13 +4,13 @@ import { formatTime, tzAbbrev } from "../../lib/time";
 import { BasisBadge } from "../ui/States";
 
 const SEGMENT_COLORS: Record<string, string> = {
-  cloud: "#86d3e3",
-  precipitation: "#5aa6bb",
-  moon: "#c9d3e3",
-  darkness: "#7486ad",
-  altitude: "#86d3e3",
-  duration: "#5aa6bb",
-  weather: "#7486ad",
+  cloud: "var(--color-seg-1)",
+  precipitation: "var(--color-seg-2)",
+  moon: "var(--color-seg-3)",
+  darkness: "var(--color-seg-4)",
+  altitude: "var(--color-seg-1)",
+  duration: "var(--color-seg-2)",
+  weather: "var(--color-seg-4)",
 };
 
 /** One bar for the whole 0–100 scale; each component owns a slice as wide as its maximum, filled by its points. */
@@ -26,10 +26,10 @@ export function SegmentedScoreBar({ components, height = 14 }: { components: Sco
             className="relative overflow-hidden rounded-[3px]"
             style={{
               width: `${(c.max / totalMax) * 100}%`,
-              background: c.points === null ? "repeating-linear-gradient(135deg,#1b2538 0 5px,#141c2d 5px 10px)" : "#1f2a40",
+              background: c.points === null ? "repeating-linear-gradient(135deg,var(--color-panel-2) 0 5px,var(--color-night-deep) 5px 10px)" : "var(--color-line-soft)",
             }}
           >
-            <div className="absolute inset-y-0 left-0" style={{ width: `${frac * 100}%`, background: SEGMENT_COLORS[c.key] ?? "#86d3e3" }} />
+            <div className="absolute inset-y-0 left-0" style={{ width: `${frac * 100}%`, background: SEGMENT_COLORS[c.key] ?? "var(--color-ice)" }} />
           </div>
         );
       })}
@@ -43,7 +43,7 @@ export function ScoreBreakdown({ components }: { components: ScoreComponent[] })
       {components.map((c) => (
         <li key={c.key} className="flex flex-col gap-1 py-2.5 first:pt-0 last:pb-0">
           <div className="flex items-center gap-2">
-            <span className="size-2.5 shrink-0 rounded-[2px]" style={{ background: SEGMENT_COLORS[c.key] ?? "#86d3e3" }} aria-hidden />
+            <span className="size-2.5 shrink-0 rounded-[2px]" style={{ background: SEGMENT_COLORS[c.key] ?? "var(--color-ice)" }} aria-hidden />
             <span className="text-sm font-semibold text-ink">{c.label}</span>
             <BasisBadge basis={c.basis} />
             <span className="ml-auto text-sm tabular-nums text-ink">
@@ -64,7 +64,7 @@ export function ScoreHero({ score, tz }: { score: TonightScore; tz: string }) {
   return (
     <section className="panel flex flex-col gap-5 p-5 md:p-6 lg:self-start" aria-labelledby="score-heading">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="score-heading" className="font-serif text-xl text-ink">
+        <h2 id="score-heading" className="font-semibold tracking-tight text-xl text-ink">
           Tonight’s Score
         </h2>
         <span className="text-xs text-muted">Heuristic planning estimate</span>
@@ -72,13 +72,13 @@ export function ScoreHero({ score, tz }: { score: TonightScore; tz: string }) {
 
       <div className="flex items-end gap-4">
         {hasTotal ? (
-          <p className="font-serif text-[4.5rem] leading-[0.85] tracking-tight text-ink" data-testid="score-total">
+          <p className="font-semibold tracking-tight text-[4.5rem] leading-[0.85]  text-ink" data-testid="score-total">
             {Math.round(score.total!)}
             <span className="ml-1.5 align-top font-sans text-base font-medium text-muted">/ 100</span>
           </p>
         ) : (
           <div data-testid="score-no-total">
-            <p className="font-serif text-4xl leading-none text-ink-2">No score</p>
+            <p className="font-semibold tracking-tight text-4xl leading-none text-ink-2">No score</p>
             <p className="mt-2 max-w-sm text-sm text-muted">
               {score.status === "no_weather"
                 ? "Without a forecast there is no weather-backed total."

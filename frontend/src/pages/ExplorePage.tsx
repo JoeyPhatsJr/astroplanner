@@ -14,7 +14,7 @@ import { usePrefs } from "../state/prefs";
 
 const STATUS_TONE: Record<string, string> = {
   observable: "border-ice/40 text-ice",
-  too_brief: "border-gold/40 text-gold",
+  too_brief: "border-ice/40 text-ice",
   daylight_only: "border-line text-ink-2",
   below_threshold: "border-line text-muted",
   never_rises: "border-line text-muted",
@@ -65,7 +65,7 @@ export function ExplorePage() {
   return (
     <div className="mx-auto flex max-w-[1200px] flex-col gap-5">
       <div>
-        <h1 className="font-serif text-3xl tracking-tight md:text-[2.4rem]">Explore</h1>
+        <h1 className="font-semibold tracking-tight text-3xl  md:text-[2.4rem]">Explore</h1>
         <p className="mt-1 max-w-prose text-sm text-ink-2">
           {recs.data ? `${recs.data.observable_count} of ${results.length} matching targets` : "Targets"} are observable for the selected night above {prefs.minAltitudeDeg}°. Every target
           shows why it is or isn’t.

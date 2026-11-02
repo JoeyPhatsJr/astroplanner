@@ -6,9 +6,9 @@ export function Sparkline({ values, minAlt, width = 120, height = 34 }: { values
   const d = values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden className="overflow-visible">
-      <line x1={0} x2={width} y1={y(minAlt)} y2={y(minAlt)} stroke="#e2b86a" strokeOpacity={0.5} strokeDasharray="2 3" />
-      <line x1={0} x2={width} y1={height} y2={height} stroke="#29344d" />
-      <path d={d} fill="none" stroke="#86d3e3" strokeWidth={1.6} strokeLinejoin="round" />
+      <line x1={0} x2={width} y1={y(minAlt)} y2={y(minAlt)} style={{ stroke: "var(--color-ink-2)" }} strokeOpacity={0.45} strokeDasharray="2 3" />
+      <line x1={0} x2={width} y1={height} y2={height} style={{ stroke: "var(--color-line)" }} />
+      <path d={d} fill="none" style={{ stroke: "var(--color-ice)" }} strokeWidth={1.6} strokeLinejoin="round" />
     </svg>
   );
 }

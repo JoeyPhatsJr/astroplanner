@@ -45,7 +45,8 @@ no dead buttons, no claimed tests that were not run.
 
 **Delivered and verified (local):** see `PROGRESS.md` for the item-by-item table.
 66 backend tests (incl. USNO and Meeus reference checks), 23 frontend unit tests and
-8 Playwright end-to-end smoke tests (desktop + mobile) pass.
+10 Playwright end-to-end smoke tests (desktop + mobile) pass.
+Review feedback so far: theme replaced with "Clean Planetarium" + night-vision mode (done).
 
 **Remaining to complete Phase 1**
 
@@ -138,3 +139,4 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-02 | Adopt the five-phase roadmap above; one phase at a time with an approval gate | Developer direction |
 | 2026-11-02 | Repository public on GitHub with CI (backend, frontend, e2e) | Visibility and regression protection |
 | 2026-11-02 | Defer deployment until the project is nearly complete | Developer direction; hosting needs depend on later phases |
+| 2026-11-02 | Visual theme "Clean Planetarium" (black + starfield, Inter, single blue accent) + red night-vision mode | Developer review: previous theme mixed "sci-fi" and "golden marble" personalities; chosen from three mockups. Night vision preserves dark adaptation at the telescope |

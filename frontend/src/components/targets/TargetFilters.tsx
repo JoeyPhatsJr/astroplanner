@@ -51,7 +51,7 @@ export function TargetFilters({
       </div>
       {onObservableOnly && (
         <label className="flex items-center gap-2 pb-2 text-sm text-ink-2">
-          <input type="checkbox" className="size-4 accent-[#86d3e3]" checked={!!observableOnly} onChange={(e) => onObservableOnly(e.target.checked)} />
+          <input type="checkbox" className="size-4 accent-ice" checked={!!observableOnly} onChange={(e) => onObservableOnly(e.target.checked)} />
           Observable only
         </label>
       )}

@@ -18,9 +18,22 @@ Phase 1 is functional and tested locally. Remaining exit items are listed at the
 | 8 | Ranked, filterable target cards + altitude-vs-time graph | ✅ | `/api/recommendations`, sparklines, detail chart |
 | 9 | Target detail: identifiers, coordinates, chart, Moon separation, best (forecast-adjusted) window, Add to Session | ✅ | Explore drawer |
 | 10 | Sessions: create, add, reorder, remove, persist across reloads | ✅ | API test incl. restart persistence; Playwright e2e incl. reload |
-| 11 | Deterministic astronomy/scoring tests, responsive layout, README | ✅ | 66 backend + 23 frontend unit + 8 e2e tests |
+| 11 | Deterministic astronomy/scoring tests, responsive layout, README | ✅ | 66 backend + 23 frontend unit + 10 e2e tests |
 
-### Completed in the latest increment
+### Completed in the latest increment (Phase 1 review feedback: new theme)
+
+- New visual theme **"Clean Planetarium"**, chosen by the developer from three mockups:
+  near-black sky with a static, seeded starfield (`scripts/gen-starfield.mjs`), white type,
+  Inter as the only font, one blue accent for interactive and "best" highlights, muted
+  orange for cautions. The previous serif headings and gold accents are removed.
+- **Night-vision mode**: header toggle turns the entire app dim red (text, charts,
+  starfield, score) via CSS variables on `<html data-vision>`; persisted, applied before
+  first paint, charts re-read theme colours on toggle. New e2e test verifies red-dominant
+  text and persistence across reload.
+- Mobile header is no longer sticky (it grew to four rows); desktop header still sticky.
+- Doc screenshots regenerated in the new theme (incl. `tonight-night-vision.png`).
+
+### Completed in the previous increment
 
 - `ROADMAP.md` created; phase numbering adopted across UI and docs (AstroLog = Phase 2,
   Variable Hunter = Phase 3, image analysis = Phase 4).
@@ -39,8 +52,9 @@ backend:  .venv/bin/python -m pytest -q     → 66 passed
 frontend: npm run typecheck                  → ok
 frontend: npm test                           → 23 passed
 frontend: npm run build                      → ok, no chunk-size warning
-frontend: npm run test:e2e                   → 8 passed (desktop + mobile)
-manual:   confirm dialog + mobile header checked in browser (390 px)
+frontend: npm run test:e2e                   → 10 passed (desktop + mobile, incl. night vision)
+manual:   new theme + night vision reviewed in browser (Tonight, Explore detail, Settings,
+          confirm dialog) at 1440 px and 390 px
 ```
 
 ### Acceptance criteria (spec §11)

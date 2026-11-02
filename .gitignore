@@ -19,3 +19,4 @@ frontend/coverage/
 .remember/
 .playwright-mcp/
 frontend/*.tsbuildinfo
+.superpowers/

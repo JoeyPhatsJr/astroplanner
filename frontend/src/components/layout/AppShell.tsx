@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
 
       <aside
-        className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line-soft bg-night-deep md:flex ${
+        className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-r border-line-soft bg-night-deep/80 md:flex ${
           collapsed ? "w-[72px]" : "w-60"
         }`}
         aria-label="Primary"
@@ -47,7 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className={`flex items-center gap-2.5 px-4 pb-6 pt-5 ${collapsed ? "justify-center px-0" : ""}`}>
           <Logo />
           {!collapsed && (
-            <span className="font-serif text-[1.35rem] leading-none tracking-tight text-ink">AstroPlanner</span>
+            <span className="font-semibold tracking-tight text-[1.35rem] leading-none  text-ink">AstroPlanner</span>
           )}
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3">
@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={`size-[18px] shrink-0 ${isActive ? "text-gold" : ""}`} aria-hidden />
+                  <Icon className={`size-[18px] shrink-0 ${isActive ? "text-ice" : ""}`} aria-hidden />
                   <span className={collapsed ? "sr-only" : ""}>{label}</span>
                 </>
               )}
@@ -87,11 +87,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b border-line-soft bg-night/95 backdrop-blur-none">
+        <header className="z-30 border-b md:sticky md:top-0 border-line-soft bg-night/90">
           <div className="flex items-center gap-3 px-4 py-3 md:px-6">
             <div className="flex items-center gap-2 md:hidden">
               <Logo />
-              <span className="font-serif text-lg text-ink">AstroPlanner</span>
+              <span className="font-semibold tracking-tight text-lg text-ink">AstroPlanner</span>
             </div>
             <HeaderControls />
           </div>
@@ -111,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line-soft bg-night-deep md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line-soft bg-night-deep/95 md:hidden"
       >
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
@@ -124,7 +124,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             {({ isActive }) => (
               <>
-                <Icon className={`size-5 ${isActive ? "text-gold" : ""}`} aria-hidden />
+                <Icon className={`size-5 ${isActive ? "text-ice" : ""}`} aria-hidden />
                 <span>{label === "Research Lab" ? "Research" : label}</span>
               </>
             )}
@@ -153,11 +153,11 @@ function FooterText() {
 
 function Logo() {
   return (
-    <svg viewBox="0 0 32 32" className="size-7 shrink-0" aria-hidden>
-      <rect width="32" height="32" rx="8" fill="#141c2d" />
-      <path d="M6 22a10 10 0 0 1 20 0" fill="none" stroke="#86d3e3" strokeWidth="2" strokeLinecap="round" />
-      <path d="M3.5 22h25" stroke="#29344d" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx="21" cy="11" r="2.4" fill="#e2b86a" />
+    <svg viewBox="0 0 32 32" className="size-7 shrink-0 text-ink" aria-hidden>
+      <circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" strokeWidth="2" />
+      
+      
+      <circle cx="22.5" cy="8.5" r="3" style={{ fill: "var(--color-ice)" }} />
     </svg>
   );
 }

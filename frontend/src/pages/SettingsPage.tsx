@@ -14,7 +14,7 @@ export function SettingsPage() {
   return (
     <div className="mx-auto flex max-w-[960px] flex-col gap-8">
       <div>
-        <h1 className="font-serif text-3xl tracking-tight md:text-[2.4rem]">Settings</h1>
+        <h1 className="font-semibold tracking-tight text-3xl  md:text-[2.4rem]">Settings</h1>
         <p className="mt-1 text-sm text-ink-2">Locations, equipment and observing preferences are saved on this AstroPlanner server.</p>
       </div>
       <LocationsSection />
@@ -49,7 +49,7 @@ function LocationsSection() {
   return (
     <section className="flex flex-col gap-3" aria-labelledby="set-loc">
       <div className="flex items-end justify-between gap-3">
-        <h2 id="set-loc" className="font-serif text-2xl">
+        <h2 id="set-loc" className="font-semibold tracking-tight text-2xl">
           Observing locations
         </h2>
         {editing === null && (
@@ -78,11 +78,11 @@ function LocationsSection() {
       {q.data && q.data.length > 0 && (
         <ul className="flex flex-col gap-2">
           {q.data.map((l) => (
-            <li key={l.id} className={`panel flex flex-wrap items-center gap-3 px-4 py-3 ${currentId === l.id ? "border-gold/50" : ""}`}>
+            <li key={l.id} className={`panel flex flex-wrap items-center gap-3 px-4 py-3 ${currentId === l.id ? "border-ice/50" : ""}`}>
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
                   {l.label}
-                  {l.is_sample && <span className="badge border-gold/40 text-gold">Sample</span>}
+                  {l.is_sample && <span className="badge border-ice/40 text-ice">Sample</span>}
                 </p>
                 <p className="text-xs text-muted">
                   {formatLatLon(l.latitude_deg, l.longitude_deg)}
@@ -94,7 +94,7 @@ function LocationsSection() {
                   Use
                 </button>
               ) : (
-                <span className="badge border-gold/40 text-gold">In use</span>
+                <span className="badge border-ice/40 text-ice">In use</span>
               )}
               <button type="button" className="btn btn-ghost btn-icon" aria-label={`Edit ${l.label}`} onClick={() => setEditing(l)}>
                 <Pencil className="size-4" aria-hidden />
@@ -249,7 +249,7 @@ function LocationForm({ initial, onDone }: { initial: ObservingLocation | null; 
 
   return (
     <div className="panel flex flex-col gap-4 p-5">
-      <h3 className="font-serif text-lg">{initial ? `Edit ${initial.label}` : "New location"}</h3>
+      <h3 className="font-semibold tracking-tight text-lg">{initial ? `Edit ${initial.label}` : "New location"}</h3>
       <form onSubmit={runSearch} className="flex flex-wrap items-end gap-2" role="search">
         <div className="min-w-[200px] flex-1">
           <label htmlFor="loc-search" className="label">
@@ -367,7 +367,7 @@ function EquipmentSection() {
   return (
     <section className="flex flex-col gap-3" aria-labelledby="set-eq">
       <div className="flex items-end justify-between gap-3">
-        <h2 id="set-eq" className="font-serif text-2xl">
+        <h2 id="set-eq" className="font-semibold tracking-tight text-2xl">
           Equipment
         </h2>
         {editing === null && (
@@ -382,7 +382,7 @@ function EquipmentSection() {
       {q.error && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {q.data?.map((eq) => (
-          <article key={eq.id} className={`panel flex flex-col gap-3 p-4 ${prefs.equipmentId === eq.id ? "border-gold/50" : ""}`}>
+          <article key={eq.id} className={`panel flex flex-col gap-3 p-4 ${prefs.equipmentId === eq.id ? "border-ice/50" : ""}`}>
             <div className="flex items-start gap-2">
               <div className="flex-1">
                 <h3 className="font-medium text-ink">{eq.name}</h3>
@@ -412,7 +412,7 @@ function EquipmentSection() {
                   Use
                 </button>
               ) : (
-                <span className="badge border-gold/40 text-gold">In use</span>
+                <span className="badge border-ice/40 text-ice">In use</span>
               )}
               {eq.is_preset ? (
                 <>
@@ -509,7 +509,7 @@ function EquipmentForm({ initial, onDone }: { initial: EquipmentProfile | null; 
         });
       }}
     >
-      <h3 className="font-serif text-lg sm:col-span-2">{initial ? `Edit ${initial.name}` : "New custom profile"}</h3>
+      <h3 className="font-semibold tracking-tight text-lg sm:col-span-2">{initial ? `Edit ${initial.name}` : "New custom profile"}</h3>
       <Field id="eq-name" label="Name" value={f.name} onChange={set("name")} required />
       <Field id="eq-mf" label="Manufacturer" value={f.manufacturer} onChange={set("manufacturer")} />
       <Field id="eq-ap" label="Aperture (mm)" value={f.aperture_mm} onChange={set("aperture_mm")} inputMode="decimal" />
@@ -582,7 +582,7 @@ function PreferencesSection() {
   const { prefs, update } = usePrefs();
   return (
     <section className="flex flex-col gap-3" aria-labelledby="set-pref">
-      <h2 id="set-pref" className="font-serif text-2xl">
+      <h2 id="set-pref" className="font-semibold tracking-tight text-2xl">
         Observing preferences
       </h2>
       <div className="panel grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
@@ -618,7 +618,7 @@ function AboutSection() {
   const q = useAbout();
   return (
     <section className="flex flex-col gap-3" aria-labelledby="set-about">
-      <h2 id="set-about" className="font-serif text-2xl">
+      <h2 id="set-about" className="font-semibold tracking-tight text-2xl">
         Data sources
       </h2>
       {q.isLoading && <Skeleton className="h-32" />}

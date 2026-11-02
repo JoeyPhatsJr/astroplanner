@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type { Darkness } from "../api/types";
+import { applyVision } from "../lib/vision";
 
 export interface Prefs {
   locationId: string | null;
@@ -9,6 +10,8 @@ export interface Prefs {
   minAltitudeDeg: number;
   darkness: Darkness;
   activeSessionId: string | null;
+  /** Dim red display to preserve dark adaptation at the telescope. */
+  nightVision: boolean;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -18,6 +21,7 @@ export const DEFAULT_PREFS: Prefs = {
   minAltitudeDeg: 30,
   darkness: "astronomical",
   activeSessionId: null,
+  nightVision: false,
 };
 
 const STORAGE_KEY = "astroplanner.prefs.v1";
@@ -49,8 +53,14 @@ interface PrefsCtx {
 const Ctx = createContext<PrefsCtx | null>(null);
 
 export function PrefsProvider({ children, initial }: { children: ReactNode; initial?: Prefs }) {
-  const [prefs, setPrefs] = useState<Prefs>(() => initial ?? loadPrefs());
+  const [prefs, setPrefs] = useState<Prefs>(() => {
+    const p = initial ?? loadPrefs();
+    applyVision(p.nightVision);
+    return p;
+  });
   const update = useCallback((patch: Partial<Prefs>) => {
+    // Apply before re-render so components reading computed colours see the new palette.
+    if (patch.nightVision !== undefined) applyVision(patch.nightVision);
     setPrefs((prev) => {
       const next = { ...prev, ...patch };
       savePrefs(next);

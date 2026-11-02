@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronLeft, ChevronRight, MapPin, Telescope } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Eye, MapPin, Telescope } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCurrentEquipment, useCurrentLocation, useEquipmentList, useLocations, useNightDate } from "../../api/hooks";
 import { addDays, defaultNightDate, nightLabel, NIGHT_ROLLOVER_HOUR } from "../../lib/time";
@@ -93,6 +93,17 @@ export function HeaderControls() {
           </span>
         </div>
       )}
+      <button
+        type="button"
+        className={`btn btn-ghost btn-icon gap-1.5 2xl:px-3 md:ml-auto ${prefs.nightVision ? "text-ice" : "text-ink-2"}`}
+        aria-pressed={prefs.nightVision}
+        aria-label="Night vision"
+        title="Night vision: dim red display that preserves dark adaptation"
+        onClick={() => update({ nightVision: !prefs.nightVision })}
+      >
+        <Eye className="size-4" aria-hidden />
+        <span className="hidden text-sm 2xl:inline">Night vision</span>
+      </button>
       {!locations.isLoading && !locations.data?.length && (
         <Link to="/settings" className="btn btn-primary">
           Add a location

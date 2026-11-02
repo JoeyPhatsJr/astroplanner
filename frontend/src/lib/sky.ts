@@ -10,12 +10,13 @@ export const BAND_LABEL: Record<SkyBand, string> = {
   dark: "Astronomical darkness",
 };
 
+/** CSS colour references for HTML swatches (SVG charts use resolved values from useThemeColors). */
 export const BAND_FILL: Record<SkyBand, string> = {
-  day: "#33507a",
-  civil: "#26406a",
-  nautical: "#1b3050",
-  astronomical: "#13223d",
-  dark: "#0b1426",
+  day: "var(--color-sky-day)",
+  civil: "var(--color-sky-civil)",
+  nautical: "var(--color-sky-nautical)",
+  astronomical: "var(--color-sky-astronomical)",
+  dark: "var(--color-sky-dark)",
 };
 
 /** Same thresholds as the backend: sunrise −0.833°, civil −6°, nautical −12°, astronomical −18°. */

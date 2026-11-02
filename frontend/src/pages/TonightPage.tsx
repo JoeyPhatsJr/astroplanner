@@ -47,7 +47,7 @@ export function TonightPage() {
     <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-serif text-3xl tracking-tight text-ink md:text-[2.4rem]">Tonight</h1>
+          <h1 className="font-semibold tracking-tight text-3xl  text-ink md:text-[2.4rem]">Tonight</h1>
           <p className="mt-1 text-sm text-ink-2">
             {nightDate ? nightLabel(nightDate) : ""} at {location.label}
             <span className="text-muted"> · {formatLatLon(location.latitude_deg, location.longitude_deg)} · {tz}</span>
@@ -95,7 +95,7 @@ export function TonightPage() {
               <ConditionTiles night={data.night} forecast={data.forecast} />
               <section className="panel flex min-w-0 flex-col gap-3 p-4 md:p-5" aria-labelledby="timeline-heading">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 id="timeline-heading" className="font-serif text-xl">
+                  <h2 id="timeline-heading" className="font-semibold tracking-tight text-xl">
                     Dusk to dawn
                   </h2>
                   <ForecastMetaInline />
@@ -112,7 +112,7 @@ export function TonightPage() {
         <section className="flex min-w-0 flex-col gap-4" aria-labelledby="targets-heading">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 id="targets-heading" className="font-serif text-2xl">
+              <h2 id="targets-heading" className="font-semibold tracking-tight text-2xl">
                 Best targets tonight
               </h2>
               {recs.data && (
