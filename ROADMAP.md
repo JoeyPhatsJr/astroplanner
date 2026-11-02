@@ -55,11 +55,24 @@ no dead buttons, no claimed tests that were not run.
 - [x] Code splitting: lazy routes + lazy chart library (main bundle 725 kB → 348 kB)
 - [x] Automated Playwright smoke test of the core flow (desktop + mobile, 8 tests passing)
 - [x] Under git, public on GitHub (`JoeyPhatsJr/astroplanner`); CI green on first run
-- [ ] _Decision needed:_ is **deployment (Vercel + Supabase + owner-only auth)** part of Phase 1's exit, or its own milestone before Phase 2?
+- [x] Deployment decision: **deferred** until the project is nearly complete (not a Phase 1 exit item; see "Deployment" below)
 - [ ] **Phase 1 review** with the developer → sign-off
 
 **Exit criteria:** spec §11 acceptance criteria all met (currently met locally), the items
 above closed, and explicit developer sign-off.
+
+## Deployment (deferred)
+
+AstroPlanner stays **local-only** while phases are being built. Deployment is a dedicated
+milestone scheduled when the project is nearly complete, so hosting choices can account
+for later phases' needs (e.g. image storage in Phase 2, FITS processing in Phase 4).
+
+- Current target: Vercel (frontend + Python function) + Supabase (Postgres, Auth, Storage).
+- Prerequisites before going public: `owner_id` on user-owned rows, Supabase Auth JWT
+  verification in FastAPI (owner-only writes), production CORS, secrets in environment variables.
+- To re-check at that time: Vercel Python function size/cold start with Astropy, whether
+  Phase 4 processing needs a different compute target, Open-Meteo terms for the use case.
+- Meanwhile every phase must keep the `DATABASE_URL` seam working (no SQLite-only SQL).
 
 ## Later phases: direction only (not yet requirements)
 
@@ -123,3 +136,5 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-02 | S30 FOV used only for advisory framing notes, never in scores | Published 2.46° FOV axis is unspecified |
 | 2026-11-02 | Hosting target: Vercel (frontend + Python function) + Supabase (Postgres + Auth) | Free tier, single primary user; code already supports `DATABASE_URL` |
 | 2026-11-02 | Adopt the five-phase roadmap above; one phase at a time with an approval gate | Developer direction |
+| 2026-11-02 | Repository public on GitHub with CI (backend, frontend, e2e) | Visibility and regression protection |
+| 2026-11-02 | Defer deployment until the project is nearly complete | Developer direction; hosting needs depend on later phases |

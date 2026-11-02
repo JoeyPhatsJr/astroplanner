@@ -66,10 +66,11 @@ never visible, no forecast, normalization ✅ · 12 README + architecture + next
 
 - [x] Git + GitHub: https://github.com/JoeyPhatsJr/astroplanner (public); first CI run green
       (backend, frontend, e2e jobs; run 41532298528)
-- [ ] Decide whether deployment (Vercel + Supabase + owner-only auth) is part of Phase 1's exit
+- [x] Deployment: deferred until the project is nearly complete (ROADMAP.md, "Deployment")
 - [ ] Phase 1 review with the developer → sign-off
 
 ## Exact next step
 
-Developer reviews Phase 1 in the running app and decides on git/GitHub and the deployment
-question. Phase 2 (AstroLog) planning starts only after sign-off, following ROADMAP.md steps 1–6.
+Developer reviews Phase 1 in the running app (http://127.0.0.1:5173 via `./scripts/dev.sh`)
+and either requests changes or signs off. Phase 2 (AstroLog) planning starts only after
+sign-off, following ROADMAP.md steps 1–6.
