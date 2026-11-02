@@ -1,8 +1,8 @@
 """SQLite persistence (SQLAlchemy 2.0).
 
-Schema is created with ``metadata.create_all`` (idempotent) and the built-in
-records are upserted by ``seed()``; both are safe to re-run. When the schema
-starts evolving, add Alembic migrations (documented in docs/ARCHITECTURE.md).
+The schema is managed by Alembic migrations (``backend/migrations``); ``init()``
+upgrades to head and the built-in records are upserted by ``seed()``. Both are
+safe to re-run. A pre-Alembic Phase 1 database is stamped at the baseline first.
 """
 
 from __future__ import annotations
@@ -12,7 +12,10 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, create_engine, event, select
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, create_engine, event, inspect, select
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -32,6 +35,32 @@ def database_url() -> str:
     path = Path(os.environ.get("ASTROPLANNER_DB", DEFAULT_DB))
     path.parent.mkdir(parents=True, exist_ok=True)
     return f"sqlite:///{path}"
+
+
+BASELINE_REVISION = "0001_phase1_baseline"
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+
+
+def run_migrations(url: str, engine: Engine | None = None) -> None:
+    """Upgrade the database at ``url`` to head, stamping a pre-Alembic Phase 1 DB first.
+
+    Pass ``engine`` to reuse an existing engine (required for in-memory SQLite).
+    """
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
+    own = engine is None
+    engine = engine or create_engine(url)
+    try:
+        with engine.begin() as conn:
+            cfg.attributes["connection"] = conn
+            tables = set(inspect(conn).get_table_names())
+            if "observing_locations" in tables and "alembic_version" not in tables:
+                command.stamp(cfg, BASELINE_REVISION)
+            command.upgrade(cfg, "head")
+    finally:
+        if own:
+            engine.dispose()
 
 
 def _utcnow() -> str:
@@ -155,10 +184,11 @@ class Database:
             # Postgres (e.g. Supabase). pool_pre_ping survives serverless idle disconnects.
             self.engine = create_engine(url, pool_pre_ping=True, pool_size=2, max_overflow=2)
 
+        self.url = url
         self.SessionLocal = sessionmaker(bind=self.engine, expire_on_commit=False)
 
     def init(self) -> None:
-        Base.metadata.create_all(self.engine)
+        run_migrations(self.url, self.engine)
         self.seed()
 
     def seed(self) -> None:
