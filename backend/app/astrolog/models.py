@@ -27,8 +27,8 @@ class CaptureSet(Base):
     __tablename__ = "capture_sets"
     __table_args__ = (UniqueConstraint("session_id", "library_target_id", "device", name="uq_capture_set"),)
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="CASCADE"))
-    library_target_id: Mapped[str] = mapped_column(ForeignKey("library_targets.id", ondelete="CASCADE"))
+    session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id", ondelete="RESTRICT"), index=True)
+    library_target_id: Mapped[str] = mapped_column(ForeignKey("library_targets.id", ondelete="RESTRICT"), index=True)
     device: Mapped[str] = mapped_column(String(64))
     equipment_id: Mapped[str | None] = mapped_column(
         ForeignKey("equipment_profiles.id", ondelete="SET NULL"), nullable=True
@@ -40,7 +40,7 @@ class CaptureSet(Base):
 class CaptureFrame(Base):
     __tablename__ = "capture_frames"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    capture_set_id: Mapped[str] = mapped_column(ForeignKey("capture_sets.id", ondelete="CASCADE"))
+    capture_set_id: Mapped[str] = mapped_column(ForeignKey("capture_sets.id", ondelete="CASCADE"), index=True)
     date_obs_utc: Mapped[str] = mapped_column(String)
     exptime_s: Mapped[float] = mapped_column(Float)
     filter: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -54,7 +54,7 @@ class CaptureFrame(Base):
 class Stack(Base):
     __tablename__ = "stacks"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    library_target_id: Mapped[str] = mapped_column(ForeignKey("library_targets.id", ondelete="CASCADE"))
+    library_target_id: Mapped[str] = mapped_column(ForeignKey("library_targets.id", ondelete="RESTRICT"), index=True)
     session_id: Mapped[str | None] = mapped_column(ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True)
     source_filename: Mapped[str] = mapped_column(String(512))
     stack_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -71,8 +71,8 @@ class Stack(Base):
 class FinalImage(Base):
     __tablename__ = "final_images"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    library_target_id: Mapped[str] = mapped_column(ForeignKey("library_targets.id", ondelete="CASCADE"))
-    stack_id: Mapped[str | None] = mapped_column(ForeignKey("stacks.id", ondelete="SET NULL"), nullable=True)
+    library_target_id: Mapped[str] = mapped_column(ForeignKey("library_targets.id", ondelete="RESTRICT"), index=True)
+    stack_id: Mapped[str | None] = mapped_column(ForeignKey("stacks.id", ondelete="SET NULL"), nullable=True, index=True)
     source_filename: Mapped[str] = mapped_column(String(512))
     format: Mapped[str] = mapped_column(String(16))
     preview_key: Mapped[str] = mapped_column(String(512))

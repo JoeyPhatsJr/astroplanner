@@ -30,8 +30,8 @@ def upgrade() -> None:
     op.create_table(
         "capture_sets",
         sa.Column("id", sa.String(), primary_key=True),
-        sa.Column("session_id", sa.String(), sa.ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("library_target_id", sa.String(), sa.ForeignKey("library_targets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("session_id", sa.String(), sa.ForeignKey("sessions.id", ondelete="RESTRICT"), nullable=False),
+        sa.Column("library_target_id", sa.String(), sa.ForeignKey("library_targets.id", ondelete="RESTRICT"), nullable=False),
         sa.Column("device", sa.String(64), nullable=False),
         sa.Column("equipment_id", sa.String(), sa.ForeignKey("equipment_profiles.id", ondelete="SET NULL"), nullable=True),
         sa.Column("equipment_snapshot", sa.JSON(), nullable=False),
@@ -54,7 +54,7 @@ def upgrade() -> None:
     op.create_table(
         "stacks",
         sa.Column("id", sa.String(), primary_key=True),
-        sa.Column("library_target_id", sa.String(), sa.ForeignKey("library_targets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("library_target_id", sa.String(), sa.ForeignKey("library_targets.id", ondelete="RESTRICT"), nullable=False),
         sa.Column("session_id", sa.String(), sa.ForeignKey("sessions.id", ondelete="SET NULL"), nullable=True),
         sa.Column("source_filename", sa.String(512), nullable=False),
         sa.Column("stack_count", sa.Integer(), nullable=True),
@@ -70,7 +70,7 @@ def upgrade() -> None:
     op.create_table(
         "final_images",
         sa.Column("id", sa.String(), primary_key=True),
-        sa.Column("library_target_id", sa.String(), sa.ForeignKey("library_targets.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("library_target_id", sa.String(), sa.ForeignKey("library_targets.id", ondelete="RESTRICT"), nullable=False),
         sa.Column("stack_id", sa.String(), sa.ForeignKey("stacks.id", ondelete="SET NULL"), nullable=True),
         sa.Column("source_filename", sa.String(512), nullable=False),
         sa.Column("format", sa.String(16), nullable=False),
@@ -81,6 +81,11 @@ def upgrade() -> None:
         sa.Column("is_current", sa.Boolean(), nullable=False),
         sa.Column("chosen_at", sa.String(), nullable=False),
     )
+    op.create_index("ix_capture_sets_session_id", "capture_sets", ["session_id"])
+    op.create_index("ix_capture_frames_capture_set_id", "capture_frames", ["capture_set_id"])
+    op.create_index("ix_stacks_library_target_id", "stacks", ["library_target_id"])
+    op.create_index("ix_final_images_library_target_id", "final_images", ["library_target_id"])
+    op.create_index("ix_final_images_stack_id", "final_images", ["stack_id"])
     with op.batch_alter_table("session_targets") as b:
         b.add_column(sa.Column("library_target_id", sa.String(), nullable=True))
         b.create_foreign_key(
@@ -92,10 +97,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    with op.batch_alter_table("sessions") as b:
-        b.drop_column("source")
+    # Children first; the sessions batch rebuild runs last, once nothing references sessions.
     with op.batch_alter_table("session_targets") as b:
         b.drop_constraint("fk_session_targets_library_target", type_="foreignkey")
         b.drop_column("library_target_id")
     for t in ("final_images", "stacks", "capture_frames", "capture_sets", "library_targets", "app_meta"):
         op.drop_table(t)
+    with op.batch_alter_table("sessions") as b:
+        b.drop_column("source")

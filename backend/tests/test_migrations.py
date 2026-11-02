@@ -78,6 +78,30 @@ def test_existing_phase1_database_is_stamped_and_keeps_data(tmp_path):
         assert c.execute(text("SELECT version_num FROM alembic_version")).scalar() == _head_revision()
 
 
+def test_downgrade_to_baseline_keeps_phase1_data(tmp_path):
+    from alembic import command
+    from alembic.config import Config
+    from app.db import BACKEND_DIR
+    url = f"sqlite:///{tmp_path / 'd.db'}"
+    run_migrations(url)
+    eng = create_engine(url)
+    with eng.begin() as c:
+        c.execute(text("INSERT INTO sessions (id,title,local_night_date,status,created_at,updated_at) "
+                       "VALUES ('s1','T','2026-11-02','planned','x','x')"))
+        c.execute(text("INSERT INTO session_targets (id,session_id,target_id,sort_order) VALUES ('t1','s1','M31',0)"))
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.downgrade(cfg, "0001_phase1_baseline")
+    insp = sqlalchemy.inspect(eng)
+    assert "library_targets" not in insp.get_table_names()
+    assert "source" not in {c["name"] for c in insp.get_columns("sessions")}
+    with eng.connect() as c:
+        assert c.execute(text("SELECT title FROM sessions WHERE id='s1'")).scalar() == "T"
+        assert c.execute(text("SELECT target_id FROM session_targets WHERE id='t1'")).scalar() == "M31"
+    eng.dispose()
+
+
 def test_run_migrations_is_idempotent(tmp_path):
     url = f"sqlite:///{tmp_path / 'b.db'}"
     run_migrations(url)

@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from . import catalog, geo
+from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
 from .db import Database, EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
 from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, target_score, tonight_score
@@ -570,7 +571,10 @@ def update_session(session_id: str, body: SessionPatch, db: Session = Depends(ge
 
 @router.delete("/sessions/{session_id}", status_code=204)
 def delete_session(session_id: str, db: Session = Depends(get_db)) -> Response:
-    db.delete(_get_session(db, session_id))
+    s = _get_session(db, session_id)
+    if db.scalar(select(func.count()).select_from(CaptureSet).where(CaptureSet.session_id == session_id)):
+        raise HTTPException(409, "This session has imported captures; remove them first.")
+    db.delete(s)
     db.commit()
     return Response(status_code=204)
 

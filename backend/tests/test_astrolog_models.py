@@ -79,7 +79,7 @@ def test_canon_profile_seeded_once_and_editable(tmp_path):
         eq = rows[0]
         assert eq.name == "Canon EOS Rebel T3 + EF-S 18–55 mm"
         assert eq.focal_length_mm == 18
-        assert eq.fov_deg == pytest.approx(72.7, abs=0.1)
+        assert eq.fov_deg == pytest.approx(72.63, abs=0.01)
         assert eq.fov_definition == "diagonal"
         assert eq.is_verified is False and eq.is_preset is False
         assert "18–55" in eq.notes and "approximate" in eq.notes.lower()
@@ -94,3 +94,71 @@ def test_canon_not_recreated_after_delete(tmp_path):
     db.init()
     with db.session() as s:
         assert s.get(EquipmentProfile, CANON) is None
+
+
+def _graph(db):
+    """session + target + capture set + frame; returns ids."""
+    with db.session() as s:
+        obs = ObservingSession(title="t", local_night_date="2026-11-02")
+        lt = LibraryTarget(custom_name="X", normalized_key="x", kind="custom")
+        s.add_all([obs, lt])
+        s.flush()
+        cs = CaptureSet(session_id=obs.id, library_target_id=lt.id, device="seestar", equipment_snapshot={})
+        s.add(cs)
+        s.flush()
+        s.add(CaptureFrame(capture_set_id=cs.id, date_obs_utc="2026-11-02T01:00:00Z", exptime_s=10.0,
+                           source_filename="a.fit", dedup_key="k1"))
+        s.commit()
+        return obs.id, lt.id, cs.id
+
+
+def test_fk_pragma_active(tmp_path):
+    db = _db(tmp_path)
+    with db.engine.connect() as c:
+        assert c.exec_driver_sql("PRAGMA foreign_keys").scalar() == 1
+
+
+def test_library_target_with_capture_set_cannot_be_deleted(tmp_path):
+    db = _db(tmp_path)
+    _, lt_id, _ = _graph(db)
+    with db.session() as s:
+        s.delete(s.get(LibraryTarget, lt_id))
+        with pytest.raises(IntegrityError):
+            s.commit()
+
+
+def test_deleting_capture_set_cascades_frames(tmp_path):
+    db = _db(tmp_path)
+    _, _, cs_id = _graph(db)
+    with db.session() as s:
+        s.execute(sqlalchemy.delete(CaptureSet).where(CaptureSet.id == cs_id))
+        s.commit()
+        assert s.scalar(select(sqlalchemy.func.count()).select_from(CaptureFrame)) == 0
+
+
+def test_deleting_session_only_nulls_stack_session(tmp_path):
+    db = _db(tmp_path)
+    with db.session() as s:
+        obs = ObservingSession(title="t", local_night_date="2026-11-02")
+        lt = LibraryTarget(custom_name="X", normalized_key="x", kind="custom")
+        s.add_all([obs, lt])
+        s.flush()
+        st = Stack(library_target_id=lt.id, session_id=obs.id, source_filename="s.fit", provenance="header",
+                   dedup_key="k")
+        s.add(st)
+        s.commit()
+        s.delete(obs)
+        s.commit()
+        assert s.get(Stack, st.id).session_id is None
+
+
+def test_api_delete_session_with_captures_is_409(tmp_path):
+    db = _db(tmp_path)
+    obs_id, _, _ = _graph(db)
+    with TestClient(create_app(db=db)) as c:
+        r = c.delete(f"/api/sessions/{obs_id}")
+    assert r.status_code == 409
+    assert r.json()["detail"] == "This session has imported captures; remove them first."
+    with db.session() as s:
+        assert s.get(ObservingSession, obs_id) is not None
+        assert s.scalar(select(sqlalchemy.func.count()).select_from(CaptureFrame)) == 1
