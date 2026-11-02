@@ -149,7 +149,8 @@ def test_deleting_session_only_nulls_stack_session(tmp_path):
         s.commit()
         s.delete(obs)
         s.commit()
-        assert s.get(Stack, st.id).session_id is None
+        s.refresh(st)
+        assert st.session_id is None
 
 
 def test_api_delete_session_with_captures_is_409(tmp_path):
