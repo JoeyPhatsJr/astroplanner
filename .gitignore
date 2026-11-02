@@ -20,3 +20,4 @@ frontend/coverage/
 .playwright-mcp/
 frontend/*.tsbuildinfo
 .superpowers/
+test-results/
