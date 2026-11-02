@@ -13,7 +13,7 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 | Phase | Name | Scope (summary) | Status |
 |---|---|---|---|
 | 1 | Core planning dashboard | Location, equipment, real forecast, Sun/Moon/target visibility, transparent scores, catalog, charts, saved session plans | ✅ **Complete**: signed off 2026-11-02 (git tag `phase-1`) |
-| **2** | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | **Next**: planning (steps 1–5), no implementation before approval |
+| **2** | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | **Design approved 2026-11-02** (`docs/superpowers/specs/2026-11-02-astrolog-design.md`); implementation plan next |
 | 3 | Variable Hunter | Historical light curves, variable-star research, AstroMissions | Not started |
 | 4 | Scientific image analysis | FITS processing, photometry, user-generated light curves | Not started |
 | 5 | Advanced features | Personalization, collaboration, 3D visualization, telescope integrations | Not started |
