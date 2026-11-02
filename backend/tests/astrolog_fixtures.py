@@ -47,6 +47,8 @@ def seestar_sub_header(
     h["DATE-OBS"] = date_obs
     h["EXPTIME"] = exptime
     h["EXPOSURE"] = exptime
+    for k, v in overrides.items():
+        h[k.replace("_", "-") if k == "CCD_TEMP" else k] = v
     return _to_bytes(h)
 
 

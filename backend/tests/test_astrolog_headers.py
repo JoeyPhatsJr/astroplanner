@@ -154,3 +154,14 @@ def test_malformed_iso_is_none(monkeypatch):
     monkeypatch.setattr(H.exifread, "process_file", lambda *a, **k: {"EXIF ISOSpeedRatings": T(), "Image Model": T()})
     assert H.parse_cr2_exif(b"x").iso is None
     monkeypatch.setattr(H.exifread, "process_file", real)
+
+
+def test_fixture_honours_overrides():
+    from astropy.io import fits
+
+    data = seestar_sub_header(EXPTIME="n/a", EXPOSURE=10.0)
+    assert fits.Header.fromstring(data.decode("ascii"), sep="")["EXPTIME"] == "n/a"
+    assert parse_fits_header(data).exptime_s == 10.0
+    other = parse_fits_header(seestar_sub_header(OBJECT="M 27", **{"DATE-OBS": "2026-01-02T03:04:05"}))
+    assert other.object == "M 27"
+    assert other.date_obs_utc == datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
