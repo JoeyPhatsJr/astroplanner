@@ -12,8 +12,8 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 
 | Phase | Name | Scope (summary) | Status |
 |---|---|---|---|
-| **1** | Core planning dashboard | Location, equipment, real forecast, Sun/Moon/target visibility, transparent scores, catalog, charts, saved session plans | **In completion**: functional and tested locally; finishing items below, then review |
-| 2 | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | Not started: requirements to be defined after Phase 1 review |
+| 1 | Core planning dashboard | Location, equipment, real forecast, Sun/Moon/target visibility, transparent scores, catalog, charts, saved session plans | ✅ **Complete**: signed off 2026-11-02 (git tag `phase-1`) |
+| **2** | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | **Next**: planning (steps 1–5), no implementation before approval |
 | 3 | Variable Hunter | Historical light curves, variable-star research, AstroMissions | Not started |
 | 4 | Scientific image analysis | FITS processing, photometry, user-generated light curves | Not started |
 | 5 | Advanced features | Personalization, collaboration, 3D visualization, telescope integrations | Not started |
@@ -57,7 +57,7 @@ Review feedback so far: theme replaced with "Clean Planetarium" + night-vision m
 - [x] Automated Playwright smoke test of the core flow (desktop + mobile, 8 tests passing)
 - [x] Under git, public on GitHub (`JoeyPhatsJr/astroplanner`); CI green on first run
 - [x] Deployment decision: **deferred** until the project is nearly complete (not a Phase 1 exit item; see "Deployment" below)
-- [ ] **Phase 1 review** with the developer → sign-off
+- [x] **Phase 1 review** with the developer → **signed off 2026-11-02**
 
 **Exit criteria:** spec §11 acceptance criteria all met (currently met locally), the items
 above closed, and explicit developer sign-off.
@@ -139,4 +139,5 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-02 | Adopt the five-phase roadmap above; one phase at a time with an approval gate | Developer direction |
 | 2026-11-02 | Repository public on GitHub with CI (backend, frontend, e2e) | Visibility and regression protection |
 | 2026-11-02 | Defer deployment until the project is nearly complete | Developer direction; hosting needs depend on later phases |
+| 2026-11-02 | **Phase 1 signed off** by the developer; tagged `phase-1` | All exit items closed; 66 backend + 23 unit + 10 e2e tests and CI green |
 | 2026-11-02 | Visual theme "Clean Planetarium" (black + starfield, Inter, single blue accent) + red night-vision mode | Developer review: previous theme mixed "sci-fi" and "golden marble" personalities; chosen from three mockups. Night vision preserves dark adaptation at the telescope |

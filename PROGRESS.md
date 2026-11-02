@@ -2,9 +2,14 @@
 
 _Last updated: 2026-11-02 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
-## Current phase: Phase 1, core planning dashboard (in completion)
+## Current phase: Phase 2, AstroLog (planning)
 
-Phase 1 is functional and tested locally. Remaining exit items are listed at the bottom.
+Phase 2 follows ROADMAP.md steps 1–6: review, brainstorm, propose, risks, plan with
+acceptance criteria, then **wait for approval** before any implementation.
+
+## Phase 1, core planning dashboard: ✅ complete (signed off 2026-11-02, tag `phase-1`)
+
+The record below is kept as Phase 1's final state.
 
 | # | Spec item | Status | Evidence |
 |---|---|---|---|
@@ -76,15 +81,15 @@ never visible, no forecast, normalization ✅ · 12 README + architecture + next
 - E2E tests call live Open-Meteo; they tolerate either a forecast or an explicit unavailable state.
 - Schema uses `create_all`; Alembic baseline planned at the start of Phase 2 (see ROADMAP).
 
-## Remaining Phase 1 exit items
+## Phase 1 exit items (all closed)
 
 - [x] Git + GitHub: https://github.com/JoeyPhatsJr/astroplanner (public); first CI run green
       (backend, frontend, e2e jobs; run 41532298528)
 - [x] Deployment: deferred until the project is nearly complete (ROADMAP.md, "Deployment")
-- [ ] Phase 1 review with the developer → sign-off
+- [x] Phase 1 review with the developer → signed off 2026-11-02 (after theme feedback was addressed)
 
 ## Exact next step
 
-Developer reviews Phase 1 in the running app (http://127.0.0.1:5173 via `./scripts/dev.sh`)
-and either requests changes or signs off. Phase 2 (AstroLog) planning starts only after
-sign-off, following ROADMAP.md steps 1–6.
+Start Phase 2 (AstroLog) planning with the developer: step 1 (review the Phase 1 codebase
+and what AstroLog can build on) and step 2 (brainstorm the logging experience). No Phase 2
+code until the plan and acceptance criteria are approved (ROADMAP.md step 6).
