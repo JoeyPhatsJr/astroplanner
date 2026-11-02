@@ -69,3 +69,27 @@ def siril_stack_header(stack_count: int = 654, livetime: float = 6540.0, **overr
     for k, v in overrides.items():
         h[k] = v
     return _to_bytes(h)
+
+
+def canon_cr2_header(
+    model: str = "Canon EOS REBEL T3", captured: str = "2026:08:12 22:19:50", exposure_s: int = 20, iso: int = 640
+) -> bytes:
+    """A TIFF/EXIF blob shaped like a CR2's leading bytes (Pillow-built; no GPS, no serial)."""
+    import io
+
+    from PIL import Image
+    from PIL.TiffImagePlugin import IFDRational
+
+    exif = Image.Exif()
+    exif[0x0110] = model
+    sub = exif.get_ifd(0x8769)
+    sub[0x829A] = IFDRational(exposure_s, 1)
+    sub[0x8827] = iso
+    sub[0x829D] = IFDRational(7, 2)
+    sub[0x920A] = IFDRational(18, 1)
+    sub[0x9003] = captured
+    sub[0xA434] = "EF-S18-55mm f/3.5-5.6 IS II"
+    exif[0x8769] = sub
+    buf = io.BytesIO()
+    Image.new("RGB", (8, 8)).save(buf, format="TIFF", exif=exif)
+    return buf.getvalue()

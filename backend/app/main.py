@@ -15,6 +15,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .api import router
+from .astrolog.routes import router as astrolog_router
 from .db import Database
 from .weather import OpenMeteoProvider
 
@@ -34,6 +35,7 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     origins = [o.strip() for o in os.environ.get("ASTROPLANNER_CORS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
     app.include_router(router)
+    app.include_router(astrolog_router)
 
     # Optional single-process mode: serve the built frontend if present.
     if FRONTEND_DIST.is_dir():

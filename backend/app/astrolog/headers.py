@@ -41,6 +41,7 @@ class FitsInfo:
     expstart_jd: float | None
     expend_jd: float | None
     program: str | None
+    creator: str | None = None
 
 
 @dataclass
@@ -127,6 +128,7 @@ def parse_fits_header(data: bytes) -> FitsInfo:
         expstart_jd=_f(h.get("EXPSTART")),
         expend_jd=_f(h.get("EXPEND")),
         program=program,
+        creator=_s(h.get("CREATOR")),
     )
 
 
