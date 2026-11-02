@@ -1,0 +1,8 @@
+node_modules
+dist
+*.local
+
+# Playwright
+e2e/.e2e.db
+test-results/
+playwright-report/

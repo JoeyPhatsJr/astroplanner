@@ -1,0 +1,68 @@
+import { describe, expect, it } from "vitest";
+import { addDays, defaultNightDate, formatDuration, formatTime, formatTimeTz, localDate, nightLabel, tzAbbrev } from "./time";
+
+describe("formatTime in the observer's timezone", () => {
+  it("formats in the given zone, not the runner's", () => {
+    // 2026-11-03T02:00Z = 21:00 EST on 2 Nov in New York, 13:00 AEDT in Sydney
+    expect(formatTime("2026-11-03T02:00:00Z", "America/New_York")).toBe("21:00");
+    expect(formatTime("2026-11-03T02:00:00Z", "Australia/Sydney")).toBe("13:00");
+    expect(formatTime("2026-11-03T02:00:00Z", "UTC")).toBe("02:00");
+  });
+
+  it("handles the US spring-forward DST transition (8 Mar 2026)", () => {
+    expect(formatTimeTz("2026-03-08T06:30:00Z", "America/New_York")).toBe("01:30 EST");
+    // 07:00Z is 02:00 EST, which does not exist; clocks jump to 03:00 EDT
+    expect(formatTimeTz("2026-03-08T07:00:00Z", "America/New_York")).toBe("03:00 EDT");
+  });
+
+  it("handles the fall-back transition (1 Nov 2026) where 01:30 occurs twice", () => {
+    expect(formatTimeTz("2026-11-01T05:30:00Z", "America/New_York")).toBe("01:30 EDT");
+    expect(formatTimeTz("2026-11-01T06:30:00Z", "America/New_York")).toBe("01:30 EST");
+  });
+
+  it("reports zone abbreviations", () => {
+    expect(tzAbbrev("2026-07-01T00:00:00Z", "America/New_York")).toBe("EDT");
+    expect(tzAbbrev("2026-12-01T00:00:00Z", "America/New_York")).toBe("EST");
+  });
+});
+
+describe("calendar dates and night labels", () => {
+  it("adds days across month, year and leap boundaries", () => {
+    expect(addDays("2026-10-31", 1)).toBe("2026-11-01");
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2028-02-28", 1)).toBe("2028-02-29");
+    expect(addDays("2026-03-01", -1)).toBe("2026-02-28");
+  });
+
+  it("labels the evening-to-morning night explicitly", () => {
+    expect(nightLabel("2026-11-02")).toBe("Night of Mon 2 Nov → morning of Tue 3 Nov");
+    expect(nightLabel("2026-12-31")).toBe("Night of Thu 31 Dec → morning of Fri 1 Jan");
+  });
+
+  it("computes the local calendar date in the zone", () => {
+    expect(localDate("2026-11-03T03:00:00Z", "America/New_York")).toBe("2026-11-02");
+    expect(localDate("2026-11-03T03:00:00Z", "Asia/Tokyo")).toBe("2026-11-03");
+  });
+});
+
+describe("defaultNightDate", () => {
+  it("uses today's evening after the 06:00 rollover", () => {
+    expect(defaultNightDate("2026-11-02T19:00:00Z", "America/New_York")).toBe("2026-11-02"); // 14:00 EST
+  });
+  it("keeps the previous evening before 06:00 local time", () => {
+    expect(defaultNightDate("2026-11-03T08:00:00Z", "America/New_York")).toBe("2026-11-02"); // 03:00 EST
+    expect(defaultNightDate("2026-11-03T11:30:00Z", "America/New_York")).toBe("2026-11-03"); // 06:30 EST
+  });
+  it("uses the location's zone, not UTC", () => {
+    // 2026-06-21T15:00Z is 01:00 on 22 Jun in Sydney -> still the night of the 21st
+    expect(defaultNightDate("2026-06-21T15:00:00Z", "Australia/Sydney")).toBe("2026-06-21");
+  });
+});
+
+describe("formatDuration", () => {
+  it("formats minutes and hours", () => {
+    expect(formatDuration(45)).toBe("45 min");
+    expect(formatDuration(60)).toBe("1 h");
+    expect(formatDuration(304)).toBe("5 h 04 min");
+  });
+});

@@ -1,0 +1,52 @@
+"""FastAPI application factory.
+
+Run locally:  uvicorn app.main:app --reload  (from backend/)
+"""
+
+from __future__ import annotations
+
+import os
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from .api import router
+from .db import Database
+from .weather import OpenMeteoProvider
+
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
+
+
+def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = None) -> FastAPI:
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        app.state.db.init()
+        yield
+
+    app = FastAPI(title="AstroPlanner API", version="0.1.0", lifespan=lifespan)
+    app.state.db = db or Database()
+    app.state.weather = weather or OpenMeteoProvider()
+
+    origins = [o.strip() for o in os.environ.get("ASTROPLANNER_CORS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
+    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
+    app.include_router(router)
+
+    # Optional single-process mode: serve the built frontend if present.
+    if FRONTEND_DIST.is_dir():
+        app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
+        @app.get("/{path:path}", include_in_schema=False)
+        def spa(path: str):
+            candidate = FRONTEND_DIST / path
+            if path and candidate.is_file() and FRONTEND_DIST in candidate.resolve().parents:
+                return FileResponse(candidate)
+            return FileResponse(FRONTEND_DIST / "index.html")
+
+    return app
+
+
+app = create_app()
