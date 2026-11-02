@@ -35,6 +35,26 @@ PHASE1_DDL = [
 ]
 
 
+def _head_revision() -> str:
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+    from app.db import BACKEND_DIR
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    return ScriptDirectory.from_config(cfg).get_current_head()
+
+
+def test_migrated_schema_matches_orm_metadata(tmp_path):
+    from app.db import Base
+    db = Database(f"sqlite:///{tmp_path / 'm.db'}")
+    db.init()
+    insp = sqlalchemy.inspect(db.engine)
+    existing = set(insp.get_table_names())
+    for name, table in Base.metadata.tables.items():
+        assert name in existing, f"missing table {name}"
+        assert {c["name"] for c in insp.get_columns(name)} == {c.name for c in table.columns}, name
+
+
 def test_fresh_database_builds_from_migrations(tmp_path):
     db = Database(f"sqlite:///{tmp_path / 'a.db'}")
     db.init()
@@ -55,7 +75,7 @@ def test_existing_phase1_database_is_stamped_and_keeps_data(tmp_path):
     Database(url).init()
     with create_engine(url).connect() as c:
         assert c.execute(text("SELECT label FROM observing_locations WHERE id='x'")).scalar() == "Home"
-        assert c.execute(text("SELECT version_num FROM alembic_version")).scalar() is not None
+        assert c.execute(text("SELECT version_num FROM alembic_version")).scalar() == _head_revision()
 
 
 def test_run_migrations_is_idempotent(tmp_path):
