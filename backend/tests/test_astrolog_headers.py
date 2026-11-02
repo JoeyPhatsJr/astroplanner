@@ -95,3 +95,62 @@ def test_cr2_exif():
 def test_cr2_garbage_raises():
     with pytest.raises(HeaderError):
         parse_cr2_exif(b"\x00" * 500)
+
+
+def test_siril_program_without_stackcnt_is_sub():
+    info = parse_fits_header(seestar_sub_header(PROGRAM="Siril 1.4.4", IMAGETYP="Light"))
+    assert info.kind == "sub"
+    assert info.stack_count is None
+
+
+def test_site_and_misc_fields():
+    info = parse_fits_header(seestar_sub_header())
+    assert info.site_lat == 40.0
+    assert info.site_lon == -75.0
+    assert info.gain == 200.0
+    assert info.ccd_temp_c == 32.0
+    assert info.telescop == "S30_00000000"
+
+
+def test_minimal_header_all_none():
+    from astropy.io import fits
+
+    h = fits.Header()
+    h["SIMPLE"] = True
+    h["BITPIX"] = 16
+    h["NAXIS"] = 0
+    info = parse_fits_header(h.tostring(endcard=True, padding=True).encode("ascii"))
+    assert info.kind == "other"
+    for f in ("object", "date_obs_utc", "exptime_s", "filter", "gain", "ccd_temp_c", "instrument",
+              "telescop", "site_lat", "site_lon", "stack_count", "livetime_s", "expstart_jd",
+              "expend_jd", "program"):
+        assert getattr(info, f) is None
+
+
+@pytest.mark.parametrize("bad", ["nan", "inf", "abc", 654.7])
+def test_bad_stackcnt_is_none(bad):
+    info = parse_fits_header(siril_stack_header(STACKCNT=bad))
+    assert info.stack_count is None
+
+
+def test_exptime_non_numeric_falls_back_to_exposure():
+    info = parse_fits_header(seestar_sub_header(EXPTIME="n/a", EXPOSURE=10.0))
+    assert info.exptime_s == 10.0
+
+
+def test_is_ignored_more():
+    assert is_ignored("a/b.lst") and is_ignored("a/b.TXT") and is_ignored("a/libx.dylib")
+    assert is_ignored("a/PP_light_1.fit") and is_ignored("a/R_x.fit")
+
+
+def test_malformed_iso_is_none(monkeypatch):
+    import app.astrolog.headers as H
+
+    class T:
+        values = ["bad"]
+        printable = "x"
+
+    real = H.exifread.process_file
+    monkeypatch.setattr(H.exifread, "process_file", lambda *a, **k: {"EXIF ISOSpeedRatings": T(), "Image Model": T()})
+    assert H.parse_cr2_exif(b"x").iso is None
+    monkeypatch.setattr(H.exifread, "process_file", real)

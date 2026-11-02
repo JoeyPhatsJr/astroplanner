@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import math
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -97,19 +98,23 @@ def parse_fits_header(data: bytes) -> FitsInfo:
     program = _s(h.get("PROGRAM"))
     stack_count = h.get("STACKCNT")
     imagetyp = (_s(h.get("IMAGETYP")) or "").lower()
-    if stack_count is not None or (program or "").lower().startswith("siril"):
+    if stack_count is not None:
         kind: Literal["sub", "stack", "other"] = "stack"
     elif imagetyp == "light":
         kind = "sub"
     else:
         kind = "other"
-    exptime = h.get("EXPTIME", h.get("EXPOSURE"))
+    exptime = _f(h.get("EXPTIME"))
+    if exptime is None:
+        exptime = _f(h.get("EXPOSURE"))
     sc = _f(stack_count)
+    if sc is not None and (not math.isfinite(sc) or sc != int(sc)):
+        sc = None
     return FitsInfo(
         kind=kind,
         object=_s(h.get("OBJECT")),
         date_obs_utc=_parse_date(h.get("DATE-OBS")),
-        exptime_s=_f(exptime),
+        exptime_s=exptime,
         filter=_s(h.get("FILTER")),
         gain=_f(h.get("GAIN")),
         ccd_temp_c=_f(h.get("CCD-TEMP")),
@@ -150,7 +155,10 @@ def parse_cr2_exif(data: bytes) -> ExifInfo:
     iso_tag = tags.get("EXIF ISOSpeedRatings")
     iso = None
     if iso_tag is not None and getattr(iso_tag, "values", None):
-        iso = int(iso_tag.values[0])
+        try:
+            iso = int(iso_tag.values[0])
+        except (TypeError, ValueError, OverflowError):
+            iso = None
     captured = None
     raw = _text(tags, "EXIF DateTimeOriginal") or _text(tags, "Image DateTime")
     if raw:
@@ -190,6 +198,6 @@ def is_ignored(relative_path: str) -> bool:
     if any(part.lower() == "process" for part in p.parts[:-1]) or p.name.lower() == "process":
         return True
     name = p.name
-    if name.startswith(_IGNORED_PREFIX):
+    if name.lower().startswith(_IGNORED_PREFIX):
         return True
     return p.suffix.lower() in _IGNORED_EXT
