@@ -54,7 +54,8 @@ never visible, no forecast, normalization ✅ · 12 README + architecture + next
 
 ## Known limitations
 
-- **Not deployed and not under git yet.** CI workflow is written but has never run on GitHub.
+- **Not deployed.** Runs locally; repo and CI are on GitHub.
+- CI uses `actions/*@v4/v5`, which GitHub now force-runs on Node 24 (deprecation warning, not a failure).
 - Altitudes ignore atmospheric refraction (≈1.7′ at 30°); no local horizon/obstruction model.
 - Weather cache is in-process memory; model run time is not available from the endpoint used.
 - Score weights are heuristics, uncalibrated against real outcomes.
@@ -63,7 +64,8 @@ never visible, no forecast, normalization ✅ · 12 README + architecture + next
 
 ## Remaining Phase 1 exit items
 
-- [ ] `git init`, first commit, push to the developer's GitHub; confirm CI green
+- [x] Git + GitHub: https://github.com/JoeyPhatsJr/astroplanner (public); first CI run green
+      (backend, frontend, e2e jobs; run 41532298528)
 - [ ] Decide whether deployment (Vercel + Supabase + owner-only auth) is part of Phase 1's exit
 - [ ] Phase 1 review with the developer → sign-off
 

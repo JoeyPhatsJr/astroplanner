@@ -54,7 +54,7 @@ no dead buttons, no claimed tests that were not run.
 - [x] Equipment selector reachable from the header on mobile
 - [x] Code splitting: lazy routes + lazy chart library (main bundle 725 kB → 348 kB)
 - [x] Automated Playwright smoke test of the core flow (desktop + mobile, 8 tests passing)
-- [ ] Put the project under git; CI passing on GitHub (needs the developer's GitHub repo)
+- [x] Under git, public on GitHub (`JoeyPhatsJr/astroplanner`); CI green on first run
 - [ ] _Decision needed:_ is **deployment (Vercel + Supabase + owner-only auth)** part of Phase 1's exit, or its own milestone before Phase 2?
 - [ ] **Phase 1 review** with the developer → sign-off
 
