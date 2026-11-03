@@ -34,7 +34,7 @@ def test_stack_header():
     assert info.stack_count == 654
     assert info.livetime_s == 6540.0
     assert info.program == "Siril 1.4.4"
-    assert info.expstart_jd == pytest.approx(2461294.63)
+    assert info.expstart_jd == pytest.approx(2461295.63, abs=1e-6)
 
 
 def test_not_fits_raises():
