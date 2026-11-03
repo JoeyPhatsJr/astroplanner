@@ -10,14 +10,14 @@ from __future__ import annotations
 
 import base64
 import os
-from datetime import timedelta
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import func, select
 
-from app.astrolog.headers import is_ignored, normalize_object, parse_cr2_exif, parse_fits_header
+from app.astrolog.headers import is_ignored, parse_cr2_exif, parse_fits_header
 from app.astrolog.models import CaptureFrame, Stack
 
 ROOT_ENV = os.environ.get("ASTROPLANNER_REAL_DATA")
@@ -98,7 +98,8 @@ def api(make_client, clear_provider):
 def site_location(api, item: dict) -> str:
     """Create the saved location from the header coordinates, in process only."""
     info = parse_fits_header(base64.b64decode(item["header_b64"]))
-    assert info.site_lat is not None and info.site_lon is not None, "header lacks site coordinates"
+    has_coords = (info.site_lat is not None) and (info.site_lon is not None)
+    assert has_coords, "header lacks site coordinates"
     r = api.post("/api/locations", json={"label": "Home", "latitude_deg": info.site_lat,
                                          "longitude_deg": info.site_lon, "timezone": "America/New_York"})
     assert r.status_code == 201
@@ -119,14 +120,14 @@ def commit_all(api, items: list[dict], location_id: str) -> dict:
 
 def library_entry(api, catalog_id: str) -> dict:
     lib = api.get("/api/astrolog/library").json()
-    hits = [e for e in lib if catalog_id in str(e).lower().replace(" ", "")]
+    hits = [e for e in lib if e["catalog_target_id"] == catalog_id]
     assert len(hits) == 1, "expected exactly one library entry for the target"
     return hits[0]
 
 
 def target_page(api, catalog_id: str) -> dict:
     entry = library_entry(api, catalog_id)
-    tid = entry.get("id") or entry["library_target_id"]
+    tid = entry["id"]
     r = api.get(f"/api/astrolog/targets/{tid}")
     assert r.status_code == 200
     return r.json()
@@ -150,13 +151,12 @@ def test_ac1_bubble_lights(api, bubble_items):
     assert night["night_date"] == "2026-09-11"
     assert night["frames"] == 1015 and night["captured_s"] == 10150.0
 
-    from datetime import datetime
-    f_utc = datetime.fromisoformat(night["first_utc"].replace("Z", "+00:00")).astimezone(NY)
-    l_utc = datetime.fromisoformat(night["last_utc"].replace("Z", "+00:00")).astimezone(NY)
+    first_local = datetime.fromisoformat(night["first_utc"].replace("Z", "+00:00")).astimezone(NY)
+    last_local = datetime.fromisoformat(night["last_utc"].replace("Z", "+00:00")).astimezone(NY)
     # Local time of DATE-OBS (the importer's rule). The brief's 23:11:47 / 05:44:16 are the FILENAME
     # stamps, which trail DATE-OBS by the save overhead (see test_filename_time_relationship).
-    assert f_utc.strftime("%H:%M:%S") == "23:11:24"
-    assert l_utc.strftime("%H:%M:%S") == "05:43:55"
+    assert first_local.strftime("%H:%M:%S") == "23:11:24"
+    assert last_local.strftime("%H:%M:%S") == "05:43:55"
 
     with api.app.state.db.session() as s:
         rows = list(s.scalars(select(CaptureFrame)))
@@ -164,7 +164,7 @@ def test_ac1_bubble_lights(api, bubble_items):
     assert {r.filter for r in rows} == {"LP"}
     assert {r.gain for r in rows} == {200.0}
 
-    # Filename timestamp vs DATE-OBS: measured relationship (see test_filename_time_relationship).
+    # Re-importing the same files must add nothing.
     second = commit_all(api, bubble_items, loc)
     assert second["inserted_frames"] == 0
     with api.app.state.db.session() as s:
@@ -178,7 +178,6 @@ def test_filename_time_relationship(bubble_items):
     plus readout/save overhead. Asserted tolerance: 10 s (at least one exposure) to 40 s.
     """
     import re
-    from datetime import datetime
     lo, hi = float("inf"), float("-inf")
     for it in bubble_items:
         info = parse_fits_header(base64.b64decode(it["header_b64"]))
@@ -204,12 +203,11 @@ def test_ac2_stack_provenance(api, stack_items, bubble_items):
 
 def test_ac4_dumbbell_is_catalog_m27(api, m27_items, bubble_items):
     loc = site_location(api, bubble_items[0])
-    assert normalize_object("M 27") is not None
     res = commit_all(api, m27_items, loc)
     assert res["inserted_frames"] == 344 and res["skipped"] == 0
     page = target_page(api, "m27")
     assert page["frames_total"] == 344
-    assert page["target"].get("catalog_target_id") == "m27"
+    assert page["target"]["catalog_target_id"] == "m27"
 
 
 def test_ac5_canon_night_folder(api, bubble_items):
@@ -225,7 +223,10 @@ def test_ac5_canon_night_folder(api, bubble_items):
     pv = api.post(PREVIEW, json={"items": items, "location_id": loc})
     assert pv.status_code == 200
     groups = pv.json()["groups"]
-    assert groups and all(g["device"] == "Canon EOS REBEL T3" for g in groups)
-    assert not pv.json()["skipped"]
+    has_groups = len(groups) > 0
+    devices_ok = all(g["device"] == "Canon EOS REBEL T3" for g in groups)
+    n_skipped = len(pv.json()["skipped"])
+    assert has_groups and devices_ok and n_skipped == 0
     r = api.post(COMMIT, json={"items": items, "location_id": loc})
-    assert r.status_code == 200 and r.json()["inserted_frames"] == len(items)
+    inserted = r.json()["inserted_frames"] if r.status_code == 200 else -1
+    assert inserted == len(items)
