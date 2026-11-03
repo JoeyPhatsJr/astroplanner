@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from .api import router
 from .astrolog.routes import router as astrolog_router
 from .astrolog.storage import LocalStorage, Storage
+from .variables.routes import router as variables_router
 from .db import Database
 from .weather import OpenMeteoProvider
 
@@ -44,6 +45,7 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
     app.include_router(router)
     app.include_router(astrolog_router)
+    app.include_router(variables_router)
 
     # Optional single-process mode: serve the built frontend if present.
     if FRONTEND_DIST.is_dir():
