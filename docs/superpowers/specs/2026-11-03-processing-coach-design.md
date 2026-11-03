@@ -338,6 +338,10 @@ is valid for 1.4.5. Source tag: <https://gitlab.com/free-astro/siril/-/tree/1.4.
 
 ### Frame filters (`-filter-*`) and the percentage rule
 
+This section describes Siril's own filter semantics. The coach offers and generates only roundness and weighted-FWHM
+filters (the plan's filter enum is `none`/`round`/`wfwhm`); it never offers or uses a quality filter, and `quality`
+is parsed into `RegData` but never compared.
+
 Each filter value is one of three forms: a literal limit (roundness and quality 0 to 1, other properties in their
 own units), `N%` for the best N percent, or `Nk` for a k-sigma limit. Literal and percent for the **same**
 property together are an error; different properties combine with AND (probe: wfwhm 90 % and round 80 % kept 32
@@ -382,6 +386,9 @@ and the probe wrote 6. Versions 0 to 5 are older layouts the same reader still a
   **Background units follow the image data:** about 1009 for the 16-bit-integer probe frames (ADU) but 0.0154 for
   the debayered 32-bit float frames (0 to 1 scale). Label the report's background as "Siril units, relative"
   and compare only within one sequence.
+  Name mapping, Siril's printed/source names to `RegData`: `fwhm`->`fwhm`, `weighted_fwhm`->`wfwhm`,
+  `roundness`->`roundness`, `quality`->`quality`, `background` (`background_lvl` in source)->`background`,
+  `number_of_stars`->`stars`.
 - **Unaligned frame:** `R1 0 0 0 0 0 0 H 0 0 0 0 0 0 0 0 0` (same with `R0` when the data layer is 0; all zero, including the matrix) together with `I <n> 0`
   (probe: all four blank frames; source: failed frames keep the zeroed registration record and are marked
   unselected). Siril's own tests for "has data" are `fwhm > 0` or `roundness > 0` per property. A *reference*
