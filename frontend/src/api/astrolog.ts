@@ -223,6 +223,8 @@ export const astrologApi = {
   updateTarget: (id: string, body: TargetPatch) =>
     request<TargetPage>(`/api/astrolog/targets/${enc(id)}`, { method: "PATCH", body: json(body) }),
   history: () => request<History>("/api/astrolog/history"),
+  linkVariable: (id: string, starId: string) =>
+    request<TargetPage>(`/api/astrolog/targets/${enc(id)}/link-variable`, { method: "POST", body: json({ star_id: starId }) }),
   uploadFinalImage: (targetId: string, file: File, stackId?: string | null) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -307,6 +309,21 @@ export function useUpdateLibraryTarget(id: string) {
       qc.setQueryData(alk.target(page.target.id), page);
       void qc.invalidateQueries({ queryKey: alk.library });
       void qc.invalidateQueries({ queryKey: alk.history });
+      void qc.invalidateQueries({ queryKey: qk.sessions });
+    },
+  });
+}
+
+/** "This is <star>": explicit, user-confirmed link of a custom target to a variable star. */
+export function useLinkVariable(libraryTargetId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (starId: string) => astrologApi.linkVariable(libraryTargetId, starId),
+    onSuccess: (page) => {
+      qc.setQueryData(alk.target(page.target.id), page);
+      void qc.invalidateQueries({ queryKey: alk.library });
+      void qc.invalidateQueries({ queryKey: alk.history });
+      void qc.invalidateQueries({ queryKey: ["variables"] });
       void qc.invalidateQueries({ queryKey: qk.sessions });
     },
   });

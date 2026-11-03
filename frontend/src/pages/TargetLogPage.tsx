@@ -1,9 +1,11 @@
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useAstroLogTarget, useUpdateLibraryTarget, type TargetPage } from "../api/astrolog";
+import { useAstroLogTarget, useLinkVariable, useUpdateLibraryTarget, type TargetPage } from "../api/astrolog";
+import { useVariables, type VariableListItem } from "../api/variables";
 import { FinalPicturePicker } from "../components/astrolog/FinalPicturePicker";
 import { headlineLabel, imageSrc } from "../components/astrolog/TargetTile";
+import { useConfirm } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate, formatExposures, formatIntegration, formatLocalSpan } from "../lib/time";
 
@@ -115,6 +117,7 @@ function TargetBody({ data }: { data: TargetPage }) {
           )}
 
           {t.kind === "custom" && <ManageTarget id={t.id} name={t.display_name} />}
+          {t.kind === "custom" && <LinkVariable id={t.id} name={t.display_name} />}
           {t.kind === "unsorted" && (
             <section className="panel flex flex-col gap-1 p-4" aria-labelledby="tl-manage">
               <h2 id="tl-manage" className="label">
@@ -195,6 +198,67 @@ function ManageTarget({ id, name }: { id: string; name: string }) {
           }
         >
           Move to Unsorted
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function LinkVariable({ id, name }: { id: string; name: string }) {
+  const stars = useVariables();
+  const list = stars.data?.stars ?? [];
+  if (list.length === 0) return null; // nothing to link to (loading, error or empty): no dead control
+  return <LinkVariableForm id={id} name={name} list={list} />;
+}
+
+function LinkVariableForm({ id, name, list }: { id: string; name: string; list: VariableListItem[] }) {
+  const link = useLinkVariable(id);
+  const confirm = useConfirm();
+  const navigate = useNavigate();
+  const [starId, setStarId] = useState("");
+  const chosen = list.find((s) => s.id === starId);
+  return (
+    <section className="panel flex flex-col gap-3 p-4" aria-labelledby="tl-link-var">
+      <h2 id="tl-link-var" className="label">
+        Variable star
+      </h2>
+      <p className="text-sm text-ink-2">If this target is one of the curated variable stars, say so and its frames count toward that star&apos;s missions.</p>
+      {link.error && <Notice tone="warn">{link.error instanceof Error ? link.error.message : String(link.error)}</Notice>}
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <label htmlFor="tl-var-star" className="label">
+            Star
+          </label>
+          <select id="tl-var-star" className="field" value={starId} onChange={(e) => setStarId(e.target.value)}>
+            <option value="">Choose a star</option>
+            {list.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="button"
+          className="btn"
+          disabled={!chosen || link.isPending}
+          onClick={async () => {
+            if (!chosen) return;
+            const ok = await confirm({
+              title: `Link to ${chosen.name}?`,
+              body: `"${name}" will be merged into ${chosen.name} and its nights will count toward that star's missions.`,
+              confirmLabel: `This is ${chosen.name}`,
+            });
+            if (!ok) return;
+            try {
+              const page = await link.mutateAsync(chosen.id);
+              navigate(`/astrolog/targets/${page.target.id}`, { replace: true });
+            } catch {
+              /* shown above */
+            }
+          }}
+        >
+          {chosen ? `This is ${chosen.name}` : "This is…"}
         </button>
       </div>
     </section>

@@ -1,4 +1,4 @@
-import { BookOpen, ChevronsLeft, ChevronsRight, FlaskConical, Moon, Settings, Telescope } from "lucide-react";
+import { BookOpen, ChevronsLeft, ChevronsRight, Moon, Settings, Sparkles, Telescope } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { HeaderControls } from "./HeaderControls";
@@ -6,7 +6,7 @@ import { HeaderControls } from "./HeaderControls";
 const NAV = [
   { to: "/", label: "Tonight", icon: Moon, end: true },
   { to: "/explore", label: "Explore", icon: Telescope },
-  { to: "/research", label: "Research Lab", icon: FlaskConical },
+  { to: "/variables", label: "Variable Hunter", icon: Sparkles },
   { to: "/astrolog", label: "AstroLog", icon: BookOpen },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
@@ -125,7 +125,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {({ isActive }) => (
               <>
                 <Icon className={`size-5 ${isActive ? "text-ice" : ""}`} aria-hidden />
-                <span>{label === "Research Lab" ? "Research" : label}</span>
+                <span>{label === "Variable Hunter" ? "Variables" : label}</span>
               </>
             )}
           </NavLink>

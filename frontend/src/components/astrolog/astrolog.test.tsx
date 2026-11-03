@@ -22,8 +22,10 @@ vi.mock("../../api/astrolog", async (orig) => {
     useUploadFinalImage: () => idle,
     useLinkStack: () => idle,
     useUpdateLibraryTarget: () => idle,
+    useLinkVariable: () => idle,
   };
 });
+vi.mock("../../api/variables", () => ({ useVariables: () => ({ data: undefined }) }));
 vi.mock("../../api/hooks", async (orig) => {
   const mod = await orig<typeof import("../../api/hooks")>();
   const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, error: null };
