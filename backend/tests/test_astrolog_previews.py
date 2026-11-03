@@ -259,7 +259,7 @@ def test_suggest_stack_id(tmp_path):
         s.add_all([a, b, c, d]); s.commit()
         assert suggest_stack_id(s, lt.id, "M27_100x10.0sec_final.tif") == a.id
         assert suggest_stack_id(s, lt.id, "M27_654x10sec.tif") == b.id
-        assert suggest_stack_id(s, lt.id, "M27_999x10sec.tif") == c.id   # no match -> most recent
+        assert suggest_stack_id(s, lt.id, "M27_999x10sec.tif") is None   # count contradicts every stack
         assert suggest_stack_id(s, lt.id, "final.tif") == c.id      # most recent
         assert suggest_stack_id(s, other.id, "final.tif") == d.id
         empty = LibraryTarget(custom_name="Z", normalized_key="z", kind="custom")

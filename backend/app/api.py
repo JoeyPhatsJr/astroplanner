@@ -578,7 +578,7 @@ def update_session(session_id: str, body: SessionPatch, db: Session = Depends(ge
 def delete_session(session_id: str, db: Session = Depends(get_db)) -> Response:
     s = _get_session(db, session_id)
     if db.scalar(select(func.count()).select_from(CaptureSet).where(CaptureSet.session_id == session_id)):
-        raise HTTPException(409, "This session has imported captures; remove them first.")
+        raise HTTPException(409, "This night has imported captures, so it can't be deleted.")
     db.delete(s)
     db.commit()
     return Response(status_code=204)

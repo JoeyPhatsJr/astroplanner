@@ -159,6 +159,12 @@ def test_ac1_bubble_lights(api, bubble_items):
     assert first_local.strftime("%H:%M:%S") == "23:11:24"
     assert last_local.strftime("%H:%M:%S") == "05:43:55"
 
+    assert night["timezone"] == "America/New_York" and night["exptimes_s"] == [10.0]
+    sess = api.get(f"/api/sessions/{night['session_id']}").json()
+    start_local = datetime.fromisoformat(sess["start_utc"].replace("Z", "+00:00")).astimezone(NY)
+    end_local = datetime.fromisoformat(sess["end_utc"].replace("Z", "+00:00")).astimezone(NY)
+    assert start_local.strftime("%H:%M:%S") == "23:11:24" and end_local.strftime("%H:%M:%S") == "05:43:55"
+
     with api.app.state.db.session() as s:
         rows = list(s.scalars(select(CaptureFrame)))
     assert {r.exptime_s for r in rows} == {10.0}
@@ -201,6 +207,34 @@ def test_ac2_stack_provenance(api, stack_items, bubble_items):
     assert again["inserted_stacks"] == 0
 
 
+def test_ac2_headline_and_percent_used(api, stack_items, bubble_items):
+    """Lights + the 654x10sec stack linked to a final picture: 1 h 49 m in the final stack.
+
+    "% used" follows spec 7a: stack count / captured frames whose DATE-OBS lies inside the stack's
+    EXPSTART-EXPEND. Measured on the real files: the last 3 of the 1015 lights start after EXPEND
+    (164 s after it at most), so the denominator is 1012 and the figure is 64.6% ("65%"), not the
+    654/1015 = 64.4% quoted in acceptance criterion 2."""
+    import io
+
+    from PIL import Image
+
+    loc = site_location(api, bubble_items[0])
+    commit_all(api, bubble_items + stack_items, loc)
+    tid = library_entry(api, "ngc7635")["id"]
+    with api.app.state.db.session() as s:
+        sid = s.scalars(select(Stack)).one().id
+    buf = io.BytesIO()
+    Image.new("RGB", (40, 30)).save(buf, "JPEG")  # stand-in picture: the real one is not needed here
+    r = api.post(f"/api/astrolog/targets/{tid}/final-image", files={"file": ("final.jpg", buf.getvalue())},
+                 data={"stack_id": sid})
+    assert r.status_code == 200
+    page = api.get(f"/api/astrolog/targets/{tid}").json()
+    assert page["headline"] == {"seconds": 6540.0, "label": "stack", "provenance": "header", "basis": "linked"}
+    assert page["captured_s"] == 10150.0
+    assert page["frames_total"] == 1015
+    assert page["frames_in_stack_range"] == 1012 and round(page["percent_used"], 1) == 64.6
+
+
 def test_ac4_dumbbell_is_catalog_m27(api, m27_items, bubble_items):
     loc = site_location(api, bubble_items[0])
     res = commit_all(api, m27_items, loc)
@@ -231,3 +265,18 @@ def test_ac5_canon_night_folder(api, bubble_items):
     r = api.post(COMMIT, json={"items": items, "location_id": loc})
     inserted = r.json()["inserted_frames"] if r.status_code == 200 else -1
     assert inserted == len(items)
+
+    # The stored EXIF (ISO, lens, f-number, focal length) reaches the target page with its EXIF keys.
+    with api.app.state.db.session() as s:
+        stored_iso = sorted({f.iso for f in s.scalars(select(CaptureFrame))})
+    iso_stored = exif.iso is not None and exif.iso in stored_iso and None not in stored_iso
+    lib = api.get("/api/astrolog/library").json()
+    unsorted_ids = [e["id"] for e in lib if e["kind"] == "unsorted"]
+    one_unsorted = len(unsorted_ids) == 1
+    assert iso_stored and one_unsorted, "Canon ISO not stored, or not exactly one Unsorted group"
+    facts = {f["source_key"]: f for f in api.get(f"/api/astrolog/targets/{unsorted_ids[0]}").json()["facts"]}
+    lens_shown = "EXIF LensModel" in facts and "18-55" in facts["EXIF LensModel"]["value"]
+    iso_shown = "EXIF ISOSpeedRatings" in facts and str(exif.iso) in facts["EXIF ISOSpeedRatings"]["value"]
+    camera_key_ok = facts.get("EXIF Model", {}).get("value") == "Canon EOS REBEL T3" and "INSTRUME" not in facts
+    exif_keys_ok = {"EXIF FNumber", "EXIF FocalLength", "EXIF ExposureTime"} <= set(facts)
+    assert lens_shown and iso_shown and camera_key_ok and exif_keys_ok, "Canon EXIF facts missing on the target page"

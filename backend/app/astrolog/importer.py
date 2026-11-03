@@ -312,6 +312,11 @@ class Frame:
     gain: float | None
     ccd_temp_c: float | None
     dedup_key: str
+    # Canon EXIF only (FITS frames leave these None).
+    iso: int | None = None
+    f_number: float | None = None
+    focal_mm: float | None = None
+    lens: str | None = None
 
 
 def group_key(night: date | None, device: str, library_key: str) -> str:
@@ -405,7 +410,8 @@ def _frame(p: Parsed, tz: str | None, clock_offset_minutes: int) -> Frame:
     utc = local.replace(tzinfo=ZoneInfo(tz)).astimezone(timezone.utc) if tz else None
     # A camera clock set to local time gives the night directly, with or without a timezone.
     return Frame(p, (e.model or "Unknown camera")[:64], UNSORTED, utc, _night_of_local(local),
-                 float(e.exposure_s), None, None, None, frame_dedup_key(e, p.filename))
+                 float(e.exposure_s), None, None, None, frame_dedup_key(e, p.filename),
+                 iso=e.iso, f_number=e.f_number, focal_mm=e.focal_mm, lens=e.lens[:120] if e.lens else None)
 
 
 def group_items(infos: list[Parsed], location: ObservingLocation | None, clock_offset_minutes: int = 0) -> list[Group]:
@@ -605,6 +611,30 @@ def apply_overrides(groups: list[Group], canon_set_names: dict[str, str], unsort
         by_key[k].target = UNSORTED
 
 
+def _parse_utc(s: str) -> datetime:
+    return datetime.fromisoformat(s.replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def _frame_span(db: Session, session_id: str) -> tuple[str | None, str | None]:
+    """(first, last) DATE-OBS of every frame stored for a session, compared as instants."""
+    times = list(db.scalars(select(CaptureFrame.date_obs_utc).join(
+        CaptureSet, CaptureFrame.capture_set_id == CaptureSet.id).where(CaptureSet.session_id == session_id)))
+    if not times:
+        return None, None
+    return iso_z(min(map(_parse_utc, times))), iso_z(max(map(_parse_utc, times)))
+
+
+def _fill_session_times(db: Session, s: ObservingSession, prior: tuple[str | None, str | None]) -> None:
+    """start/end = first/last frame of the session. A field is written only when it is empty or
+    still holds the value an earlier import derived from frames, so a plan's own times survive
+    while later batches of the same night still extend what an import filled in."""
+    first, last = _frame_span(db, s.id)
+    if first is not None and (s.start_utc is None or s.start_utc == prior[0]):
+        s.start_utc = first
+    if last is not None and (s.end_utc is None or s.end_utc == prior[1]):
+        s.end_utc = last
+
+
 def _stack_coords(st: StackInfo) -> tuple[float | None, float | None]:
     f = st.parsed.fits
     return (f.ra_deg, f.dec_deg) if f.ra_deg is not None and f.dec_deg is not None else (None, None)
@@ -628,6 +658,7 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
     sets: dict[tuple[str, str, str], CaptureSet] = {}
     known = existing_keys(db, CaptureFrame, (f.dedup_key for g in groups for f in g.frames))
     inserted_frames, session_ids = 0, []
+    prior_spans: dict[str, tuple[str | None, str | None]] = {}
 
     for g in groups:
         new = [f for f in g.frames if f.dedup_key not in known]
@@ -636,24 +667,34 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
         s = sessions.get(g.night_date)
         if s.id not in session_ids:
             session_ids.append(s.id)
+            prior_spans[s.id] = _frame_span(db, s.id)
         lt = _get_or_create_target(db, g.target, targets, g.object_coords())
         _link_plan_target(s, lt)
         key = (s.id, lt.id, g.device)
         cs = sets.get(key) or db.scalars(select(CaptureSet).where(
             CaptureSet.session_id == s.id, CaptureSet.library_target_id == lt.id, CaptureSet.device == g.device)).first()
+        lens = next((f.lens for f in new if f.lens), None)
         if cs is None:
             eq_id, snap = _snapshot(db, g.device)
             cs = CaptureSet(session_id=s.id, library_target_id=lt.id, device=g.device, equipment_id=eq_id,
-                            equipment_snapshot=snap)
+                            equipment_snapshot=snap, lens=lens)
             db.add(cs)
             db.flush()
+        elif cs.lens is None and lens:
+            cs.lens = lens
         sets[key] = cs
         for f in new:
             known.add(f.dedup_key)
             db.add(CaptureFrame(capture_set_id=cs.id, date_obs_utc=iso_z(f.utc), exptime_s=f.exptime_s,
-                                filter=f.filter, gain=f.gain, ccd_temp_c=f.ccd_temp_c,
+                                filter=f.filter, gain=f.gain, ccd_temp_c=f.ccd_temp_c, iso=f.iso,
+                                f_number=f.f_number, focal_mm=f.focal_mm,
                                 source_filename=f.parsed.filename, dedup_key=f.dedup_key))
             inserted_frames += 1
+
+    if session_ids:
+        db.flush()
+        for sid in session_ids:
+            _fill_session_times(db, db.get(ObservingSession, sid), prior_spans[sid])
 
     if plan_session_id is not None and sessions.by_night and not sessions.plan_used and not plan_choices:
         raise ImportRequestError("plan_session_id is not a planned session for any night in this import.")

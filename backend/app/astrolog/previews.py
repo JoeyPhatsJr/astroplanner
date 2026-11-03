@@ -144,7 +144,8 @@ def make_previews(data: bytes, filename: str, max_pixels: int = MAX_PIXELS) -> t
 
 def suggest_stack_id(db: Session, library_target_id: str, final_filename: str) -> str | None:
     """Stack of this target whose frame count matches the one in the final image's filename
-    (``<N>x<T>sec``), else the most recently imported stack of the target, else None."""
+    (``<N>x<T>sec``). A filename count that contradicts every stack suggests nothing; a filename
+    without a count suggests the most recently imported stack. None when the target has no stack."""
     stacks = list(db.scalars(select(Stack).where(Stack.library_target_id == library_target_id)
                              .order_by(Stack.imported_at.desc(), Stack.id)))
     if not stacks:
@@ -155,4 +156,5 @@ def suggest_stack_id(db: Session, library_target_id: str, final_filename: str) -
             sp = parse_stack_filename(s.source_filename)
             if (sp[0] if sp else s.stack_count) == parsed[0]:
                 return s.id
+        return None
     return stacks[0].id

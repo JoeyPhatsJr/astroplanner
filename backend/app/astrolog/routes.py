@@ -277,7 +277,14 @@ def patch_target(library_target_id: str, body: Any = Body(...), db: Session = De
     lt = _library_target(db, library_target_id)
     if lt.kind == "catalog":
         raise HTTPException(403, "Catalog targets cannot be renamed or moved.")
+    if library.is_canonical_unsorted(lt):
+        raise HTTPException(409, "The Unsorted group can't be renamed.")
     data = req.model_dump(exclude_unset=True)
+    if data.get("kind") == "unsorted":
+        # One Unsorted group: merge into it rather than relabel (never two "Unsorted" tiles).
+        dest = library.merge_into_unsorted(db, lt)
+        db.commit()
+        return library.target_page(db, dest)
     if data.get("custom_name") is not None:
         lt.custom_name = data["custom_name"].strip() or lt.custom_name
     if data.get("kind") is not None:

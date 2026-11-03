@@ -159,7 +159,7 @@ def test_api_delete_session_with_captures_is_409(tmp_path):
     with TestClient(create_app(db=db)) as c:
         r = c.delete(f"/api/sessions/{obs_id}")
     assert r.status_code == 409
-    assert r.json()["detail"] == "This session has imported captures; remove them first."
+    assert r.json()["detail"] == "This night has imported captures, so it can't be deleted."
     with db.session() as s:
         assert s.get(ObservingSession, obs_id) is not None
         assert s.scalar(select(sqlalchemy.func.count()).select_from(CaptureFrame)) == 1
