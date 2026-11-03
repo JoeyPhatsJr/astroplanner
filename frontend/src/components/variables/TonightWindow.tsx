@@ -5,13 +5,20 @@ import { formatTime, tzAbbrev } from "../../lib/time";
 import { Skeleton } from "../ui/States";
 
 /** One line: tonight's window above the minimum altitude, or why there is none. Calculated from the saved location. */
-export function TonightWindow({ slug }: { slug: string }) {
+/** `plain` renders the no-location hint without a link, for use inside another link (no nested anchors). */
+export function TonightWindow({ slug, plain = false }: { slug: string; plain?: boolean }) {
   const o = useObserver();
   const q = useStarVisibility(slug);
   if (!o)
     return (
       <span className="text-sm text-muted">
-        Set a location in <Link to="/settings" className="text-ice hover:underline">Settings</Link> to see tonight&apos;s window
+        {plain ? (
+          "Set a location in Settings to see tonight's window"
+        ) : (
+          <>
+            Set a location in <Link to="/settings" className="text-ice hover:underline">Settings</Link> to see tonight&apos;s window
+          </>
+        )}
       </span>
     );
   if (q.isLoading) return <Skeleton className="h-5 w-48" label="Loading tonight's window" />;

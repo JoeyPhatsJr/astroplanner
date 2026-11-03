@@ -43,15 +43,18 @@ export function VariableHunterPage() {
                 <span className="text-sm text-ink-2">
                   {s.constellation} · {vsxRange(s.vsx)}
                 </span>
-                <TonightWindow slug={s.slug} />
+                <TonightWindow slug={s.slug} plain />
                 <span className="text-sm text-ink-2">Your nights: {s.nights_count}</span>
               </Link>
             </li>
           ))}
         </ul>
       )}
-      {q.data && !q.data.aavso.enabled && (
-        <p className="text-xs text-muted">Catalog data: International Variable Star Index (VSX), operated at AAVSO, Cambridge, Massachusetts, USA.</p>
+      {q.data && (
+        <div className="flex flex-col gap-0.5 text-xs text-muted">
+          <p>Catalog data: International Variable Star Index (VSX), operated at AAVSO, Cambridge, Massachusetts, USA.</p>
+          {q.data.aavso.enabled && <p>Observations from the AAVSO International Database, contributed by observers worldwide. © AAVSO.</p>}
+        </div>
       )}
     </div>
   );

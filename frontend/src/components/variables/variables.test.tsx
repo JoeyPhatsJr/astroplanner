@@ -117,6 +117,32 @@ describe("Variable Hunter list", () => {
   });
 });
 
+describe("Variable Hunter list: edge states", () => {
+  it("shows plain no-location text with no nested anchors", async () => {
+    mocks.observer = null;
+    routes["GET /api/variables"] = () => listBody;
+    try {
+      const { container } = renderAt("/variables", <VariableHunterPage />, "/variables");
+      await screen.findByRole("list", { name: "Variable stars" });
+      expect(screen.getAllByText("Set a location in Settings to see tonight's window")).toHaveLength(4);
+      expect(container.querySelectorAll("a a")).toHaveLength(0);
+    } finally {
+      mocks.observer = { lat: 40, lon: -75, elevation_m: 0, date: "2026-11-02", timezone: "America/New_York" };
+    }
+  });
+
+  it("keeps the VSX attribution when AAVSO is enabled, and adds the observations line", async () => {
+    routes["GET /api/variables"] = () => ({ ...listBody, aavso: { enabled: true, mode: "live" } });
+    routes["GET /api/variables/ss-cyg/visibility"] = () => visBody();
+    routes["GET /api/variables/r-leo/visibility"] = () => visBody();
+    routes["GET /api/variables/t-crb/visibility"] = () => visBody();
+    routes["GET /api/variables/u-gem/visibility"] = () => visBody();
+    renderAt("/variables", <VariableHunterPage />, "/variables");
+    expect(await screen.findByText(/Catalog data: International Variable Star Index \(VSX\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Observations from the AAVSO International Database/)).toBeInTheDocument();
+  });
+});
+
 describe("Star page, AAVSO off", () => {
   beforeEach(() => {
     routes["GET /api/variables/ss-cyg"] = () => starBody();
