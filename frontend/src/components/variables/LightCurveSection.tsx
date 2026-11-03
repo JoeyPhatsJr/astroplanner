@@ -48,6 +48,8 @@ function CurveBody({ slug, window, nights }: { slug: string; window: string; nig
   if (!d) return null;
   const { counts, status } = d;
   const checked = status.last_ok_utc ? `checked ${formatAge(status.last_ok_utc)}` : "not yet checked";
+  const joined = d.bands_included.join(", ");
+  const bands = joined.endsWith(".") ? joined : `${joined}.`;
   const shown = counts.every_nth > 1 ? `${counts.plotted_points} shown (every ${ordinal(counts.every_nth)})` : `${counts.plotted_points} shown`;
   return (
     <div className="flex flex-col gap-2">
@@ -74,7 +76,7 @@ function CurveBody({ slug, window, nights }: { slug: string; window: string; nig
         AAVSO International Database via VSX · {counts.cached} observations cached · {shown} · {checked}
       </p>
       <p className="text-xs text-muted">
-        Bands shown: {d.bands_included.join(", ")}. <span>{d.excluded_note}</span>
+        Bands shown: {bands} <span>{d.excluded_note}</span>
       </p>
       <div className="flex flex-col gap-0.5 text-xs text-muted">
         {d.attribution.map((a) => (
