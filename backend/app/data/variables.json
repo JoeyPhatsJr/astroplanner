@@ -1,0 +1,158 @@
+{
+  "meta": {
+    "source": "AAVSO VSX api.object",
+    "retrieved": "2026-11-02",
+    "license_note": "Permission is granted to display, copy, distribute and download the materials on this Site for personal, non-commercial use only, provided you do not modify the materials and that you retain all copyright and other proprietary notices contained in the materials. (VSX copyright page)"
+  },
+  "stars": [
+    {
+      "id": "var:r-leo",
+      "slug": "r-leo",
+      "name": "R Leonis",
+      "primary_designation": "R Leo",
+      "aliases": [
+        "R Leo",
+        "R Leonis"
+      ],
+      "type_label": "Mira variable",
+      "missions": [
+        "cycle",
+        "weekly"
+      ],
+      "constellation": "Leo",
+      "ra_deg": 146.88954,
+      "dec_deg": 11.42881,
+      "vsx": {
+        "name": "R Leo",
+        "auid": "000-BBQ-798",
+        "oid": 17032,
+        "variability_type": "M",
+        "period_days": 312.2,
+        "max_mag": 4.4,
+        "min_mag": 11.0,
+        "band": "V",
+        "raw_range": [
+          "4.4 V",
+          "11.0 V"
+        ],
+        "epoch_jd": 2444164.0,
+        "spectral_type": "M6e-M8IIIe-M9.5e"
+      },
+      "source": "AAVSO VSX",
+      "source_url": "https://vsx.aavso.org/index.php?view=detail.top&oid=17032",
+      "retrieved": "2026-11-02"
+    },
+    {
+      "id": "var:ss-cyg",
+      "slug": "ss-cyg",
+      "name": "SS Cygni",
+      "primary_designation": "SS Cyg",
+      "aliases": [
+        "SS Cyg",
+        "SS Cygni"
+      ],
+      "type_label": "Dwarf nova (U Gem type)",
+      "missions": [
+        "weekly"
+      ],
+      "period_note": "The VSX period is the binary orbital period, not an outburst or eruption interval; outbursts and eruptions are not periodic enough to predict.",
+      "constellation": "Cyg",
+      "ra_deg": 325.67833,
+      "dec_deg": 43.58608,
+      "vsx": {
+        "name": "SS Cyg",
+        "auid": "000-BCP-220",
+        "oid": 10939,
+        "variability_type": "UGSS",
+        "period_days": 0.27513,
+        "max_mag": 7.7,
+        "min_mag": 12.4,
+        "band": "V",
+        "raw_range": [
+          "7.7 V",
+          "12.4 V"
+        ],
+        "epoch_jd": null,
+        "spectral_type": "K5V+pec(UG)"
+      },
+      "source": "AAVSO VSX",
+      "source_url": "https://vsx.aavso.org/index.php?view=detail.top&oid=10939",
+      "retrieved": "2026-11-02"
+    },
+    {
+      "id": "var:t-crb",
+      "slug": "t-crb",
+      "name": "T Coronae Borealis",
+      "primary_designation": "T CrB",
+      "aliases": [
+        "T CrB",
+        "T Coronae Borealis",
+        "Blaze Star"
+      ],
+      "type_label": "Recurrent nova",
+      "missions": [
+        "weekly"
+      ],
+      "period_note": "The VSX period is the binary orbital period, not an outburst or eruption interval; outbursts and eruptions are not periodic enough to predict.",
+      "constellation": "CrB",
+      "ra_deg": 239.87567,
+      "dec_deg": 25.92017,
+      "vsx": {
+        "name": "T CrB",
+        "auid": "000-BBW-825",
+        "oid": 10602,
+        "variability_type": "NR+ELL",
+        "period_days": 227.5528,
+        "max_mag": 2.0,
+        "min_mag": 10.8,
+        "band": "V",
+        "raw_range": [
+          "2.0 V",
+          "10.8 V"
+        ],
+        "epoch_jd": 2455828.9,
+        "spectral_type": "M3III+WD"
+      },
+      "source": "AAVSO VSX",
+      "source_url": "https://vsx.aavso.org/index.php?view=detail.top&oid=10602",
+      "retrieved": "2026-11-02"
+    },
+    {
+      "id": "var:u-gem",
+      "slug": "u-gem",
+      "name": "U Geminorum",
+      "primary_designation": "U Gem",
+      "aliases": [
+        "U Gem",
+        "U Geminorum"
+      ],
+      "type_label": "Dwarf nova (U Gem type)",
+      "missions": [
+        "weekly"
+      ],
+      "period_note": "The VSX period is the binary orbital period, not an outburst or eruption interval; outbursts and eruptions are not periodic enough to predict.",
+      "constellation": "Gem",
+      "ra_deg": 118.77171,
+      "dec_deg": 22.00133,
+      "vsx": {
+        "name": "U Gem",
+        "auid": "000-BBN-884",
+        "oid": 14298,
+        "variability_type": "UGSS+E",
+        "period_days": 0.1769061,
+        "max_mag": 8.2,
+        "min_mag": 14.9,
+        "band": "V",
+        "raw_range": [
+          "8.2 V",
+          "14.9 V"
+        ],
+        "epoch_jd": 2452500.009,
+        "spectral_type": "pec(UG)+M4.5V"
+      },
+      "source": "AAVSO VSX",
+      "source_url": "https://vsx.aavso.org/index.php?view=detail.top&oid=14298",
+      "retrieved": "2026-11-02"
+    }
+  ]
+}

@@ -95,6 +95,22 @@ no frames, else captured time labelled "captured"); a re-import never moves alre
 (corrections go through `PATCH /targets/{id}`); imported observations are never deleted as a side effect
 (foreign keys are RESTRICT, and deleting a session that has capture sets returns 409).
 
+## Variable Hunter (Phase 3)
+
+Package `backend/app/variables/`:
+
+| Module | Role |
+|---|---|
+| `catalog.py` + `app/data/variables.json` | The four curated stars (VSX catalog facts, missions, period notes). Stars never enter the DSO catalog, so Phase 1 recommendations and scores are unchanged |
+| `missions.py`, `fit.py` | Mission progress from AstroLog nights; S30 fit text from an estimated magnitude range |
+| `routes.py` | `GET /api/variables` (list), `/api/variables/{slug}` (detail), `/api/variables/{slug}/visibility`; no database tables of its own |
+
+The catalog facts come from VSX's `api.object`, fetched once by `backend/scripts/build_variables.py` (sequential,
+at least 2 s apart, identifying user agent) and committed as `variables.json`. At runtime the app makes **no AAVSO
+requests**. A live observation layer (VSX `api.delim` provider, observation cache, light curves, sky alerts) was
+built and removed before merge because no AAVSO terms cover a third-party app downloading and showing AID
+observations; it is preserved on the `aavso-live-layer` branch (including its migration `0005_variable_hunter`).
+
 ## Persistence
 
 - Phase 1 tables: `observing_locations`, `equipment_profiles`, `sessions`,

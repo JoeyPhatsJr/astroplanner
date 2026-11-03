@@ -131,7 +131,19 @@ def _altaz_frame(times: Time, loc: EarthLocation) -> AltAz:
 
 
 @lru_cache(maxsize=48)
-def sky_context(latitude: float, longitude: float, elevation_m: float, night_date: date, tz_name: str) -> SkyContext:
+def sky_context(
+    latitude: float,
+    longitude: float,
+    elevation_m: float,
+    night_date: date,
+    tz_name: str,
+    coords: tuple[tuple[float, ...], tuple[float, ...]] | None = None,
+) -> SkyContext:
+    """Sun/Moon/target positions for one night.
+
+    ``coords`` is ``(ra_deg_tuple, dec_deg_tuple)`` (tuples keep the call hashable for the cache);
+    ``None`` means the bundled DSO catalog, in catalog order.
+    """
     t = build_grid(night_date, tz_name)
     times = Time(t, format="unix", scale="utc")
     loc = EarthLocation.from_geodetic(lon=longitude * u.deg, lat=latitude * u.deg, height=elevation_m * u.m)
@@ -141,7 +153,10 @@ def sky_context(latitude: float, longitude: float, elevation_m: float, night_dat
         sun_altaz = get_body("sun", times).transform_to(frame)
         moon_altaz = get_body("moon", times, location=loc).transform_to(frame)
         illum, waxing = moon_illumination(times)
-        ra, dec = catalog.coordinate_arrays()
+        if coords is None:
+            ra, dec = catalog.coordinate_arrays()
+        else:
+            ra, dec = np.asarray(coords[0], dtype=float), np.asarray(coords[1], dtype=float)
         targets = SkyCoord(ra=ra[:, None] * u.deg, dec=dec[:, None] * u.deg, frame="icrs")
         t_altaz = targets.transform_to(frame)
     return SkyContext(

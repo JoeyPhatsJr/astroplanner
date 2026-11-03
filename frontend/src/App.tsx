@@ -7,7 +7,8 @@ import { TonightPage } from "./pages/TonightPage";
 
 // Tonight is the landing page and stays in the main bundle; other sections load on demand.
 const ExplorePage = lazy(() => import("./pages/ExplorePage").then((m) => ({ default: m.ExplorePage })));
-const ResearchLabPage = lazy(() => import("./pages/ResearchLabPage").then((m) => ({ default: m.ResearchLabPage })));
+const VariableHunterPage = lazy(() => import("./pages/VariableHunterPage").then((m) => ({ default: m.VariableHunterPage })));
+const StarPage = lazy(() => import("./pages/StarPage").then((m) => ({ default: m.StarPage })));
 const AstroLogPage = lazy(() => import("./pages/AstroLogPage").then((m) => ({ default: m.AstroLogPage })));
 const LibraryPage = lazy(() => import("./pages/LibraryPage").then((m) => ({ default: m.LibraryPage })));
 const TargetLogPage = lazy(() => import("./pages/TargetLogPage").then((m) => ({ default: m.TargetLogPage })));
@@ -36,7 +37,9 @@ export default function App() {
           <Routes>
             <Route path="/" element={<TonightPage />} />
             <Route path="/explore" element={<ExplorePage />} />
-            <Route path="/research" element={<ResearchLabPage />} />
+            <Route path="/variables" element={<VariableHunterPage />} />
+            <Route path="/variables/:slug" element={<StarPage />} />
+            <Route path="/research" element={<Navigate to="/variables" replace />} />
             <Route path="/astrolog" element={<LibraryPage />} />
             <Route path="/astrolog/targets/:targetId" element={<TargetLogPage />} />
             <Route path="/astrolog/import" element={<AstroLogImportPage />} />

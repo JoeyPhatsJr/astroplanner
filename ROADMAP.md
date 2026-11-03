@@ -14,7 +14,7 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 |---|---|---|---|
 | 1 | Core planning dashboard | Location, equipment, real forecast, Sun/Moon/target visibility, transparent scores, catalog, charts, saved session plans | ✅ **Complete**: signed off 2026-11-02 (git tag `phase-1`) |
 | 2 | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | ✅ **Complete**: signed off 2026-11-02 (PR #1, git tag `phase-2`; spec `docs/superpowers/specs/2026-11-02-astrolog-design.md`) |
-| **3** | Variable Hunter | Historical light curves, variable-star research, AstroMissions | **Planning** (steps 1–5) |
+| **3** | Variable Hunter | Curated variable stars, visibility, AstroMissions (no AAVSO observations) | **Complete pending developer review** (branch `phase-3-variable-hunter`; spec `docs/superpowers/specs/2026-11-02-variable-hunter-design.md`) |
 | 4 | Scientific image analysis | FITS processing, photometry, user-generated light curves | Not started |
 | 5 | Advanced features | Personalization, collaboration, 3D visualization, telescope integrations | Not started |
 
@@ -24,18 +24,37 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 
 ## How each phase is run
 
-Every phase follows the same ten steps. Implementation never starts before step 6.
+Every phase is split into three activities, **Design → Build → Validate**, with a git
+recovery point between each. Implementation never starts before the Design gate.
 
+**0. Use it first.** Before designing a phase, the developer uses the app for a real night
+with the Seestar S30 and notes what felt missing or confusing. Those notes are the first
+input to Design.
+
+**Design:** explore ideas, decide features, prototype interfaces.
 1. **Review** the existing codebase and completed functionality.
 2. **Brainstorm and refine** features and user experience together.
-3. **Propose** the technical implementation and dependencies.
-4. **Identify risks:** scientific, technical and architectural problems.
-5. **Present** a clear implementation plan with acceptance criteria.
-6. **Wait for approval** from the developer. ⛔ Gate.
-7. **Build incrementally** in small, testable milestones.
-8. **Test** all features and **verify scientific calculations** against independent references.
-9. **Update documentation** (`README.md`, `docs/`, `PROGRESS.md`, this roadmap).
-10. **Preserve** working functionality from previous phases (all earlier test suites stay green).
+3. **Show usable screen designs early.** Mockups or clickable prototypes of every new screen,
+   in the app's real theme (and night vision), are reviewed *before* the implementation plan.
+   The visual presentation is part of the product, not a finishing step.
+4. **Propose** the technical implementation and dependencies, and **identify risks**
+   (scientific, technical, architectural, licensing).
+5. **Present** the written spec and implementation plan with acceptance criteria.
+6. **Wait for approval** from the developer. ⛔ Gate. The approved spec, plan and mockups
+   are committed (recovery point: "design approved").
+
+**Build:** implement approved features in manageable increments.
+7. **Build incrementally** in small milestones. Each milestone ends with working code, its
+   automated tests passing, and a commit, so any later problem can be rolled back to it.
+   UI milestones come early enough that the developer can try real screens mid-phase.
+
+**Validate:** test calculations, functionality, UI and regressions.
+8. **Test** all features and **verify scientific calculations** against independent references;
+   run every suite (backend, unit, end-to-end) and check the UI in the browser on desktop,
+   mobile and night vision.
+9. **Preserve** earlier phases: all previous test suites stay green.
+10. **Update documentation** (`README.md`, `docs/`, `PROGRESS.md`, this roadmap), then developer
+    review, merge, and a `phase-N` git tag as the phase's recovery point.
 
 Standing rules for every phase (from `CLAUDE.md`): no fabricated data or results,
 uncertainty and heuristic labels on scores, source attribution and license compliance,
@@ -80,6 +99,8 @@ for later phases' needs (e.g. image storage in Phase 2, FITS processing in Phase
 - Current target: Vercel (frontend + Python function) + Supabase (Postgres, Auth, Storage).
 - Prerequisites before going public: `owner_id` on user-owned rows, Supabase Auth JWT
   verification in FastAPI (owner-only writes), production CORS, secrets in environment variables.
+- Variable Hunter prerequisite before going public: the four stars' VSX catalog facts are used under VSX's
+  "personal, non-commercial use only" terms, so a public site needs AAVSO's permission for them (or drop them).
 - To re-check at that time: Vercel Python function size/cold start with Astropy, whether
   Phase 4 processing needs a different compute target, Open-Meteo terms for the use case.
 - Meanwhile every phase must keep the `DATABASE_URL` seam working (no SQLite-only SQL).
@@ -89,8 +110,8 @@ for later phases' needs (e.g. image storage in Phase 2, FITS processing in Phase
 These notes record intent and the questions each phase must answer in its own steps 1–5.
 Nothing here is approved for implementation.
 
-### Phase 3: Variable Hunter
-- Intent: curated variable-star research and AstroMissions linking targets, sessions and goals.
+### Phase 3: Variable Hunter (built; see the status table above)
+- Original intent: curated variable-star research and AstroMissions linking targets, sessions and goals.
 - Questions to settle: what AAVSO/VSX data can be used under their terms and through which
   documented interface (no scraping); ephemeris validation before showing any prediction
   window; which targets are realistic for a 30 mm aperture.
@@ -114,7 +135,7 @@ are where later phases attach; each "later" item is a note, not code.
 | Seam (exists now) | Where | How later phases use it |
 |---|---|---|
 | Sessions with `status` (`planned/completed/cancelled`) and per-target rows with `actual_integration_seconds`, `notes` | `backend/app/db.py` | Phase 2 extends sessions into logs instead of creating a parallel model |
-| Pluggable data providers injected via `app.state` (weather today) | `backend/app/main.py`, `weather.py` | Phase 3 adds an AAVSO/VSX provider behind the same pattern, stubbed in tests |
+| Pluggable data providers injected via `app.state` (weather today) | `backend/app/main.py`, `weather.py` | A Phase 3 AAVSO provider used this pattern (removed before merge; see branch `aavso-live-layer`) |
 | Visibility engine is target-agnostic (RA/Dec in → windows, statuses out) | `astronomy.py`, `visibility.py` | Phase 3 variable stars reuse it; *later:* `sky_context` takes an explicit coordinate set instead of the global catalog |
 | Scores are lists of `{key, points, max, basis, detail}` components | `scoring.py` | New factors (e.g. horizon obstruction, personal history) are added as components; normalization tests guard them |
 | Catalog with per-target provenance (`source`, `source_id`, `source_url`) | `app/data/targets.json` | Additional curated catalogs (variable stars) follow the same provenance rule |
@@ -151,3 +172,12 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-02 | **Re-import never moves already-imported frames**; groups with no new frames create nothing; corrections go through the target page | Prevents phantom nights/targets and duplicates; a "move captures" feature is a possible later addition |
 | 2026-11-02 | Imported observations are never deleted as a side effect (foreign keys RESTRICT; deleting a session with capture sets returns 409) | The user's records are the product |
 | 2026-11-02 | **Phase 2 signed off** by the developer; merged (PR #1) and tagged `phase-2` | Real-data acceptance passed locally; CI green on the PR and the merge commit |
+| 2026-11-02 | **AAVSO observation layer is off by default** (`ASTROPLANNER_AAVSO_ENABLED=1` to switch on); without it the app shows a VSX link and no curve or alerts | Gate G1: AAVSO's Data Usage Guidelines and API docs are unread (Cloudflare blocks automated readers); local use is a developer decision |
+| 2026-11-02 | VSX's copyright page permits personal, non-commercial use only and forbids mirroring on another server; only `vsx.aavso.org` is called, sequentially, at least 2 s apart | Read 2026-11-02; keeps local use inside the stated terms |
+| 2026-11-02 | **Public deployment needs AAVSO's written permission**, plus a keyed observer-hash and multi-process request locking | Terms above; recorded in the deployment prerequisites |
+| 2026-11-02 | Observer name, country, comment, charts and code are never stored; the code is kept only as a salted hash to count distinct observers | Privacy of third-party observers; tested with sentinel values |
+| 2026-11-02 | No predictions in Variable Hunter (no eruption dates, countdowns, "expected" text); alerts need independent observers and show data freshness | Predicted T CrB dates have lapsed; stale data must never read as "no change" |
+| 2026-11-02 | S30 brightness limits (7 to 12.5) are an estimate, labelled "estimate, not yet measured" | Only one S50 owner data point exists |
+| 2026-11-02 | **Phase 3 complete pending developer review** on branch `phase-3-variable-hunter` | Suites green (303 backend, 117 unit, 24 e2e); local live check passed |
+| 2026-11-03 | **Live AAVSO observation layer removed from Phase 3** (light curves, sky alerts, outburst mission, observation cache, migration 0005); preserved on branch `aavso-live-layer`. Star pages link to AAVSO VSX instead | Gate G1 outcome: VSX copyright, the Data Usage Guidelines (2026-07-16) and AAVSO's forum API notes were read; none covers a third-party app downloading and showing AID observations (`api.delim` is undocumented). Developer chose removal over emailing AAVSO; Phase 4's own measurements make it unnecessary |
+| 2026-11-03 | **Phases run as Design → Build → Validate**, with a commit at every milestone, usable screen designs shown before the implementation plan, and a real night with the S30 before each phase's design | Developer direction (from outside advice): recovery points between milestones, and the UI is part of the product |

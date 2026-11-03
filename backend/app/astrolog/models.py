@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, _utcnow, _uuid
 
-TargetKind = Literal["catalog", "custom", "unsorted"]
+TargetKind = Literal["catalog", "custom", "unsorted", "variable"]
 Provenance = Literal["header", "filename"]
 
 

@@ -105,9 +105,9 @@ test("Night vision turns the palette red and survives a reload", async ({ page }
   await expect(html).toHaveAttribute("data-vision", "normal");
 });
 
-test("Research Lab is an honest preview with no fake controls", async ({ page }) => {
+test("Variable Hunter route has no fake controls", async ({ page }) => {
   await page.goto("/research");
-  await expect(page.getByText("Preview: Variable Hunter arrives in Phase 3")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Variable Hunter" })).toBeVisible();
   const main = page.locator("main");
   await expect(main.getByRole("button")).toHaveCount(0);
   await expect(main.getByRole("textbox")).toHaveCount(0);

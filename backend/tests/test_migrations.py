@@ -186,3 +186,4 @@ def test_0004_adds_and_drops_exif_columns(tmp_path):
     assert "lens" not in {c["name"] for c in insp.get_columns("capture_sets")}
     command.upgrade(cfg, "head")
     eng.dispose()
+

@@ -9,7 +9,7 @@ export interface Target {
   primary_designation: string;
   name: string;
   aliases: string[];
-  category: "galaxy" | "nebula" | "cluster";
+  category: "galaxy" | "nebula" | "cluster" | "variable";
   kind: string;
   openngc_type: string;
   constellation: string;

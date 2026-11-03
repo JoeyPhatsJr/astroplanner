@@ -28,6 +28,7 @@ from sqlalchemy.orm import Session
 from app import catalog, geo
 from app.api import _equipment_out  # the API's profile shape is the snapshot shape
 from app.db import EquipmentProfile, ObservingLocation, ObservingSession
+from app.variables import catalog as variables
 
 from .headers import (
     ExifInfo,
@@ -39,6 +40,7 @@ from .headers import (
     parse_fits_header,
     parse_stack_filename,
 )
+from .library import variable_key
 from .models import CaptureFrame, CaptureSet, LibraryTarget, Stack
 
 MATCH_RADIUS_KM = 5.0
@@ -64,7 +66,7 @@ class TargetRef:
     library_key: str
     catalog_target_id: str | None
     display_name: str
-    kind: Literal["catalog", "custom", "unsorted"]
+    kind: Literal["catalog", "custom", "unsorted", "variable"]
 
     def out(self) -> dict[str, Any]:
         return {"library_key": self.library_key, "catalog_target_id": self.catalog_target_id,
@@ -85,7 +87,8 @@ def _catalog_index() -> dict[str, str]:
 
 
 def resolve_target(name: str | None) -> TargetRef:
-    """OBJECT (or a user-given set name) -> catalog target if known, else a custom target."""
+    """OBJECT (or a user-given set name) -> catalog target if known, else a curated variable star
+    (checked after the deep-sky index, so a DSO name always wins), else a custom target."""
     clean = (name or "").strip()[:160]
     if not clean:
         return UNSORTED
@@ -93,6 +96,9 @@ def resolve_target(name: str | None) -> TargetRef:
     cid = _catalog_index().get(norm)
     if cid is not None:
         return TargetRef(f"catalog:{cid}", cid, catalog.get_target(cid)["primary_designation"], "catalog")
+    vid = variables.alias_index().get(norm)
+    if vid is not None:
+        return TargetRef(variable_key(vid), vid, variables.get_star(vid)["primary_designation"], "variable")
     return TargetRef(f"custom:{norm}", None, clean, "custom")
 
 

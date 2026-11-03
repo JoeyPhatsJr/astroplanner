@@ -22,7 +22,6 @@ It is tuned first for the **ZWO Seestar S30** (original, not the S30 Pro).
 - **Settings:** city search or manual coordinates with timezone detection (opt-in browser
   geolocation), the read-only **verified S30 preset** plus custom equipment, and observing
   preferences (minimum altitude, astronomical vs nautical darkness).
-- **Research Lab:** an honest preview of a later phase (no fake data or controls).
 - **Night vision:** one toggle turns the whole app dim red to protect dark-adapted eyes at the telescope.
 
 ![Night-vision mode](docs/screenshots/tonight-night-vision.png)
@@ -52,6 +51,30 @@ your finished picture.
 
 ![AstroLog library (synthetic data)](docs/screenshots/astrolog-library-desktop.png)
 ![Target page (synthetic data)](docs/screenshots/astrolog-target-desktop.png)
+
+## Variable Hunter (Phase 3)
+
+A short, curated list of variable stars a Seestar can follow: **SS Cygni, U Geminorum, T Coronae Borealis, R Leonis**
+(`/variables`; the old `/research` address redirects there).
+
+- **Star page** (`/variables/:slug`): type and VSX magnitude range, tonight's window above your minimum altitude
+  (calculated for your saved location), your own nights from AstroLog, and a link to the star's AAVSO VSX page.
+- **Missions** (weekly watch, follow the cycle) are counted from your own AstroLog nights.
+- **Seestar fit** uses an **estimated** S30 brightness range of 7 to 12.5, labelled "estimate, not yet measured".
+- Add a star to tonight's plan, or link an imported AstroLog target to one of the curated stars.
+
+![Variable Hunter list](docs/screenshots/variable-hunter-list-desktop.png)
+![Star page](docs/screenshots/variable-hunter-star-desktop.png)
+
+**No AAVSO observations.** AstroPlanner uses only the VSX catalog facts for these four stars (fetched once by
+`backend/scripts/build_variables.py`); it draws no light curve and sends no outburst alerts. A live AAVSO layer
+(light curves from the AAVSO International Database, sky alerts) was built and then removed before merge: VSX's
+copyright page allows personal, non-commercial use only, and neither AAVSO's Data Usage Guidelines (2026-07-16) nor
+its forum API notes say whether a third-party app may download and display observations. That code is kept on the
+`aavso-live-layer` branch. Phase 4 will plot your own brightness measurements instead, which need nobody's permission.
+
+Attribution shown with the catalog facts: "Catalog data: International Variable Star Index (VSX), operated at AAVSO,
+Cambridge, Massachusetts, USA."
 
 ## Accuracy
 
@@ -93,15 +116,15 @@ Optional environment variables:
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q        # 198 passed, 7 skipped (astronomy references, scoring, weather, API, AstroLog, migrations)
-cd frontend && npm run typecheck && npm test       # 69 tests: time formatting, header slicing, import merge, components
+cd backend && .venv/bin/python -m pytest -q        # 232 passed, 7 skipped (astronomy references, scoring, weather, API, AstroLog, Variable Hunter, migrations)
+cd frontend && npm run typecheck && npm test       # 83 tests: time formatting, header slicing, import merge, Variable Hunter, components
 cd frontend && npm run build
-cd frontend && npx playwright install chromium && npm run test:e2e   # 12 end-to-end tests (10 Phase 1 smoke + AstroLog import), desktop + mobile
+cd frontend && npx playwright install chromium && npm run test:e2e   # 16 end-to-end tests (Phase 1 smoke, AstroLog import, Variable Hunter), desktop + mobile
 ```
 
 The end-to-end suite starts its own backend (fresh SQLite file and preview folder under
 `frontend/e2e/`) and Vite server on ports 8100/5180, so it never touches your dev servers or data.
-It builds its FITS files itself with dummy coordinates.
+It builds its FITS files itself with dummy coordinates. No test contacts AAVSO.
 
 The 7 skipped backend tests are 6 local real-data checks and 1 Postgres migration test (runs when
 `TEST_POSTGRES_URL` is set; CI provides it). To run the real-data acceptance checks against your own
@@ -130,6 +153,9 @@ scripts/   setup.sh · dev.sh
   `targets.json` is CC BY-SA 4.0; see [backend/app/data/ATTRIBUTION.md](backend/app/data/ATTRIBUTION.md).
 - **Open-Meteo** Forecast and Geocoding APIs (data CC BY 4.0). The free tier is for
   **non-commercial use only**; review its terms before any commercial use.
+- **AAVSO VSX** (catalog facts for four stars; personal, non-commercial use): see Variable Hunter above for the
+  terms and attribution; facts are listed in
+  [backend/app/data/ATTRIBUTION.md](backend/app/data/ATTRIBUTION.md).
 - **Astropy** (BSD-3-Clause), **timezonefinder** (MIT).
 - Seestar S30 specifications: [manufacturer product page](https://us.seestar.com/products/seestar-s30-all-in-one-smart-telescope).
   The published 2.46° FOV does not state its axis, so framing notes are approximate.

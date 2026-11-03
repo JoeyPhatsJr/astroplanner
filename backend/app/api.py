@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, object_session
 
-from . import catalog, geo
+from . import catalog, geo, targets
 from .astrolog.library import capture_info, session_capture_info
 from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
@@ -504,7 +504,7 @@ def _iso(dt: datetime | None) -> str | None:
 
 
 def _session_target_out(st: SessionTarget) -> dict[str, Any]:
-    t = catalog.get_target(st.target_id)
+    t = targets.lookup(st.target_id)  # deep-sky catalog id or a curated ``var:<slug>`` star
     return {
         "id": st.id, "target_id": st.target_id, "sort_order": st.sort_order,
         "planned_start_utc": st.planned_start_utc, "planned_end_utc": st.planned_end_utc, "notes": st.notes,
@@ -587,7 +587,7 @@ def delete_session(session_id: str, db: Session = Depends(get_db)) -> Response:
 @router.post("/sessions/{session_id}/targets", status_code=201)
 def add_session_target(session_id: str, body: SessionTargetIn, db: Session = Depends(get_db)) -> dict[str, Any]:
     s = _get_session(db, session_id)
-    if catalog.get_target(body.target_id) is None:
+    if targets.lookup(body.target_id) is None:
         raise HTTPException(422, f"Unknown target {body.target_id!r}")
     if any(st.target_id == body.target_id for st in s.targets):
         raise HTTPException(409, "Target is already in this session")

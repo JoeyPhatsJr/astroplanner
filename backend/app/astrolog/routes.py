@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.api import get_db
 from app.db import ObservingLocation
+from app.variables import catalog as variables
 
 from . import importer, library, previews
 from .models import CaptureFrame, FinalImage, LibraryTarget, Stack
@@ -249,6 +250,10 @@ class TargetPatch(BaseModel):
     kind: Literal["custom", "unsorted"] | None = None
 
 
+class LinkVariableIn(BaseModel):
+    star_id: str = Field(min_length=1, max_length=32)
+
+
 @router.get("/library")
 def get_library(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
     return library.library(db)
@@ -275,8 +280,8 @@ def get_target_page(library_target_id: str, db: Session = Depends(get_db)) -> di
 def patch_target(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
     req = _validate(TargetPatch, body)
     lt = _library_target(db, library_target_id)
-    if lt.kind == "catalog":
-        raise HTTPException(403, "Catalog targets cannot be renamed or moved.")
+    if lt.kind in ("catalog", "variable"):
+        raise HTTPException(403, "Catalog and variable-star targets cannot be renamed or moved.")
     if library.is_canonical_unsorted(lt):
         raise HTTPException(409, "The Unsorted group can't be renamed.")
     data = req.model_dump(exclude_unset=True)
@@ -291,3 +296,17 @@ def patch_target(library_target_id: str, body: Any = Body(...), db: Session = De
         lt.kind = data["kind"]
     db.commit()
     return library.target_page(db, lt)
+
+
+@router.post("/targets/{library_target_id}/link-variable")
+def link_variable(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Explicit "This is SS Cyg" for a custom target (never automatic; spec 7.4)."""
+    req = _validate(LinkVariableIn, body)
+    lt = _library_target(db, library_target_id)
+    if lt.kind != "custom":
+        raise HTTPException(403, "Only custom targets can be linked to a variable star.")
+    if variables.get_star(req.star_id) is None:
+        raise HTTPException(422, f"Unknown variable star {req.star_id!r}")
+    dest = library.link_to_variable(db, lt, req.star_id)
+    db.commit()
+    return library.target_page(db, dest)
