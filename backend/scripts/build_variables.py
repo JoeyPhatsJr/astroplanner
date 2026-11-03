@@ -51,7 +51,7 @@ CURATED: list[dict[str, Any]] = [
         "aliases": ["U Gem", "U Geminorum"],
         "type_label": "Dwarf nova (U Gem type)",
         "alert": {
-            "brighter_than": 11.0, "min_observers": 2, "normal_text": "quiet near 14 V",
+            "brighter_than": 11.0, "min_observers": 2, "normal_text": "quiet near 14.5 V",
             "why": "VSX lists a maximum near 8.2 V; 11.0 is well clear of quiescent scatter.",
         },
         "missions": ["outburst", "weekly"], "history_windows": [], "period_note": ORBITAL_NOTE,

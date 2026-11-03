@@ -155,7 +155,7 @@
       "alert": {
         "brighter_than": 11.0,
         "min_observers": 2,
-        "normal_text": "quiet near 14 V",
+        "normal_text": "quiet near 14.5 V",
         "why": "VSX lists a maximum near 8.2 V; 11.0 is well clear of quiescent scatter."
       },
       "missions": [

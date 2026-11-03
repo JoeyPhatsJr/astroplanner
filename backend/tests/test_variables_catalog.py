@@ -29,6 +29,9 @@ def test_alert_rules_match_spec():
     assert rule("var:u-gem") == (11.0, 2)
     assert rule("var:t-crb") == (8.0, 3)
     assert rule("var:r-leo") is None
+    assert vcat.get_star("var:ss-cyg")["alert"]["normal_text"] == "quiet near 12 V"
+    assert vcat.get_star("var:u-gem")["alert"]["normal_text"] == "quiet near 14.5 V"
+    assert vcat.get_star("var:t-crb")["alert"]["normal_text"] == "quiet near 10 V"
 
 
 def test_lookup_resolves_both_kinds():
