@@ -99,10 +99,15 @@ def test_never_fetched_is_unavailable():
     assert alerts.evaluate([], SS_CYG, NOW, failed_only)["state"] == "unavailable"
 
 
-def test_alert_evidence_wins_over_staleness_and_keeps_the_fetch_time():
+def test_staleness_beats_alert_evidence_and_keeps_the_evidence_and_fetch_time():
     old = {"last_ok_utc": "2026-11-01T18:00:00Z", "last_error": "VSX returned HTTP 503"}
     r = alerts.evaluate([ob(25, 9.0, "a"), ob(26, 9.2, "b")], SS_CYG, NOW, old)
-    assert r["state"] == "alert" and r["checked_utc"] == old["last_ok_utc"] and r["last_error"]
+    assert r["state"] == "stale" and r["evidence"]["observers"] == 2
+    assert r["checked_utc"] == old["last_ok_utc"] and r["last_error"] == "VSX returned HTTP 503"
+    only_old = {"last_ok_utc": "2026-11-01T18:00:00Z", "last_error": None}  # 25 h, no failure
+    assert alerts.evaluate([ob(25, 9.0, "a"), ob(26, 9.2, "b")], SS_CYG, NOW, only_old)["state"] == "stale"
+    never = {"last_ok_utc": None, "last_error": None}
+    assert alerts.evaluate([ob(1, 9.0, "a"), ob(2, 9.2, "b")], SS_CYG, NOW, never)["state"] == "unavailable"
 
 
 # ---------- episodes (ruling R5) ----------
@@ -230,6 +235,21 @@ def test_failed_alert_fetch_makes_unavailable_then_stale(make_client, clear_prov
         assert ss["state"] == "stale" and ss["checked_utc"].startswith("2026-11-02T20:00")
         assert ss["last_error"] == "Could not reach VSX (ConnectError)"
         assert len(fetch.calls) == 9
+
+
+def test_failed_refresh_turns_a_cached_alert_stale_and_clears_the_dot(make_client, clear_provider, at):
+    # Calls 1-3 (SS Cyg, T CrB, U Gem) succeed; the refresh 8 h later (calls 4-6) fails.
+    c, fetch = client_with(make_client, clear_provider, {**QUIET, "SS Cyg": bright_days(range(-2, 1))},
+                           fail_on={4, 5, 6})
+    with c:
+        j = c.get("/api/variables/alerts", params=PHILLY).json()
+        assert j["dot"] is True
+        at(NOW + timedelta(hours=8))  # the bright reports are still inside the 48 h window
+        j = c.get("/api/variables/alerts", params=PHILLY).json()
+        ss = next(a for a in j["alerts"] if a["star_id"] == "var:ss-cyg")
+        assert ss["state"] == "stale" and ss["evidence"]["observers"] == 2 and ss["visibility"] is None
+        assert ss["checked_utc"].startswith("2026-11-02T19:00") and ss["last_error"]
+        assert j["dot"] is False and len(fetch.calls) == 6
 
 
 def test_dismiss_hides_the_episode_and_a_later_episode_alerts_again(make_client, clear_provider, at):

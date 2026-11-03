@@ -3,9 +3,10 @@
 Rule: within the last 48 h of cached observations, at least ``min_observers`` distinct observers
 (by opaque hash, never returned) report a positive V/visual detection brighter than the star's
 threshold. Freshness comes from the fetch log: never fetched successfully → ``unavailable``; no
-successful fetch in 24 h or the latest fetch failed → ``stale`` (never "no change"). Evidence of an
-alert in the cached data is still reported as an ``alert`` when the data is old; ``checked_utc`` and
-``last_error`` say how old.
+successful fetch in 24 h or the latest fetch failed → ``stale`` (never "no change", and never
+"alert": ruling R12, freshness is checked first). A stale row keeps its ``evidence`` so the UI can
+say what the last data showed; ``checked_utc`` and ``last_error`` say how old it is. Only a fresh
+row is decided by the evidence: ``alert`` or ``no_change``.
 
 Episodes (ruling R5): an alert episode starts at the earliest observation of the current run of
 daily means brighter than the threshold; only a daily mean at or fainter than the threshold ends a
@@ -44,12 +45,12 @@ def evaluate(observations: list[Observation], star: dict[str, Any], now: datetim
     recent = [o for o in observations if included(o) and o.jd >= since]
     bright_observers = {o.observer_hash for o in recent if o.mag < threshold}
     last_ok = status.get("last_ok_utc")
-    if len(bright_observers) >= rule["min_observers"]:
-        state = "alert"
-    elif last_ok is None:
+    if last_ok is None:
         state = "unavailable"
     elif status.get("last_error") or now - _parse_iso(last_ok) > STALE_AFTER:
         state = "stale"
+    elif len(bright_observers) >= rule["min_observers"]:
+        state = "alert"
     else:
         state = "no_change"
     return {
