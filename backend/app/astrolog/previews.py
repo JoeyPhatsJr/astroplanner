@@ -94,7 +94,7 @@ def _decode(data: bytes, ext: str, max_pixels: int) -> tuple[np.ndarray, str]:
             im = Image.open(io.BytesIO(data), formats=("JPEG", "PNG"))
             if {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG"}[ext] != im.format:
                 raise UnsupportedImage("File content does not match its extension.")
-            fmt = im.format.lower()
+            fmt = im.format
             _check_pixels(im.width, im.height, max_pixels)
             im = ImageOps.exif_transpose(im) if im.format == "JPEG" else im
             if im.mode in ("I;16", "I;16B", "I;16L", "I", "F"):
@@ -106,14 +106,14 @@ def _decode(data: bytes, ext: str, max_pixels: int) -> tuple[np.ndarray, str]:
                 shape = tf.series[0].shape
                 dims = [d for d in shape if d > 4] or [1]
                 _check_pixels(int(np.prod(dims)), 1, max_pixels)
-                return _array_to_rgb8(_to_hwc(tf.series[0].asarray(), False)), "tiff"
+                return _array_to_rgb8(_to_hwc(tf.series[0].asarray(), False)), "TIFF"
         from astropy.io import fits
         with fits.open(io.BytesIO(data), memmap=False) as hdul:
             for hdu in hdul:
                 if getattr(hdu, "is_image", False) and hdu.header.get("NAXIS", 0) >= 2:
                     dims = [d for d in hdu.shape if d > 4] or [1]
                     _check_pixels(int(np.prod(dims)), 1, max_pixels)
-                    return _array_to_rgb8(_to_hwc(np.asarray(hdu.data), True)), "fits"
+                    return _array_to_rgb8(_to_hwc(np.asarray(hdu.data), True)), "FITS"
         raise UnsupportedImage("No image data found in the FITS file.")
     except (UnsupportedImage, ImageTooLarge):
         raise

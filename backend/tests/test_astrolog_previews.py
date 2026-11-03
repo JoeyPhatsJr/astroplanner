@@ -67,7 +67,7 @@ def test_mono_tiff_float_and_png_ok():
     assert make_previews(buf.getvalue(), "a.tiff")[2:4] == (60, 50)
     pb = io.BytesIO()
     Image.new("RGB", (40, 30)).save(pb, "PNG")
-    assert make_previews(pb.getvalue(), "a.png")[2:] == (40, 30, "png")
+    assert make_previews(pb.getvalue(), "a.png")[2:] == (40, 30, "PNG")
 
 
 def test_exif_gps_stripped():
@@ -182,7 +182,7 @@ def test_eps_named_jpg_415_nothing_stored(cl, target_id, tmp_path):
 def test_png_format_from_content_and_basename(cl, target_id):
     b = io.BytesIO(); Image.new("RGB", (20, 20)).save(b, "PNG")
     j = _post(cl, target_id, "C:\\secret\\dir/pic.png", b.getvalue()).json()
-    assert j["format"] == "PNG".lower() and j["source_filename"] == "pic.png"
+    assert j["format"] == "PNG" and j["source_filename"] == "pic.png"
     r = cl.get(f"/api/astrolog/images/{j['id']}/thumb")
     assert r.headers["x-content-type-options"] == "nosniff"
 
