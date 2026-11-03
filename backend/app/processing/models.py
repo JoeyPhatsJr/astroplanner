@@ -9,6 +9,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, _utcnow, _uuid
 
+# Where a piece of advice or a finding comes from (see rules.py for the meanings).
+Basis = Literal["measured", "siril-docs", "tutorial-default", "taste"]
+
 StepId = Literal["report", "convert", "align", "select", "stack", "background", "colour", "stretch", "finish", "compare"]
 STEP_ORDER: tuple[StepId, ...] = (
     "report", "convert", "align", "select", "stack", "background", "colour", "stretch", "finish", "compare",

@@ -11,11 +11,15 @@ basis:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Literal
+from typing import TYPE_CHECKING, Any, Callable
 
-from .models import StepId
+from .models import Basis, StepId
+from .report import LOW_STARS
 
-Basis = Literal["measured", "siril-docs", "tutorial-default", "taste"]
+if TYPE_CHECKING:
+    from .report import Report
+
+__all__ = ["Advice", "Basis", "Facts", "RULES", "Rule", "advice_for"]
 
 SIRIL_COMMANDS_URL = "https://siril.readthedocs.io/en/stable/Commands.html"
 
@@ -35,8 +39,8 @@ class Facts:
     bayer_pattern: str | None  # the one pattern shared by every frame's header, else None
     frame_count: int
     exptime_s: float | None
+    report: Report | None = None  # the night report, once a Siril folder has been read
     # Filled by later tasks; typed loosely until their dataclasses exist.
-    report: Any | None = None  # Report
     siril_stack: Any | None = None  # StackMeasurement
     seestar_stack: Any | None = None  # StackMeasurement
 
@@ -70,11 +74,54 @@ def _debayer_docs(f: Facts) -> Advice:
         basis="siril-docs", heuristic=False, source_url=SIRIL_COMMANDS_URL)
 
 
+# Heuristic: the kept-frame count from which the coach suggests sigma-clipping rejection (docs/PROCESSING.md).
+MIN_FRAMES_FOR_REJECTION = 30
+
+
+def _median_stars(f: Facts) -> float | None:
+    return f.report.medians.get("stars") if f.report is not None else None
+
+
+def _stack_count(f: Facts) -> tuple[int, str] | None:
+    """Frames that will be stacked: the kept count when known, else the aligned count (an upper bound)."""
+    if f.report is None:
+        return None
+    t = f.report.totals
+    return (t["kept"], "kept") if t.get("kept") is not None else (t["aligned"], "aligned")
+
+
+def _two_pass(f: Facts) -> Advice:
+    m = _median_stars(f)
+    return Advice(
+        rule_id="align.two_pass",
+        setting="Register with two passes (register ... -2pass)",
+        why=f"Siril found a median of {m:g} stars per aligned frame on this night, under the coach's rule-of-thumb "
+            f"level of {LOW_STARS}. Two-pass registration first picks a reference frame from the whole sequence, "
+            "then aligns every frame to it, so a frame with few stars is matched against a well-chosen reference. "
+            "This is a rule of thumb, not a Siril requirement.",
+        basis="measured", heuristic=True)
+
+
+def _rejection(f: Facts) -> Advice:
+    n, what = _stack_count(f)
+    return Advice(
+        rule_id="stack.rejection",
+        setting="Winsorized sigma clipping, 3 and 3 (stack ... rej w 3 3)",
+        why=f"With {n} {what} frames there are enough values per pixel for rejection to drop outliers such as "
+            "satellite trails and hot pixels. Siril's stack command offers winsorized sigma clipping (letter w) "
+            "with a low and a high sigma limit; 3 and 3 are common starting limits, not tuned to this night.",
+        basis="siril-docs", heuristic=True, source_url=SIRIL_COMMANDS_URL)
+
+
 RULES: tuple[Rule, ...] = (
     Rule("convert.debayer", "convert", "measured", False, None,
          lambda f: f.bayer_pattern is not None, _debayer_measured),
     Rule("convert.debayer", "convert", "siril-docs", False, SIRIL_COMMANDS_URL,
          lambda f: f.bayer_pattern is None, _debayer_docs),
+    Rule("align.two_pass", "align", "measured", True, None,
+         lambda f: (m := _median_stars(f)) is not None and m < LOW_STARS, _two_pass),
+    Rule("stack.rejection", "stack", "siril-docs", True, SIRIL_COMMANDS_URL,
+         lambda f: (c := _stack_count(f)) is not None and c[0] >= MIN_FRAMES_FOR_REJECTION, _rejection),
 )
 
 
