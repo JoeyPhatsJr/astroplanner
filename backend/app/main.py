@@ -16,13 +16,19 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import router
 from .astrolog.routes import router as astrolog_router
+from .astrolog.storage import LocalStorage, Storage
 from .db import Database
 from .weather import OpenMeteoProvider
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
-def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = None) -> FastAPI:
+DEFAULT_PREVIEWS_DIR = Path(__file__).resolve().parents[1] / "data" / "previews"
+MAX_UPLOAD_BYTES = 150 * 1024 * 1024
+
+
+def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = None,
+               storage: Storage | None = None, max_upload_bytes: int = MAX_UPLOAD_BYTES) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.db.init()
@@ -31,6 +37,8 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     app = FastAPI(title="AstroPlanner API", version="0.1.0", lifespan=lifespan)
     app.state.db = db or Database()
     app.state.weather = weather or OpenMeteoProvider()
+    app.state.storage = storage or LocalStorage(Path(os.environ.get("ASTROPLANNER_PREVIEWS_DIR") or DEFAULT_PREVIEWS_DIR))
+    app.state.max_upload_bytes = max_upload_bytes
 
     origins = [o.strip() for o in os.environ.get("ASTROPLANNER_CORS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])

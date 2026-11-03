@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from typing import Any, Literal, TypeVar
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -18,8 +19,8 @@ from sqlalchemy.orm import Session
 from app.api import get_db
 from app.db import ObservingLocation
 
-from . import importer
-from .models import CaptureFrame, Stack
+from . import importer, previews
+from .models import CaptureFrame, FinalImage, LibraryTarget, Stack
 
 router = APIRouter(prefix="/api/astrolog", tags=["astrolog"])
 
@@ -130,3 +131,109 @@ def import_suggest_location(body: Any = Body(...)) -> dict[str, Any]:
     if out is None:
         raise HTTPException(422, "These files contain no site coordinates.")
     return out
+
+
+# ---- final pictures -------------------------------------------------------------------------
+
+class StackLinkIn(BaseModel):
+    final_image_id: str = Field(..., max_length=64)
+    stack_id: str | None = Field(None, max_length=64)
+
+
+def _image_out(img: FinalImage) -> dict[str, Any]:
+    return {"id": img.id, "library_target_id": img.library_target_id, "stack_id": img.stack_id,
+            "source_filename": img.source_filename, "format": img.format, "width": img.width,
+            "height": img.height, "is_current": img.is_current, "chosen_at": img.chosen_at}
+
+
+async def _read_limited(file: UploadFile, limit: int) -> bytes:
+    mb = limit // (1024 * 1024) if limit >= 1024 * 1024 else limit / (1024 * 1024)
+    msg = f"File is too large; the limit is {mb:g} MB."
+    chunks, total = [], 0
+    while chunk := await file.read(1024 * 1024):
+        total += len(chunk)
+        if total > limit:
+            raise HTTPException(413, msg)
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+@router.post("/targets/{library_target_id}/final-image")
+async def upload_final_image(library_target_id: str, request: Request, file: UploadFile = File(...),
+                             stack_id: str | None = Form(None), db: Session = Depends(get_db)) -> dict[str, Any]:
+    limit: int = request.app.state.max_upload_bytes
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > limit + 64 * 1024:
+        raise HTTPException(413, f"File is too large; the limit is {limit // (1024 * 1024)} MB.")
+    if db.get(LibraryTarget, library_target_id) is None:
+        raise HTTPException(404, "Target not found")
+    name = (file.filename or "")[:512]
+    if "." + previews.format_of(name) not in previews.SUPPORTED_EXT:
+        raise HTTPException(415, "Unsupported file type. Use JPEG, PNG, TIFF or FITS.")
+    if stack_id is not None:
+        st = db.get(Stack, stack_id)
+        if st is None or st.library_target_id != library_target_id:
+            raise HTTPException(422, "stack_id does not belong to this target")
+    data = await _read_limited(file, limit)
+    try:
+        preview, thumb, w, h = previews.make_previews(data, name)
+    except previews.UnsupportedImage as exc:
+        raise HTTPException(415, str(exc))
+    except previews.ImageTooLarge as exc:
+        raise HTTPException(413, str(exc))
+    storage = request.app.state.storage
+    img = FinalImage(library_target_id=library_target_id, stack_id=stack_id, source_filename=name,
+                     format=previews.format_of(name), preview_key="", thumb_key="", width=w, height=h,
+                     is_current=True)
+    db.add(img)
+    db.flush()
+    img.preview_key, img.thumb_key = f"{img.id}/preview.jpg", f"{img.id}/thumb.jpg"
+    storage.put(img.preview_key, preview, "image/jpeg")
+    storage.put(img.thumb_key, thumb, "image/jpeg")
+    try:
+        for old in db.scalars(select(FinalImage).where(FinalImage.library_target_id == library_target_id,
+                                                       FinalImage.id != img.id, FinalImage.is_current.is_(True))):
+            old.is_current = False
+        db.commit()
+    except Exception:
+        db.rollback()
+        storage.delete(img.preview_key)
+        storage.delete(img.thumb_key)
+        raise
+    return _image_out(img)
+
+
+def _serve(request: Request, db: Session, image_id: str, which: str) -> Response:
+    img = db.get(FinalImage, image_id)
+    if img is None:
+        raise HTTPException(404, "Image not found")
+    try:
+        data = request.app.state.storage.get(img.preview_key if which == "preview" else img.thumb_key)
+    except KeyError:
+        raise HTTPException(404, "Image file is missing")
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
+
+
+@router.get("/images/{final_image_id}/preview")
+def image_preview(final_image_id: str, request: Request, db: Session = Depends(get_db)) -> Response:
+    return _serve(request, db, final_image_id, "preview")
+
+
+@router.get("/images/{final_image_id}/thumb")
+def image_thumb(final_image_id: str, request: Request, db: Session = Depends(get_db)) -> Response:
+    return _serve(request, db, final_image_id, "thumb")
+
+
+@router.post("/targets/{library_target_id}/stack-link")
+def stack_link(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
+    req = _validate(StackLinkIn, body)
+    img = db.get(FinalImage, req.final_image_id)
+    if img is None or img.library_target_id != library_target_id:
+        raise HTTPException(404, "Final image not found for this target")
+    if req.stack_id is not None:
+        st = db.get(Stack, req.stack_id)
+        if st is None or st.library_target_id != library_target_id:
+            raise HTTPException(404, "Stack not found for this target")
+    img.stack_id = req.stack_id
+    db.commit()
+    return _image_out(img)
