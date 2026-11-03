@@ -1,6 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import type { History } from "../api/astrolog";
+import { TargetCard } from "./targets/TargetCard";
+import type { Recommendation } from "../api/types";
+import { HistoryBadge } from "./astrolog/HistoryBadge";
 import type { SessionTarget, TonightScore } from "../api/types";
 import { pickSessionForNight, sessionTitleForNight } from "../state/activeSession";
 import { moveId, SessionTargetList } from "./session/SessionTargetList";
@@ -97,5 +102,65 @@ describe("active session selection", () => {
   });
   it("names new sessions after the night", () => {
     expect(sessionTitleForNight("2026-11-02")).toBe("Night of 2 Nov 2026");
+  });
+});
+
+const mockHistory = vi.hoisted(() => ({ data: undefined as unknown }));
+vi.mock("../api/astrolog", async (orig) => ({
+  ...(await orig<typeof import("../api/astrolog")>()),
+  useAstroLogHistory: () => ({ data: mockHistory.data }),
+}));
+
+function renderBadge(history: History | undefined, id = "ngc7635") {
+  mockHistory.data = history;
+  return render(
+    <MemoryRouter>
+      <HistoryBadge catalogId={id} />
+    </MemoryRouter>,
+  );
+}
+
+describe("HistoryBadge", () => {
+  it("shows stacked time and links to the target page", () => {
+    renderBadge({ ngc7635: { seconds: 6540, label: "stack", library_target_id: "lt1" } });
+    const el = screen.getByText("You have 1 h 49 m stacked");
+    expect(el.closest("a")).toHaveAttribute("href", "/astrolog/targets/lt1");
+  });
+  it("says captured when there is no stack", () => {
+    renderBadge({ ngc7635: { seconds: 6540, label: "captured", library_target_id: "lt1" } });
+    expect(screen.getByText("You have 1 h 49 m captured")).toBeInTheDocument();
+  });
+  it("renders nothing for targets without history", () => {
+    const { container } = renderBadge({ m31: { seconds: 60, label: "stack", library_target_id: "x" } });
+    expect(container).toBeEmptyDOMElement();
+    cleanup();
+    renderBadge(undefined);
+    expect(screen.queryByText(/You have/)).toBeNull();
+  });
+});
+
+describe("TargetCard history badge", () => {
+  const rec = {
+    target: { id: "ngc7635", name: "Bubble Nebula", primary_designation: "NGC 7635", kind: "nebula", constellation: "Cas" },
+    visibility: { best_window: null, status_text: "Not tonight", max_alt_dark_deg: null, can_observe: false },
+    score: { total: null, max_total: null, why: [], cautions: [] },
+    sparkline_alt_deg: [],
+  } as unknown as Recommendation;
+  const card = () =>
+    render(
+      <MemoryRouter>
+        <TargetCard rec={rec} tz="UTC" minAlt={30} onOpen={() => {}} onAdd={() => {}} inSession={false} adding={false} />
+      </MemoryRouter>,
+    );
+
+  it("shows the badge linking to the library target when history exists", () => {
+    mockHistory.data = { ngc7635: { seconds: 6540, label: "stack", library_target_id: "lt1" } };
+    card();
+    expect(screen.getByText("You have 1 h 49 m stacked").closest("a")).toHaveAttribute("href", "/astrolog/targets/lt1");
+  });
+  it("shows no badge without history", () => {
+    mockHistory.data = {};
+    card();
+    expect(screen.queryByText(/You have/)).toBeNull();
   });
 });

@@ -21,3 +21,4 @@ frontend/coverage/
 frontend/*.tsbuildinfo
 .superpowers/
 test-results/
+backend/data/previews/

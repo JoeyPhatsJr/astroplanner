@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useCurrentLocation, useRecommendations } from "../api/hooks";
 import type { Category, Recommendation } from "../api/types";
 import { Sparkline } from "../components/targets/Sparkline";
+import { HistoryBadge } from "../components/astrolog/HistoryBadge";
 import { ScoreChip } from "../components/targets/TargetCard";
 import { TargetDetail } from "../components/targets/TargetDetail";
 import { TargetFilters } from "../components/targets/TargetFilters";
@@ -148,6 +149,9 @@ function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: string; min
           {score.total !== null ? <ScoreChip total={score.total} max={score.max_total} /> : <span className="text-xs text-muted">–</span>}
         </span>
       </button>
+      <div className="mt-1 px-1 empty:hidden">
+        <HistoryBadge catalogId={t.id} />
+      </div>
     </li>
   );
 }

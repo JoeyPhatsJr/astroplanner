@@ -38,12 +38,13 @@ function detailMessage(body: unknown, status: number): string {
   return `Request failed (HTTP ${status})`;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
     res = await fetch(`${BASE}${path}`, {
       ...init,
-      headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+      // multipart bodies need the browser to set the boundary itself
+      headers: { ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(init?.headers ?? {}) },
     });
   } catch {
     throw new ApiError(0, "Cannot reach the AstroPlanner API. Is the backend running on port 8000?");

@@ -6,6 +6,7 @@ import { formatDateTime, formatDuration, formatTime, tzAbbrev } from "../../lib/
 import { useActiveSession } from "../../state/activeSession";
 import { usePrefs } from "../../state/prefs";
 import { AltitudeChart } from "../charts/LazyCharts";
+import { HistoryBadge } from "../astrolog/HistoryBadge";
 import { SegmentedScoreBar, ScoreBreakdown } from "../tonight/ScoreHero";
 import { ErrorState, Notice, Skeleton } from "../ui/States";
 import { ScoreChip } from "./TargetCard";
@@ -85,6 +86,7 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
               </div>
               <ScoreChip total={data.score.total} max={data.score.max_total} />
             </div>
+            <HistoryBadge catalogId={t.id} />
 
             <div className={`rounded-lg border px-3.5 py-2.5 text-sm ${v.can_observe ? "border-ice/30 text-ink-2" : "border-warn/40 text-ink-2"}`}>
               <p className="font-semibold text-ink">{v.status_text}</p>

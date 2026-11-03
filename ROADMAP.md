@@ -13,7 +13,7 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 | Phase | Name | Scope (summary) | Status |
 |---|---|---|---|
 | 1 | Core planning dashboard | Location, equipment, real forecast, Sun/Moon/target visibility, transparent scores, catalog, charts, saved session plans | ✅ **Complete**: signed off 2026-11-02 (git tag `phase-1`) |
-| **2** | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | **Design approved 2026-11-02** (`docs/superpowers/specs/2026-11-02-astrolog-design.md`); implementation plan next |
+| **2** | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | **Complete pending developer review** (branch `phase-2-astrolog`; spec `docs/superpowers/specs/2026-11-02-astrolog-design.md`) |
 | 3 | Variable Hunter | Historical light curves, variable-star research, AstroMissions | Not started |
 | 4 | Scientific image analysis | FITS processing, photometry, user-generated light curves | Not started |
 | 5 | Advanced features | Personalization, collaboration, 3D visualization, telescope integrations | Not started |
@@ -119,8 +119,7 @@ are where later phases attach; each "later" item is a note, not code.
 | Route per section, with Research Lab and AstroLog previews already in place | `frontend/src/App.tsx`, `pages/` | Each phase replaces its preview page with real functionality |
 | `DATABASE_URL` switch (SQLite ↔ Postgres/Supabase) | `db.py` | Production persistence with no code change |
 
-**Planned before the first schema change (start of Phase 2):** introduce Alembic
-migrations with a baseline of the Phase 1 schema. Phase 1 uses idempotent `create_all` + seed.
+**Done in Phase 2:** Alembic migrations with a baseline of the Phase 1 schema (an existing Phase 1 database is stamped, then upgraded).
 
 **Planned before any public deployment:** an `owner_id` on user-owned rows and JWT
 verification in FastAPI (Supabase Auth). Until then the app is single-user and local.
@@ -141,3 +140,10 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-02 | Defer deployment until the project is nearly complete | Developer direction; hosting needs depend on later phases |
 | 2026-11-02 | **Phase 1 signed off** by the developer; tagged `phase-1` | All exit items closed; 66 backend + 23 unit + 10 e2e tests and CI green |
 | 2026-11-02 | Visual theme "Clean Planetarium" (black + starfield, Inter, single blue accent) + red night-vision mode | Developer review: previous theme mixed "sci-fi" and "golden marble" personalities; chosen from three mockups. Night vision preserves dark adaptation at the telescope |
+| 2026-11-02 | Phase 2 adopts Alembic migrations (baseline + AstroLog), written for SQLite and Postgres | First schema change after Phase 1; keeps the `DATABASE_URL` seam honest |
+| 2026-11-02 | **Header slicing happens in the browser**: only FITS header blocks / CR2 first 128 KB are sent for parsing | A server cannot read a user's folders, it works the same when deployed, and image data never leaves the disk |
+| 2026-11-02 | **Header coordinates are never stored or returned**; used only to match a saved location (5 km) and pick the timezone | Privacy of the user's precise site; the only exception is a user-initiated "create location from file" that returns coordinates rounded to 0.01 degrees |
+| 2026-11-02 | **Stacks are never summed**; headline is the stack linked to the final picture, else captured time labelled "captured" | A later stack re-uses earlier frames, so adding stacks would overstate integration |
+| 2026-11-02 | **Stack-only targets are shown**; their captured time is unknown (null), never 0, and the latest stack is the headline until a final picture is linked | Hiding real integration time or showing "0 s captured" would both be wrong |
+| 2026-11-02 | **Re-import never moves already-imported frames**; groups with no new frames create nothing; corrections go through the target page | Prevents phantom nights/targets and duplicates; a "move captures" feature is a possible later addition |
+| 2026-11-02 | Imported observations are never deleted as a side effect (foreign keys RESTRICT; deleting a session with capture sets returns 409) | The user's records are the product |

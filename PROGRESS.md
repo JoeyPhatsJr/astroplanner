@@ -2,10 +2,75 @@
 
 _Last updated: 2026-11-02 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
-## Current phase: Phase 2, AstroLog (planning)
+## Current phase: Phase 2, AstroLog: complete pending developer review
 
-Phase 2 follows ROADMAP.md steps 1–6: review, brainstorm, propose, risks, plan with
-acceptance criteria, then **wait for approval** before any implementation.
+Branch `phase-2-astrolog` (not yet merged). Spec: `docs/superpowers/specs/2026-11-02-astrolog-design.md`.
+
+| Area | Status | Evidence |
+|---|---|---|
+| Alembic migrations (baseline + AstroLog), SQLite and Postgres | done | `backend/migrations/`, `tests/test_migrations.py` (Postgres test runs in CI via `TEST_POSTGRES_URL`) |
+| FITS / CR2 header and filename parsing | done | `app/astrolog/headers.py`, `tests/test_astrolog_headers.py` |
+| Header-based import preview and commit (nights, capture sets, dedup, plan attach) | done | `importer.py`, `tests/test_astrolog_import.py` |
+| Final-picture previews (metadata-free) | done | `previews.py`, `tests/test_astrolog_previews.py` |
+| Library, target page, history, plan vs actual | done | `library.py`, `tests/test_astrolog_library.py` |
+| Local real-data acceptance (AC 1, 2, 4, 5) | done | `tests/test_astrolog_real_data.py`, 6 passed locally |
+| Folder import UI (headers sliced in the browser) | done | `AstroLogImportPage.tsx`, `lib/headerSlice.ts` |
+| Library and target pages, nights page | done | `LibraryPage.tsx`, `TargetLogPage.tsx`, `AstroLogPage.tsx` |
+| "You have ... stacked/captured" badge on Tonight and Explore cards | done | `HistoryBadge.tsx`; e2e-verified on Explore, unit-tested on the shared card (Tonight uses the same card; not e2e-checked because Tonight shows only that night's recommendations) |
+| End-to-end import test, docs, Phase 1 regression | done | `frontend/e2e/astrolog.spec.ts`, screenshots in `docs/screenshots/` |
+
+### Final review fixes (2026-11-02)
+
+The whole-branch review's four important findings and seven minors are fixed
+(`.superpowers/sdd/2026-11-02-astrolog/final-fixes-report.md`):
+"% used" now divides by the frames inside the linked stack's EXPSTART–EXPEND (returned as
+`frames_in_stack_range`) and is hidden when that can't be computed; Canon ISO, f-number, focal
+length and lens are stored (migration `0004_capture_exif`) and shown with their EXIF keys;
+nights show local first → last frame times and per-frame exposure, and imported sessions get
+start/end from their frames; "Move to Unsorted" merges into one Unsorted group (PATCH on it is 409).
+Minors: stack suggestion from the chosen file name, "in the latest stack" wording, "nights unknown",
+`formatIntegration` flooring, clearer night-delete 409, small UI cleanups, stronger migration tests.
+
+### Commands last run (all passing, 2026-11-02, after the final review fixes)
+
+```
+backend:  .venv/bin/python -m pytest -q          → 198 passed, 7 skipped
+frontend: npm run typecheck                       → ok
+frontend: npm test                                → 69 passed (7 files)
+frontend: npm run build                           → ok
+frontend: npx playwright test                     → 12 passed (10 Phase 1 smoke + 2 AstroLog import, desktop + mobile)
+local:    ASTROPLANNER_REAL_DATA=<folder> pytest tests/test_astrolog_real_data.py -v
+                                                  → 6 passed (the 6 backend skips are these; the 7th is the Postgres test)
+```
+
+Phase 1 remains green: 66 backend tests, 23 unit tests and 10 smoke tests are all still in the totals above.
+Screenshots (`astrolog-library-desktop.png`, `astrolog-target-desktop.png`) use synthetic data only.
+
+### Known limitations (Phase 2)
+
+- Only Seestar S30 FITS and Canon CR2 are understood; other cameras' files are skipped with a reason. Canon model names from other regions (EU/JP) are not matched to the seeded Canon profile.
+- A re-import never moves frames that are already imported. To fix a wrong set name or target, change it on the target page; to fix a wrong location you would have to delete the captures and import again.
+- A multi-batch commit (more than 300 files) is not atomic. If it stops part way, the review shows what is still new and a retry is safe because frames are de-duplicated. After such a failure the names, "Unsorted" choices and plan choices you made on the review screen are reset.
+- If you leave the Settings round-trip ("create location from file") without coming back, a later visit to Import can reopen the old folder's review.
+- Final-picture upload: the file is spooled before the 150 MB check, so a huge upload uses temporary disk first. Colour profiles are not converted to sRGB, the TIFF orientation tag is ignored, and a CMYK TIFF loses its fourth plane. Only a preview is kept, never the original.
+- Two simultaneous final-picture uploads for one target on Postgres could leave two "current" pictures.
+- Deleting a session that has capture sets returns 409 by design. Under a simultaneous import the check could return 500 instead.
+- No cross-process migration lock; revisit at deployment. Deployment is still deferred.
+- Canon frames imported before migration 0004 have no ISO / f-number / focal length / lens stored; re-importing does not back-fill them (frames are never rewritten).
+- "% used" on the real Bubble Nebula data is 654 of 1,012 (65%), not the 64% in acceptance criterion 2: the last 3 of the 1,015 lights start after the stack's EXPEND, and spec §7a defines the denominator as the frames inside EXPSTART–EXPEND.
+
+## Phase 2 exit items
+
+- [x] All implementation tasks complete with review
+- [x] Full suites and local real-data acceptance run (above)
+- [ ] Developer review of the branch, then merge and push (controller)
+- [ ] CI green on push (Postgres migration test only runs there)
+
+## Exact next step
+
+Developer reviews `phase-2-astrolog` (try Import on a real folder, view the library and a target page, check the
+Tonight/Explore badge). After sign-off: merge, push, confirm CI, tag `phase-2`. Then start Phase 3 planning
+(ROADMAP.md steps 1–6; no code before approval).
 
 ## Phase 1, core planning dashboard: ✅ complete (signed off 2026-11-02, tag `phase-1`)
 
@@ -79,7 +144,7 @@ never visible, no forecast, normalization ✅ · 12 README + architecture + next
 - Weather cache is in-process memory; model run time is not available from the endpoint used.
 - Score weights are heuristics, uncalibrated against real outcomes.
 - E2E tests call live Open-Meteo; they tolerate either a forecast or an explicit unavailable state.
-- Schema uses `create_all`; Alembic baseline planned at the start of Phase 2 (see ROADMAP).
+- (Closed in Phase 2: schema now uses Alembic migrations.)
 
 ## Phase 1 exit items (all closed)
 
@@ -87,9 +152,3 @@ never visible, no forecast, normalization ✅ · 12 README + architecture + next
       (backend, frontend, e2e jobs; run 41532298528)
 - [x] Deployment: deferred until the project is nearly complete (ROADMAP.md, "Deployment")
 - [x] Phase 1 review with the developer → signed off 2026-11-02 (after theme feedback was addressed)
-
-## Exact next step
-
-Start Phase 2 (AstroLog) planning with the developer: step 1 (review the Phase 1 codebase
-and what AstroLog can build on) and step 2 (brainstorm the logging experience). No Phase 2
-code until the plan and acceptance criteria are approved (ROADMAP.md step 6).

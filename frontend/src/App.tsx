@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Link, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { EmptyState } from "./components/ui/States";
@@ -9,7 +9,15 @@ import { TonightPage } from "./pages/TonightPage";
 const ExplorePage = lazy(() => import("./pages/ExplorePage").then((m) => ({ default: m.ExplorePage })));
 const ResearchLabPage = lazy(() => import("./pages/ResearchLabPage").then((m) => ({ default: m.ResearchLabPage })));
 const AstroLogPage = lazy(() => import("./pages/AstroLogPage").then((m) => ({ default: m.AstroLogPage })));
+const LibraryPage = lazy(() => import("./pages/LibraryPage").then((m) => ({ default: m.LibraryPage })));
+const TargetLogPage = lazy(() => import("./pages/TargetLogPage").then((m) => ({ default: m.TargetLogPage })));
+const AstroLogImportPage = lazy(() => import("./pages/AstroLogImportPage").then((m) => ({ default: m.AstroLogImportPage })));
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
+
+function NightRedirect() {
+  const { sessionId } = useParams();
+  return <Navigate to={`/astrolog/nights/${sessionId ?? ""}`} replace />;
+}
 
 function PageLoading() {
   return (
@@ -29,8 +37,12 @@ export default function App() {
             <Route path="/" element={<TonightPage />} />
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/research" element={<ResearchLabPage />} />
-            <Route path="/astrolog" element={<AstroLogPage />} />
-            <Route path="/astrolog/:sessionId" element={<AstroLogPage />} />
+            <Route path="/astrolog" element={<LibraryPage />} />
+            <Route path="/astrolog/targets/:targetId" element={<TargetLogPage />} />
+            <Route path="/astrolog/import" element={<AstroLogImportPage />} />
+            <Route path="/astrolog/nights" element={<AstroLogPage />} />
+            <Route path="/astrolog/nights/:sessionId" element={<AstroLogPage />} />
+            <Route path="/astrolog/:sessionId" element={<NightRedirect />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route
               path="*"

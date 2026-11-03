@@ -36,7 +36,7 @@ test("Add targets, reorder, reload persists, delete with confirmation", async ({
   await expect(page.getByRole("button", { name: `${second} is in your session` }).first()).toBeVisible();
 
   // Manage the session on its AstroLog page (works at every viewport)
-  await page.goto("/astrolog");
+  await page.goto("/astrolog/nights");
   await page.getByRole("link", { name: /Night of/ }).first().click();
   const list = page.getByRole("list", { name: "Session targets in order" });
   await expect(list.getByRole("listitem")).toHaveCount(2);
@@ -63,7 +63,7 @@ test("Add targets, reorder, reload persists, delete with confirmation", async ({
 
   await deleteBtn.click();
   await page.getByRole("dialog").getByRole("button", { name: "Delete session" }).click();
-  await expect(page).toHaveURL(/\/astrolog$/);
+  await expect(page).toHaveURL(/\/astrolog\/nights$/);
 });
 
 test("Explore search opens a target with its altitude chart", async ({ page }) => {

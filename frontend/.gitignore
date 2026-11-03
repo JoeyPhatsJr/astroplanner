@@ -6,3 +6,4 @@ dist
 e2e/.e2e.db
 test-results/
 playwright-report/
+e2e/.previews/

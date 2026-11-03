@@ -2,6 +2,7 @@ import { AlertTriangle, Check, Plus } from "lucide-react";
 import type { Recommendation } from "../../api/types";
 import { formatDeg } from "../../lib/format";
 import { formatTime, tzAbbrev } from "../../lib/time";
+import { HistoryBadge } from "../astrolog/HistoryBadge";
 import { Sparkline } from "./Sparkline";
 
 export function ScoreChip({ total, max }: { total: number | null; max: number | null }) {
@@ -65,6 +66,8 @@ export function TargetCard({
         </div>
         <Sparkline values={rec.sparkline_alt_deg} minAlt={minAlt} />
       </div>
+
+      <HistoryBadge catalogId={t.id} />
 
       {score.why.length > 0 && (
         <ul className="flex flex-col gap-1 text-[0.8rem] leading-snug text-ink-2">

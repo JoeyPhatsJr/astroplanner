@@ -17,8 +17,10 @@
 │   ├─ weather.py    Open-Meteo adapter, cache, grid alignment    │
 │   ├─ geo.py        place search (Open-Meteo), timezone lookup   │
 │   ├─ catalog.py    58 OpenNGC-derived targets (targets.json)    │
-│   └─ db.py         SQLAlchemy models: locations, equipment,     │
-│                    sessions, session_targets                    │
+│   ├─ db.py         SQLAlchemy models: locations, equipment,     │
+│   │                sessions, session_targets                    │
+│   └─ astrolog/     Phase 2: headers, importer, library,         │
+│                    previews, storage, routes (/api/astrolog)    │
 └──────────────┬──────────────────────────────┬───────────────────┘
                │                              │
       SQLite (local dev)            Open-Meteo Forecast / Geocoding
@@ -47,13 +49,63 @@
 6. **Verified presets are immutable.** The Seestar S30 preset is re-seeded on
    startup and rejected by PATCH/DELETE (403); users duplicate it to customise.
 
+## AstroLog (Phase 2)
+
+Package `backend/app/astrolog/`:
+
+| Module | Role |
+|---|---|
+| `headers.py` | Parses FITS header slices (Astropy) and CR2 EXIF slices (exifread); classifies sub / stack / other; filename fallbacks |
+| `importer.py` | Preview and commit: grouping, night assignment, location matching, dedup, plan attachment |
+| `library.py` | Library, target page, history badge data; headline and "% used" rules |
+| `previews.py` | Final-picture decode (Pillow / tifffile / Astropy), 1600 px preview + 400 px thumbnail, metadata-free |
+| `storage.py` | Small storage interface; `LocalStorage` writes under `ASTROPLANNER_PREVIEWS_DIR` (default `backend/data/previews/`, gitignored). Supabase Storage can implement it later |
+| `models.py`, `routes.py` | Tables `library_targets`, `capture_sets`, `capture_frames`, `stacks`, `final_images`; routes under `/api/astrolog` |
+
+Import flow:
+
+```
+browser                                         backend
+  pick / drop folder
+  classify by path (ignore process/, pp_, r_, .seq, .txt, .mp4 ...)
+  slice headers only (FITS: 2880-byte blocks to END, max 10;
+                      CR2: first 128 KB)          ──► POST /import/preview   (batches of 300)
+                                                      parse, match saved location (≤ 5 km),
+  review screen: groups, frames, new vs known    ◄──  assign night, dedup against the database
+  (needs_location → pick a saved location)
+  confirm                                         ──► POST /import/commit
+                                                      insert only new frames/stacks, attach to
+  open the target page                           ◄──  a plan if one matches
+```
+
+Image data never leaves the disk: the browser sends header bytes only. The single uploaded
+image is the optional final picture (`POST /targets/{id}/final-image`), from which the backend
+stores a metadata-free preview and thumbnail.
+
+**Privacy rule.** Coordinates read from files (`SITELAT`/`SITELONG`) are used only inside the
+request to pick the timezone and match a saved location. They are never stored, returned,
+logged or written into previews. The one sanctioned exception is `POST /import/suggest-location`,
+called only when the user asks to create a location from the file; it returns coordinates
+rounded to 0.01 degrees. Tests check preview/commit/library responses and preview bytes for the
+header coordinates.
+
+Other rules: unknown values stay `null` and the UI says "unknown"; stack times are never summed
+(headline = the stack linked to the current final picture, else the latest stack for a target with
+no frames, else captured time labelled "captured"); a re-import never moves already-imported frames
+(corrections go through `PATCH /targets/{id}`); imported observations are never deleted as a side effect
+(foreign keys are RESTRICT, and deleting a session that has capture sets returns 409).
+
 ## Persistence
 
-- Tables: `observing_locations`, `equipment_profiles`, `sessions`,
-  `session_targets` (spec §6, Phase 1 subset only).
-- Schema creation is `metadata.create_all` (idempotent) plus an idempotent
-  `seed()`. Alembic migrations should be introduced with the first schema change
-  after Phase 1 (AstroLog will add columns/tables).
+- Phase 1 tables: `observing_locations`, `equipment_profiles`, `sessions`,
+  `session_targets`. Phase 2 adds the AstroLog tables above plus an `app_meta` table
+  (one-time seeding flags such as the Canon profile).
+- **Migrations are Alembic** (`backend/migrations/versions/`): `0001_phase1_baseline`,
+  `0002_astrolog`, `0003_library_target_coords`, `0004_capture_exif` (Canon ISO / f-number /
+  focal length per frame, lens per capture set; all nullable). The app upgrades to head at startup, and an
+  existing Phase 1 database (no version table) is stamped at the baseline first. Migrations are
+  written for both SQLite and Postgres; a test runs them on Postgres when `TEST_POSTGRES_URL` is set.
+  Revisions are hand-written (no autogenerate), and a test compares the ORM schema with the migrated one.
 - UI preferences (selected location/equipment/night, min altitude, darkness)
   live in browser `localStorage`; entities live in the database.
 

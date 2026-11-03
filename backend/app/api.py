@@ -12,9 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from . import catalog, geo
+from .astrolog.library import capture_info, session_capture_info
+from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
 from .db import Database, EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
 from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, target_score, tonight_score
@@ -511,9 +513,11 @@ def _session_target_out(st: SessionTarget) -> dict[str, Any]:
     }
 
 
-def _session_out(s: ObservingSession, with_targets: bool = True) -> dict[str, Any]:
+def _session_out(s: ObservingSession, with_targets: bool = True,
+                 info: tuple[list[dict[str, Any]], list[str]] | None = None) -> dict[str, Any]:
     out = {c: getattr(s, c) for c in ("id", "title", "location_id", "equipment_id", "local_night_date", "start_utc",
-                                      "end_utc", "status", "notes", "created_at", "updated_at")}
+                                      "end_utc", "status", "notes", "source", "created_at", "updated_at")}
+    out["capture_sets"], out["not_shot"] = info or session_capture_info(object_session(s), s)
     out["target_count"] = len(s.targets)
     if with_targets:
         out["targets"] = [_session_target_out(st) for st in sorted(s.targets, key=lambda x: x.sort_order)]
@@ -538,7 +542,9 @@ def _get_session(db: Session, session_id: str) -> ObservingSession:
 def list_sessions(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
     rows = db.scalars(select(ObservingSession).order_by(ObservingSession.local_night_date.desc(),
                                                         ObservingSession.created_at.desc()))
-    return [_session_out(s, with_targets=True) for s in rows]
+    rows = list(rows)
+    infos = capture_info(db, [s.id for s in rows])
+    return [_session_out(s, with_targets=True, info=infos[s.id]) for s in rows]
 
 
 @router.post("/sessions", status_code=201)
@@ -570,7 +576,10 @@ def update_session(session_id: str, body: SessionPatch, db: Session = Depends(ge
 
 @router.delete("/sessions/{session_id}", status_code=204)
 def delete_session(session_id: str, db: Session = Depends(get_db)) -> Response:
-    db.delete(_get_session(db, session_id))
+    s = _get_session(db, session_id)
+    if db.scalar(select(func.count()).select_from(CaptureSet).where(CaptureSet.session_id == session_id)):
+        raise HTTPException(409, "This night has imported captures, so it can't be deleted.")
+    db.delete(s)
     db.commit()
     return Response(status_code=204)
 

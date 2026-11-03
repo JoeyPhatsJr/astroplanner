@@ -6,7 +6,7 @@ import type { ObservingSession, SessionStatus } from "../api/types";
 import { SessionTargetList } from "../components/session/SessionTargetList";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
-import { formatCalendarDate, nightLabel } from "../lib/time";
+import { formatCalendarDate, formatExposures, formatIntegration, formatLocalSpan, nightLabel } from "../lib/time";
 import { usePrefs } from "../state/prefs";
 
 const STATUS_LABEL: Record<SessionStatus, string> = { planned: "Planned", completed: "Completed", cancelled: "Cancelled" };
@@ -28,7 +28,7 @@ export function AstroLogPage() {
     const s = list.find((x) => x.id === sessionId);
     if (!s)
       return (
-        <EmptyState title="Session not found" action={<Link to="/astrolog" className="btn">Back to sessions</Link>}>
+        <EmptyState title="Session not found" action={<Link to="/astrolog/nights" className="btn">Back to nights</Link>}>
           It may have been deleted.
         </EmptyState>
       );
@@ -41,13 +41,12 @@ function SessionList({ sessions }: { sessions: ObservingSession[] }) {
   return (
     <div className="mx-auto flex max-w-[960px] flex-col gap-5">
       <div>
-        <h1 className="font-semibold tracking-tight text-3xl  md:text-[2.4rem]">AstroLog</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-2">Your saved session plans. Logging what you actually captured, with notes and images, arrives in Phase 2.</p>
+        <Link to="/astrolog" className="inline-flex items-center gap-1.5 text-sm text-ice hover:underline">
+          <ArrowLeft className="size-4" aria-hidden /> Library
+        </Link>
+        <h1 className="mt-1 font-semibold tracking-tight text-3xl  md:text-[2.4rem]">Nights</h1>
+        <p className="mt-1 max-w-prose text-sm text-ink-2">Every night you planned or imported, newest first.</p>
       </div>
-      <Notice>
-        <span className="font-semibold text-ink">Coming in Phase 2 (AstroLog):</span> mark a session completed with actual start/end times, integration time, notes,
-        image uploads, equipment history and a personal library.
-      </Notice>
       {sessions.length === 0 ? (
         <EmptyState icon={<BookOpen className="size-6" />} title="No saved sessions yet" action={<Link to="/" className="btn btn-primary">Plan tonight</Link>}>
           Add a target from Tonight or Explore and a session plan is created and saved automatically.
@@ -56,7 +55,7 @@ function SessionList({ sessions }: { sessions: ObservingSession[] }) {
         <ul className="flex flex-col gap-2">
           {sessions.map((s) => (
             <li key={s.id}>
-              <Link to={`/astrolog/${s.id}`} className="panel flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:border-ice/40">
+              <Link to={`/astrolog/nights/${s.id}`} className="panel flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:border-ice/40">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium text-ink">{s.title}</span>
                   <span className="block text-xs text-muted">{nightLabel(s.local_night_date)}</span>
@@ -106,15 +105,20 @@ function SessionDetail({ session }: { session: ObservingSession }) {
       destructive: true,
     });
     if (!ok) return;
-    await m.remove.mutateAsync(session.id);
+    try {
+      await m.remove.mutateAsync(session.id);
+    } catch {
+      return; // shown through m.remove.error
+    }
     if (prefs.activeSessionId === session.id) update({ activeSessionId: null });
-    navigate("/astrolog");
+    navigate("/astrolog/nights");
   };
+  const hasCaptures = (session.capture_sets ?? []).length > 0;
 
   return (
     <div className="mx-auto flex max-w-[860px] flex-col gap-5">
-      <Link to="/astrolog" className="inline-flex items-center gap-1.5 self-start text-sm text-ice hover:underline">
-        <ArrowLeft className="size-4" aria-hidden /> All sessions
+      <Link to="/astrolog/nights" className="inline-flex items-center gap-1.5 self-start text-sm text-ice hover:underline">
+        <ArrowLeft className="size-4" aria-hidden /> All nights
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -137,7 +141,13 @@ function SessionDetail({ session }: { session: ObservingSession }) {
               Open night of {formatCalendarDate(session.local_night_date)}
             </button>
           )}
-          <button type="button" className="btn text-warn" onClick={del}>
+          <button
+            type="button"
+            className="btn text-warn"
+            onClick={() => void del()}
+            disabled={hasCaptures || m.remove.isPending}
+            title={hasCaptures ? "This night has imported captures, so it can't be deleted." : undefined}
+          >
             <Trash2 className="size-4" aria-hidden /> Delete
           </button>
         </div>
@@ -173,7 +183,7 @@ function SessionDetail({ session }: { session: ObservingSession }) {
             >
               <option value="planned">Planned</option>
               <option value="cancelled">Cancelled</option>
-              <option value="completed">Completed (logging details arrive in Phase 2)</option>
+              <option value="completed">Completed</option>
             </select>
           </div>
           <button type="button" className="btn btn-primary ml-auto self-end" disabled={!dirty || m.update.isPending} onClick={save}>
@@ -184,6 +194,8 @@ function SessionDetail({ session }: { session: ObservingSession }) {
           </span>
         </div>
       </section>
+
+      <CaptureSummary session={session} tz={loc?.timezone ?? null} />
 
       <section className="panel flex flex-col gap-3 p-5" aria-labelledby="sd-targets">
         <h2 id="sd-targets" className="font-semibold tracking-tight text-xl">
@@ -208,5 +220,52 @@ function SessionDetail({ session }: { session: ObservingSession }) {
         )}
       </section>
     </div>
+  );
+}
+
+function CaptureSummary({ session, tz }: { session: ObservingSession; tz: string | null }) {
+  const sets = session.capture_sets ?? [];
+  const notShot = session.not_shot ?? [];
+  if (!sets.length && !notShot.length) return null;
+  // not_shot ids are catalog ids of this session's planned targets; their catalog summary is in the payload.
+  const names = new Map(session.targets.map((t) => [t.target_id, t.target?.name ?? t.target?.primary_designation ?? t.target_id]));
+  return (
+    <>
+      {sets.length > 0 && (
+        <section className="panel flex flex-col gap-3 p-5" aria-labelledby="sd-shot">
+          <h2 id="sd-shot" className="font-semibold tracking-tight text-xl">
+            Shot
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {sets.map((c, i) => (
+              <li key={`${c.library_target_id}-${i}`}>
+                <Link to={`/astrolog/targets/${c.library_target_id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line px-3 py-2 hover:border-ice/40">
+                  <span className="min-w-0 flex-1 truncate font-medium text-ink">{c.display_name}</span>
+                  <span className="badge">{c.device}</span>
+                  <span className="text-sm text-ink-2">
+                    {formatExposures(c.frames, c.exptimes_s ?? [])} · {formatIntegration(c.captured_s)} captured
+                  </span>
+                  {c.first_utc && c.last_utc && (
+                    <span className="w-full text-xs text-muted">{formatLocalSpan(c.first_utc, c.last_utc, tz)}</span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {notShot.length > 0 && (
+        <section className="panel flex flex-col gap-3 p-5" aria-labelledby="sd-notshot">
+          <h2 id="sd-notshot" className="font-semibold tracking-tight text-xl">
+            Planned, not shot
+          </h2>
+          <ul className="flex flex-col gap-1.5 text-sm text-ink-2">
+            {notShot.map((id) => (
+              <li key={id}>{names.get(id) ?? id}</li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
   );
 }

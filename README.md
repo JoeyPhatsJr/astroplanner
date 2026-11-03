@@ -22,10 +22,36 @@ It is tuned first for the **ZWO Seestar S30** (original, not the S30 Pro).
 - **Settings:** city search or manual coordinates with timezone detection (opt-in browser
   geolocation), the read-only **verified S30 preset** plus custom equipment, and observing
   preferences (minimum altitude, astronomical vs nautical darkness).
-- **Research Lab / AstroLog:** honest previews of later phases (no fake data or controls).
+- **Research Lab:** an honest preview of a later phase (no fake data or controls).
 - **Night vision:** one toggle turns the whole app dim red to protect dark-adapted eyes at the telescope.
 
 ![Night-vision mode](docs/screenshots/tonight-night-vision.png)
+
+## AstroLog (Phase 2)
+
+A target-first library of what you have actually shot. Import a folder of **Seestar S30 FITS**
+or **Canon CR2** files and AstroLog reads only each file's header: in your browser, never the
+image data. It groups frames into nights (local noon to noon) and capture sets, and shows for
+every target the **time in the final stack** (or the **captured** time, labelled as such) beside
+your finished picture.
+
+- **Library** (`/astrolog`): one tile per target with the final picture, headline time and number of nights.
+- **Target page:** final picture, time on target, "654 of 1,012 frames used" when the stack's frame range is known
+  (the denominator is the captured frames inside that stack's EXPSTART–EXPEND), header-derived facts with the header
+  key each came from (Canon: camera, lens, exposure, ISO, f-number, focal length from EXIF), and the nights that
+  contributed with their local first → last frame times and per-frame exposure. Upload a final picture
+  (JPEG, PNG, TIFF or FITS, up to 150 MB) and link it to the stack it came from. Only a
+  metadata-free preview (about 1600 px) and a thumbnail are kept.
+- **Import** (`/astrolog/import`): choose or drop a folder, review what was found, then commit. Re-importing a
+  folder after adding frames adds only the new ones; nothing doubles. Unreadable files are listed as skipped with a reason.
+- **Nights** (`/astrolog/nights`): sessions as logs, attached to a plan you made in Tonight when one matches. Planned targets you did not shoot are shown as "not shot". A night with imported captures can't be deleted.
+- **Unsorted:** there is one Unsorted group. "Move to Unsorted" on a custom target merges it into that group.
+- **Planner badge:** Tonight and Explore cards show "You have 1 h 49 m stacked" (or "captured") for targets already in your library.
+- **Privacy:** coordinates inside files are used only to pick a saved location and are never stored or returned.
+  Unknown values stay "unknown"; nothing is estimated. Stacks are never summed.
+
+![AstroLog library (synthetic data)](docs/screenshots/astrolog-library-desktop.png)
+![Target page (synthetic data)](docs/screenshots/astrolog-target-desktop.png)
 
 ## Accuracy
 
@@ -61,19 +87,31 @@ Optional environment variables:
 |---|---|---|
 | `DATABASE_URL` | unset → SQLite at `backend/data/astroplanner.db` | Postgres (e.g. Supabase) connection string |
 | `ASTROPLANNER_DB` | `backend/data/astroplanner.db` | SQLite path when `DATABASE_URL` is unset |
+| `ASTROPLANNER_PREVIEWS_DIR` | `backend/data/previews` | Where final-picture previews and thumbnails are stored |
 | `ASTROPLANNER_CORS` | `http://localhost:5173,http://127.0.0.1:5173` | Allowed browser origins |
 
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q        # 66 tests: astronomy references, DST, scoring, weather, API
-cd frontend && npm run typecheck && npm test       # 23 tests: timezone/DST formatting, RA/Dec, components
+cd backend && .venv/bin/python -m pytest -q        # 179 passed, 6 skipped (astronomy references, scoring, weather, API, AstroLog, migrations)
+cd frontend && npm run typecheck && npm test       # 49 tests: time formatting, header slicing, import merge, components
 cd frontend && npm run build
-cd frontend && npx playwright install chromium && npm run test:e2e   # 10 end-to-end smoke tests (desktop + mobile)
+cd frontend && npx playwright install chromium && npm run test:e2e   # 12 end-to-end tests (10 Phase 1 smoke + AstroLog import), desktop + mobile
 ```
 
-The end-to-end suite starts its own backend (fresh SQLite file) and Vite server on ports
-8100/5180, so it never touches your dev servers or data.
+The end-to-end suite starts its own backend (fresh SQLite file and preview folder under
+`frontend/e2e/`) and Vite server on ports 8100/5180, so it never touches your dev servers or data.
+It builds its FITS files itself with dummy coordinates.
+
+The 6 skipped backend tests are 5 local real-data checks and 1 Postgres migration test (runs when
+`TEST_POSTGRES_URL` is set; CI provides it). To run the real-data acceptance checks against your own
+folder of Seestar and Canon files (read-only, header slices only, prints no coordinates or serial numbers):
+
+```bash
+cd backend && ASTROPLANNER_REAL_DATA=<your folder> .venv/bin/python -m pytest tests/test_astrolog_real_data.py -v
+```
+
+Without the variable they are skipped, so CI never needs your files.
 
 Development follows the phased plan in [ROADMAP.md](ROADMAP.md); current status is in [PROGRESS.md](PROGRESS.md).
 

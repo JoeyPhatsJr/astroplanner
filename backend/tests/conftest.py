@@ -7,6 +7,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.astrolog.storage import LocalStorage
 from app.db import Database
 from app.main import create_app
 from app.weather import HOURLY_VARS, OpenMeteoProvider
@@ -54,9 +55,9 @@ def failing_provider():
 
 @pytest.fixture
 def make_client(tmp_path):
-    def _make(provider, db_path=None):
+    def _make(provider, db_path=None, **kw):
         db = Database(f"sqlite:///{db_path or tmp_path / 'test.db'}")
-        return TestClient(create_app(db=db, weather=provider))
+        return TestClient(create_app(db=db, weather=provider, storage=LocalStorage(tmp_path / "previews"), **kw))
     return _make
 
 
