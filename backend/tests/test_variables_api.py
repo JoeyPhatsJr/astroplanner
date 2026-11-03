@@ -75,7 +75,7 @@ def test_injected_aavso_enables_and_adds_observation_attribution(make_client, cl
         assert j["aavso"]["enabled"] is True and j["aavso"]["mode"] == "injected"
         assert len(j["attribution"]) == 2 and j["attribution"][0] == VSX_SENTENCE
         out = {m["key"]: m for m in j["missions"]}["outburst"]
-        assert out["available"] is False and out["reason"] == "Outburst windows not computed yet"
+        assert out["available"] is True and out["progress"] == 0 and "reason" not in out  # Task 7 (ruling R6)
         assert c.get("/api/variables").json()["aavso"]["enabled"] is True
 
 

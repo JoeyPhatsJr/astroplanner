@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from typing import Any
 
 from sqlalchemy import select
 
 from app.astrolog.models import CaptureSet, LibraryTarget
 from app.db import Database, ObservingSession
+from app.variables import cache, curve
 
 
 def star_nights(db: Database, star_id: str) -> list[date]:
@@ -50,3 +52,27 @@ def monthly_count(nights: list[date], today: date, months: int = 6) -> int:
 def outburst_nights(nights: list[date], windows: list[tuple[date, date]]) -> int:
     """Most nights falling inside any single window (inclusive)."""
     return max((sum(1 for n in nights if a <= n <= b) for a, b in windows), default=0)
+
+
+def outburst_windows(daily: list[curve.DailyMean], threshold: float) -> list[tuple[date, date]]:
+    """Runs of consecutive UT days whose daily mean is brighter than ``threshold`` (a day without data ends a run)."""
+    out: list[tuple[date, date]] = []
+    for d in daily:
+        if d.mean >= threshold:
+            continue
+        if out and out[-1][1] + timedelta(days=1) == d.day:
+            out[-1] = (out[-1][0], d.day)
+        else:
+            out.append((d.day, d.day))
+    return out
+
+
+def cached_outburst_windows(db: Database, star: dict[str, Any], nights: list[date]) -> list[tuple[date, date]]:
+    """Outburst windows from the cached AAVSO daily means around the developer's nights (none → no query)."""
+    if not nights or not star.get("alert"):
+        return []
+    lo = cache.to_jd(datetime.combine(min(nights) - timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc))
+    hi = cache.to_jd(datetime.combine(max(nights) + timedelta(days=2), datetime.min.time(), tzinfo=timezone.utc))
+    with db.session() as s:
+        _, rows = curve.load_points(s, star["id"], lo, hi)
+    return outburst_windows(curve.daily_means((jd, mag) for jd, mag, _ in rows), star["alert"]["brighter_than"])
