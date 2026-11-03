@@ -20,6 +20,7 @@ export interface TargetRef {
 
 export interface PreviewGroup {
   group_key: string;
+  is_canon: boolean;
   night_date: string | null;
   device: string;
   target: TargetRef;
@@ -78,6 +79,7 @@ export interface PreviewRequest {
 
 export interface CommitRequest extends PreviewRequest {
   plan_session_id?: string | null;
+  plan_choices?: Record<string, string>;
   canon_set_names?: Record<string, string>;
   unsorted_groups?: string[];
 }

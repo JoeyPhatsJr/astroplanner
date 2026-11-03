@@ -1,6 +1,6 @@
 import { FolderOpen, MapPin, Upload } from "lucide-react";
-import { useCallback, useMemo, useRef, useState, type DragEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   astrologApi,
   type CommitResponse,
@@ -9,17 +9,17 @@ import {
   type PreviewResponse,
   type SkippedItem,
 } from "../api/astrolog";
-import { qk, useLocations } from "../api/hooks";
+import { qk, useLocations, useSessions } from "../api/hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { batch, classifyFile, readExifSlice, readFitsHeader } from "../lib/headerSlice";
-import { formatCalendarDate, formatDateTime } from "../lib/time";
+import { mergeGroups } from "../lib/importMerge";
+import { formatCalendarDate, formatDateTime, nightLabel } from "../lib/time";
 
 type PickedFile = { file: File; path: string };
 
 interface Review {
-  batches: ImportItem[][];
-  previews: PreviewResponse[]; // one per batch, same order
+  previews: PreviewResponse[]; // one per batch of `items`, same order
 }
 
 interface Stash {
@@ -27,7 +27,8 @@ interface Stash {
   readSkipped: SkippedItem[];
   ignored: number;
 }
-// Header slices survive a trip to Settings (create location) and back; never persisted.
+// Header slices survive one trip to Settings (create location) and back. Set only right before
+// navigating there, consumed and cleared on return, cleared on any other exit. Never persisted.
 let stash: Stash | null = null;
 
 function toB64(bytes: Uint8Array): string {
@@ -65,36 +66,6 @@ async function walk(entry: FsEntry, out: PickedFile[]): Promise<void> {
   }
 }
 
-// ---- merging per-batch previews --------------------------------------------------------
-
-function mergeGroups(previews: PreviewResponse[]): PreviewGroup[] {
-  const by = new Map<string, PreviewGroup>();
-  for (const p of previews) {
-    for (const g of p.groups) {
-      const prev = by.get(g.group_key);
-      if (!prev) {
-        by.set(g.group_key, { ...g });
-        continue;
-      }
-      const temps = [prev.ccd_temp_range, g.ccd_temp_range].filter((t): t is [number, number] => !!t);
-      by.set(g.group_key, {
-        ...prev,
-        frames: prev.frames + g.frames,
-        new_frames: prev.new_frames + g.new_frames,
-        captured_s: prev.captured_s + g.captured_s,
-        exptime_s: prev.exptime_s === g.exptime_s ? prev.exptime_s : null,
-        first_utc: [prev.first_utc, g.first_utc].filter(Boolean).sort()[0] ?? null,
-        last_utc: [prev.last_utc, g.last_utc].filter(Boolean).sort().reverse()[0] ?? null,
-        filters: [...new Set([...prev.filters, ...g.filters])].sort(),
-        gains: [...new Set([...prev.gains, ...g.gains])].sort((a, b) => a - b),
-        ccd_temp_range: temps.length ? [Math.min(...temps.map((t) => t[0])), Math.max(...temps.map((t) => t[1]))] : null,
-        plan_session_ids: [...new Set([...prev.plan_session_ids, ...g.plan_session_ids])],
-      });
-    }
-  }
-  return [...by.values()].sort((a, b) => (a.night_date ?? "9999").localeCompare(b.night_date ?? "9999") || a.device.localeCompare(b.device));
-}
-
 function fmtSeconds(s: number): string {
   const h = Math.floor(s / 3600);
   const m = Math.round((s % 3600) / 60);
@@ -107,9 +78,11 @@ export function AstroLogImportPage() {
   const locations = useLocations();
   const folderRef = useRef<HTMLInputElement>(null);
 
-  const [items, setItems] = useState<ImportItem[]>(stash?.items ?? []);
-  const [readSkipped, setReadSkipped] = useState<SkippedItem[]>(stash?.readSkipped ?? []);
-  const [ignored, setIgnored] = useState(stash?.ignored ?? 0);
+  const routeLocationId = ((useLocation().state ?? null) as { locationId?: string | null } | null)?.locationId ?? "";
+  const keepStash = useRef(false);
+  const [items, setItems] = useState<ImportItem[]>([]);
+  const [readSkipped, setReadSkipped] = useState<SkippedItem[]>([]);
+  const [ignored, setIgnored] = useState(0);
   const [review, setReview] = useState<Review | null>(null);
   const [progress, setProgress] = useState<{ label: string; done: number; total: number } | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -118,7 +91,8 @@ export function AstroLogImportPage() {
   const [locationId, setLocationId] = useState<string>("");
   const [offsetInput, setOffsetInput] = useState("0");
   const [appliedOffset, setAppliedOffset] = useState(0);
-  const [planId, setPlanId] = useState<string>("");
+  const [planChoices, setPlanChoices] = useState<Record<string, string>>({});
+  const sessions = useSessions();
   const [names, setNames] = useState<Record<string, string>>({});
   const [unsorted, setUnsorted] = useState<Record<string, boolean>>({});
   const [committing, setCommitting] = useState(false);
@@ -127,6 +101,7 @@ export function AstroLogImportPage() {
 
   const busy = progress !== null || committing;
   const hasCr2 = useMemo(() => items.some((i) => i.kind === "cr2"), [items]);
+  const batches = useMemo(() => batch(items, 300), [items]);
 
   /** Preview every batch with the given location/offset. Group keys come from THIS run only. */
   const runPreview = useCallback(async (all: ImportItem[], locId: string, offset: number) => {
@@ -140,12 +115,13 @@ export function AstroLogImportPage() {
           await astrologApi.previewImport({ items: batches[i], location_id: locId || null, clock_offset_minutes: offset }),
         );
       }
-      setReview({ batches, previews });
+      setReview({ previews });
       setNames({});
       setUnsorted({});
-      setPlanId("");
+      setPlanChoices({});
       const ids = new Set(previews.map((p) => p.location_id));
-      if (!locId) setLocationId(ids.size === 1 && !previews.some((p) => p.needs_location) ? (previews[0]?.location_id ?? "") : "");
+      if (locId) setLocationId(locId);
+      else setLocationId(ids.size === 1 && !previews.some((p) => p.needs_location) ? (previews[0]?.location_id ?? "") : "");
     } catch (e) {
       setReview(null);
       setError(e);
@@ -162,7 +138,6 @@ export function AstroLogImportPage() {
       setLocationId("");
       setOffsetInput("0");
       setAppliedOffset(0);
-      stash = null;
       const out: ImportItem[] = [];
       const skipped: SkippedItem[] = [];
       let ign = 0;
@@ -184,7 +159,6 @@ export function AstroLogImportPage() {
       setItems(out);
       setReadSkipped(skipped);
       setIgnored(ign);
-      stash = { items: out, readSkipped: skipped, ignored: ign };
       if (!out.length) {
         setProgress(null);
         return;
@@ -193,6 +167,22 @@ export function AstroLogImportPage() {
     },
     [runPreview],
   );
+
+  // Returning from Settings: restore the slices and re-preview (preferring the location just created).
+  useEffect(() => {
+    const s = stash;
+    stash = null;
+    if (s) {
+      setItems(s.items);
+      setReadSkipped(s.readSkipped);
+      setIgnored(s.ignored);
+      if (s.items.length) void runPreview(s.items, routeLocationId, 0);
+    }
+    return () => {
+      if (!keepStash.current) stash = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onFolder = (list: FileList | null) => {
     if (!list || !list.length) return;
@@ -228,11 +218,20 @@ export function AstroLogImportPage() {
     for (const c of preview.flatMap((p) => p.location_candidates)) if (!m.has(c.id) || m.get(c.id)!.distance_km > c.distance_km) m.set(c.id, c);
     return [...m.values()].sort((a, b) => a.distance_km - b.distance_km);
   }, [preview]);
-  const planOptions = useMemo(() => [...new Set(groups.flatMap((g) => g.plan_session_ids))], [groups]);
+  const ambiguousNights = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const g of groups) if (g.night_date && g.plan_session_ids.length > 1) m.set(g.night_date, g.plan_session_ids);
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [groups]);
+  const plansResolved = ambiguousNights.every(([night]) => !!planChoices[night]);
+  const planLabel = (id: string) => {
+    const s = sessions.data?.find((x) => x.id === id);
+    return s ? `${s.title} (${nightLabel(s.local_night_date)})` : "Planned session";
+  };
   const newFrames = groups.reduce((n, g) => n + g.new_frames, 0);
   const newStacks = stacks.filter((s) => s.new).length;
   const unsortedTarget = (g: PreviewGroup) => g.target.kind === "unsorted";
-  const isCanonGroup = (g: PreviewGroup) => hasCr2 && unsortedTarget(g);
+  const isCanonGroup = (g: PreviewGroup) => g.is_canon;
   const tzFor = locations.data?.find((l) => l.id === locationId)?.timezone ?? "UTC";
   const offsetValid = /^-?\d{1,4}$/.test(offsetInput.trim()) && Math.abs(Number(offsetInput)) <= 1440;
 
@@ -265,6 +264,8 @@ export function AstroLogImportPage() {
         setNotice("These files contain no site position, so a location can't be suggested. Add one in Settings.");
         return;
       }
+      stash = { items, readSkipped, ignored };
+      keepStash.current = true;
       navigate("/settings", {
         state: { prefillLocation: { ...found, returnTo: "/astrolog/import" } },
       });
@@ -274,24 +275,25 @@ export function AstroLogImportPage() {
   }
 
   async function commit() {
-    if (!review || !locationId) return;
+    if (!review || !locationId || !plansResolved) return;
     setCommitting(true);
     setError(null);
+    const total: CommitResponse = { session_ids: [], inserted_frames: 0, inserted_stacks: 0, skipped: [] };
     try {
-      const total: CommitResponse = { session_ids: [], inserted_frames: 0, inserted_stacks: 0, skipped: [] };
-      for (let i = 0; i < review.batches.length; i++) {
-        setProgress({ label: "Importing", done: i, total: review.batches.length });
+      for (let i = 0; i < batches.length; i++) {
+        setProgress({ label: "Importing", done: i, total: batches.length });
         const keys = new Set(review.previews[i].groups.map((g) => g.group_key));
         const canon_set_names = Object.fromEntries(
           Object.entries(names).filter(([k, v]) => keys.has(k) && v.trim() && !unsorted[k]).map(([k, v]) => [k, v.trim()]),
         );
         const unsorted_groups = Object.keys(unsorted).filter((k) => unsorted[k] && keys.has(k));
-        const batchPlans = new Set(review.previews[i].groups.flatMap((g) => g.plan_session_ids));
+        const nights = new Set(review.previews[i].groups.map((g) => g.night_date));
+        const plan_choices = Object.fromEntries(Object.entries(planChoices).filter(([n]) => nights.has(n)));
         const r = await astrologApi.commitImport({
-          items: review.batches[i],
+          items: batches[i],
           location_id: locationId,
           clock_offset_minutes: appliedOffset,
-          plan_session_id: planId && batchPlans.has(planId) ? planId : null,
+          plan_choices,
           canon_set_names,
           unsorted_groups,
         });
@@ -299,7 +301,6 @@ export function AstroLogImportPage() {
         total.inserted_frames += r.inserted_frames;
         total.inserted_stacks += r.inserted_stacks;
       }
-      stash = null;
       void qc.invalidateQueries({ queryKey: ["astrolog"] });
       void qc.invalidateQueries({ queryKey: qk.sessions });
       const lib = await astrologApi.library().catch(() => []);
@@ -320,7 +321,19 @@ export function AstroLogImportPage() {
       else if (total.session_ids[0]) navigate(`/astrolog/nights/${total.session_ids[0]}`);
       else navigate("/astrolog");
     } catch (e) {
+      setCommitting(false);
+      setProgress(null);
+      void qc.invalidateQueries({ queryKey: ["astrolog"] });
+      void qc.invalidateQueries({ queryKey: qk.sessions });
+      if (total.inserted_frames || total.inserted_stacks) {
+        // Earlier batches were saved; refresh the review so "new" counts are accurate.
+        await runPreview(items, locationId, appliedOffset);
+        setNotice(
+          `The import stopped part way. ${total.inserted_frames} frame${total.inserted_frames === 1 ? "" : "s"} and ${total.inserted_stacks} stack${total.inserted_stacks === 1 ? "" : "s"} were saved before the problem; the review below shows what is still new.`,
+        );
+      }
       setError(e);
+      return;
     } finally {
       setCommitting(false);
       setProgress(null);
@@ -444,22 +457,27 @@ export function AstroLogImportPage() {
                   <p className="mt-1 text-xs text-muted">Camera times are read as local time at the chosen location, plus this offset.</p>
                 </div>
               )}
-              {planOptions.length > 1 && (
-                <div>
-                  <label htmlFor="imp-plan" className="label">
-                    Attach to planned session
+              {ambiguousNights.map(([night, ids]) => (
+                <div key={night}>
+                  <label htmlFor={`imp-plan-${night}`} className="label">
+                    Planned session for {formatCalendarDate(night, true)}
                   </label>
-                  <select id="imp-plan" className="field" value={planId} onChange={(e) => setPlanId(e.target.value)}>
+                  <select
+                    id={`imp-plan-${night}`}
+                    className="field"
+                    value={planChoices[night] ?? ""}
+                    onChange={(e) => setPlanChoices((c) => ({ ...c, [night]: e.target.value }))}
+                  >
                     <option value="">Choose a planned session…</option>
-                    {planOptions.map((id, n) => (
+                    {ids.map((id) => (
                       <option key={id} value={id}>
-                        Planned session {n + 1}
+                        {planLabel(id)}
                       </option>
                     ))}
                   </select>
                   <p className="mt-1 text-xs text-muted">Several plans match this night; pick the one these files belong to.</p>
                 </div>
-              )}
+              ))}
             </div>
           </div>
 
@@ -567,11 +585,12 @@ export function AstroLogImportPage() {
             <button
               type="button"
               className="btn btn-primary"
-              disabled={busy || !locationId || (newFrames === 0 && newStacks === 0)}
+              disabled={busy || !locationId || !plansResolved || (newFrames === 0 && newStacks === 0)}
               onClick={() => void commit()}
             >
               {committing ? "Importing…" : `Import ${newFrames} new frame${newFrames === 1 ? "" : "s"}${newStacks ? ` and ${newStacks} stack${newStacks === 1 ? "" : "s"}` : ""}`}
             </button>
+            {locationId && !plansResolved && <span className="text-sm text-warn">Choose a planned session for each night above.</span>}
             {!locationId && <span className="text-sm text-warn">Choose a location to import.</span>}
             {locationId && newFrames === 0 && newStacks === 0 && <span className="text-sm text-ink-2">Everything in this folder is already imported.</span>}
           </div>

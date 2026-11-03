@@ -74,7 +74,7 @@ function LocationsSection() {
           onDone={(saved) => {
             setEditing(null);
             if (saved) update({ locationId: saved.id, nightDate: null });
-            if (prefill?.returnTo) navigate(prefill.returnTo, { replace: true });
+            if (prefill?.returnTo) navigate(prefill.returnTo, { replace: true, state: { locationId: saved?.id ?? null } });
           }}
         />
       )}

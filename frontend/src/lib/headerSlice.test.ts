@@ -64,3 +64,19 @@ describe("batch", () => {
     expect(batch([], 300)).toEqual([]);
   });
 });
+
+describe("readFitsHeader boundaries", () => {
+  it("accepts END as the last card of a full block", async () => {
+    const cards = Array.from({ length: 35 }, (_, i) => (i === 35 - 1 ? "END" : `COMMENT ${i}`));
+    const file = new Blob([cat(block(cards), new Uint8Array(3000))]);
+    expect((await readFitsHeader(file)).length).toBe(2880);
+  });
+  it("does not match END inside a comment or a longer keyword", async () => {
+    const file = new Blob([cat(block(["COMMENT  this is the END of the line", "ENDING  = 1", "END OF   = 2"]), new Uint8Array(5000))]);
+    await expect(readFitsHeader(file)).rejects.toBeInstanceOf(HeaderReadError);
+  });
+  it("returns two blocks when END starts block 2", async () => {
+    const file = new Blob([cat(block(["SIMPLE  = T"]), block(["END"]), new Uint8Array(2880))]);
+    expect((await readFitsHeader(file)).length).toBe(5760);
+  });
+});
