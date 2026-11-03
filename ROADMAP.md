@@ -14,7 +14,7 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 |---|---|---|---|
 | 1 | Core planning dashboard | Location, equipment, real forecast, Sun/Moon/target visibility, transparent scores, catalog, charts, saved session plans | ✅ **Complete**: signed off 2026-11-02 (git tag `phase-1`) |
 | 2 | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | ✅ **Complete**: signed off 2026-11-02 (PR #1, git tag `phase-2`; spec `docs/superpowers/specs/2026-11-02-astrolog-design.md`) |
-| **3** | Variable Hunter | Historical light curves, variable-star research, AstroMissions | **Planning** (steps 1–5) |
+| **3** | Variable Hunter | Historical light curves, variable-star research, AstroMissions | **Complete pending developer review** (branch `phase-3-variable-hunter`; spec `docs/superpowers/specs/2026-11-02-variable-hunter-design.md`) |
 | 4 | Scientific image analysis | FITS processing, photometry, user-generated light curves | Not started |
 | 5 | Advanced features | Personalization, collaboration, 3D visualization, telescope integrations | Not started |
 
@@ -80,6 +80,10 @@ for later phases' needs (e.g. image storage in Phase 2, FITS processing in Phase
 - Current target: Vercel (frontend + Python function) + Supabase (Postgres, Auth, Storage).
 - Prerequisites before going public: `owner_id` on user-owned rows, Supabase Auth JWT
   verification in FastAPI (owner-only writes), production CORS, secrets in environment variables.
+- Variable Hunter prerequisites before going public: **AAVSO's written permission** (VSX allows personal,
+  non-commercial use only and forbids mirroring; the Data Usage Guidelines and API docs are still unread, gate G1);
+  replace the salted observer-code hash with an HMAC keyed by a secret held outside the database; add
+  multi-process locking for the AAVSO request spacing and history-fill locks.
 - To re-check at that time: Vercel Python function size/cold start with Astropy, whether
   Phase 4 processing needs a different compute target, Open-Meteo terms for the use case.
 - Meanwhile every phase must keep the `DATABASE_URL` seam working (no SQLite-only SQL).
@@ -89,8 +93,8 @@ for later phases' needs (e.g. image storage in Phase 2, FITS processing in Phase
 These notes record intent and the questions each phase must answer in its own steps 1–5.
 Nothing here is approved for implementation.
 
-### Phase 3: Variable Hunter
-- Intent: curated variable-star research and AstroMissions linking targets, sessions and goals.
+### Phase 3: Variable Hunter (built; see the status table above)
+- Original intent: curated variable-star research and AstroMissions linking targets, sessions and goals.
 - Questions to settle: what AAVSO/VSX data can be used under their terms and through which
   documented interface (no scraping); ephemeris validation before showing any prediction
   window; which targets are realistic for a 30 mm aperture.
@@ -151,3 +155,10 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-02 | **Re-import never moves already-imported frames**; groups with no new frames create nothing; corrections go through the target page | Prevents phantom nights/targets and duplicates; a "move captures" feature is a possible later addition |
 | 2026-11-02 | Imported observations are never deleted as a side effect (foreign keys RESTRICT; deleting a session with capture sets returns 409) | The user's records are the product |
 | 2026-11-02 | **Phase 2 signed off** by the developer; merged (PR #1) and tagged `phase-2` | Real-data acceptance passed locally; CI green on the PR and the merge commit |
+| 2026-11-02 | **AAVSO observation layer is off by default** (`ASTROPLANNER_AAVSO_ENABLED=1` to switch on); without it the app shows a VSX link and no curve or alerts | Gate G1: AAVSO's Data Usage Guidelines and API docs are unread (Cloudflare blocks automated readers); local use is a developer decision |
+| 2026-11-02 | VSX's copyright page permits personal, non-commercial use only and forbids mirroring on another server; only `vsx.aavso.org` is called, sequentially, at least 2 s apart | Read 2026-11-02; keeps local use inside the stated terms |
+| 2026-11-02 | **Public deployment needs AAVSO's written permission**, plus a keyed observer-hash and multi-process request locking | Terms above; recorded in the deployment prerequisites |
+| 2026-11-02 | Observer name, country, comment, charts and code are never stored; the code is kept only as a salted hash to count distinct observers | Privacy of third-party observers; tested with sentinel values |
+| 2026-11-02 | No predictions in Variable Hunter (no eruption dates, countdowns, "expected" text); alerts need independent observers and show data freshness | Predicted T CrB dates have lapsed; stale data must never read as "no change" |
+| 2026-11-02 | S30 brightness limits (7 to 12.5) are an estimate, labelled "estimate, not yet measured" | Only one S50 owner data point exists |
+| 2026-11-02 | **Phase 3 complete pending developer review** on branch `phase-3-variable-hunter` | Suites green (295 backend, 101 unit, 24 e2e); local live check passed |
