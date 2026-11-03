@@ -37,6 +37,7 @@ class CaptureSet(Base):
         ForeignKey("equipment_profiles.id", ondelete="SET NULL"), nullable=True
     )
     equipment_snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    lens: Mapped[str | None] = mapped_column(String(120), nullable=True)  # Canon EXIF LensModel
     created_at: Mapped[str] = mapped_column(String, default=_utcnow)
 
 
@@ -49,6 +50,10 @@ class CaptureFrame(Base):
     filter: Mapped[str | None] = mapped_column(String(64), nullable=True)
     gain: Mapped[float | None] = mapped_column(Float, nullable=True)
     ccd_temp_c: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Canon EXIF (ISOSpeedRatings, FNumber, FocalLength); null for FITS frames.
+    iso: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    f_number: Mapped[float | None] = mapped_column(Float, nullable=True)
+    focal_mm: Mapped[float | None] = mapped_column(Float, nullable=True)
     source_filename: Mapped[str] = mapped_column(String(512))
     dedup_key: Mapped[str] = mapped_column(String(200), unique=True)
     imported_at: Mapped[str] = mapped_column(String, default=_utcnow)

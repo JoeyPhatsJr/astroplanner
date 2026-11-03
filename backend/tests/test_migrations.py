@@ -71,11 +71,19 @@ def test_existing_phase1_database_is_stamped_and_keeps_data(tmp_path):
         c.execute(text(
             "INSERT INTO observing_locations (id,label,latitude_deg,longitude_deg,timezone,is_sample,created_at) "
             "VALUES ('x','Home',1,2,'UTC',0,'2026-01-01T00:00:00Z')"))
+        c.execute(text(
+            "INSERT INTO sessions (id,title,location_id,local_night_date,status,created_at,updated_at) "
+            "VALUES ('s1','Plan','x','2026-11-02','planned','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"))
+        c.execute(text("INSERT INTO session_targets (id,session_id,target_id,sort_order) VALUES ('t1','s1','m31',0)"))
     eng.dispose()
     Database(url).init()
     with create_engine(url).connect() as c:
         assert c.execute(text("SELECT label FROM observing_locations WHERE id='x'")).scalar() == "Home"
         assert c.execute(text("SELECT version_num FROM alembic_version")).scalar() == _head_revision()
+        row = c.execute(text("SELECT title, location_id, source FROM sessions WHERE id='s1'")).one()
+        assert tuple(row) == ("Plan", "x", "planned")
+        st = c.execute(text("SELECT session_id, target_id, library_target_id FROM session_targets WHERE id='t1'")).one()
+        assert tuple(st) == ("s1", "m31", None)
 
 
 def test_downgrade_to_baseline_keeps_phase1_data(tmp_path):
@@ -108,9 +116,24 @@ def test_run_migrations_is_idempotent(tmp_path):
     run_migrations(url)
 
 
+def _is_disposable_postgres(url: str) -> bool:
+    u = sqlalchemy.engine.make_url(url)
+    return "test" in (u.database or "").lower() or (u.host or "") in ("localhost", "127.0.0.1", "::1")
+
+
+def test_postgres_guard_refuses_non_test_databases():
+    assert _is_disposable_postgres("postgresql://u:p@localhost/astro")
+    assert _is_disposable_postgres("postgresql://u:p@db.example.com/astro_test")
+    assert not _is_disposable_postgres("postgresql://u:p@db.example.com/astroplanner")
+
+
+# GUARD: this test DROPS the whole `public` schema of TEST_POSTGRES_URL. Point it only at a throwaway
+# database; it refuses to run unless the database name contains "test" or the host is localhost.
 @pytest.mark.skipif(not os.environ.get("TEST_POSTGRES_URL"), reason="TEST_POSTGRES_URL not set")
 def test_migrations_on_postgres():
     url = os.environ["TEST_POSTGRES_URL"]
+    if not _is_disposable_postgres(url):
+        pytest.fail("Refusing to drop the schema: TEST_POSTGRES_URL must name a *test* database or localhost.")
     eng = create_engine(url)
     with eng.begin() as c:
         c.execute(text("DROP SCHEMA public CASCADE"))
@@ -141,4 +164,25 @@ def test_0003_adds_and_drops_library_target_coords(tmp_path):
     assert "ra_deg" not in cols and "dec_deg" not in cols
     with eng.connect() as c:
         assert c.execute(text("SELECT normalized_key FROM library_targets WHERE id='l1'")).scalar() == "custom:x"
+    eng.dispose()
+
+
+def test_0004_adds_and_drops_exif_columns(tmp_path):
+    from alembic import command
+    from alembic.config import Config
+    from app.db import BACKEND_DIR
+    url = f"sqlite:///{tmp_path / 'e.db'}"
+    run_migrations(url)
+    eng = create_engine(url)
+    insp = sqlalchemy.inspect(eng)
+    assert {"iso", "f_number", "focal_mm"} <= {c["name"] for c in insp.get_columns("capture_frames")}
+    assert "lens" in {c["name"] for c in insp.get_columns("capture_sets")}
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.downgrade(cfg, "0003_library_target_coords")
+    insp = sqlalchemy.inspect(eng)
+    assert not {"iso", "f_number", "focal_mm"} & {c["name"] for c in insp.get_columns("capture_frames")}
+    assert "lens" not in {c["name"] for c in insp.get_columns("capture_sets")}
+    command.upgrade(cfg, "head")
     eng.dispose()
