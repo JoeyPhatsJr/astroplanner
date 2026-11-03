@@ -13,8 +13,8 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 | Phase | Name | Scope (summary) | Status |
 |---|---|---|---|
 | 1 | Core planning dashboard | Location, equipment, real forecast, Sun/Moon/target visibility, transparent scores, catalog, charts, saved session plans | ✅ **Complete**: signed off 2026-11-02 (git tag `phase-1`) |
-| **2** | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | **Complete pending developer review** (branch `phase-2-astrolog`; spec `docs/superpowers/specs/2026-11-02-astrolog-design.md`) |
-| 3 | Variable Hunter | Historical light curves, variable-star research, AstroMissions | Not started |
+| 2 | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | ✅ **Complete**: signed off 2026-11-02 (PR #1, git tag `phase-2`; spec `docs/superpowers/specs/2026-11-02-astrolog-design.md`) |
+| **3** | Variable Hunter | Historical light curves, variable-star research, AstroMissions | **Planning** (steps 1–5) |
 | 4 | Scientific image analysis | FITS processing, photometry, user-generated light curves | Not started |
 | 5 | Advanced features | Personalization, collaboration, 3D visualization, telescope integrations | Not started |
 
@@ -62,6 +62,15 @@ Review feedback so far: theme replaced with "Clean Planetarium" + night-vision m
 **Exit criteria:** spec §11 acceptance criteria all met (currently met locally), the items
 above closed, and explicit developer sign-off.
 
+## Phase 2: AstroLog
+
+**Delivered and verified:** header-only folder import (Seestar S30 FITS, Canon CR2) into a
+target-first library with final pictures, time in the final stack, nights as logs and a
+planner badge. 198 backend tests (6 local real-data acceptance checks and 1 Postgres migration
+test among the 7 that skip without their environment), 69 frontend unit tests and 12 Playwright
+end-to-end tests. Signed off 2026-11-02; merged in PR #1 (tag `phase-2`). Details and known
+limitations are in `PROGRESS.md`.
+
 ## Deployment (deferred)
 
 AstroPlanner stays **local-only** while phases are being built. Deployment is a dedicated
@@ -79,12 +88,6 @@ for later phases' needs (e.g. image storage in Phase 2, FITS processing in Phase
 
 These notes record intent and the questions each phase must answer in its own steps 1–5.
 Nothing here is approved for implementation.
-
-### Phase 2: AstroLog
-- Intent: turn planned sessions into honest records of what was actually captured.
-- Questions to settle: image storage (local disk vs Supabase Storage), upload limits and
-  formats, how equipment *history* is versioned (a session must keep the equipment as it
-  was), privacy of location data in images (EXIF/FITS headers).
 
 ### Phase 3: Variable Hunter
 - Intent: curated variable-star research and AstroMissions linking targets, sessions and goals.
@@ -147,3 +150,4 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-02 | **Stack-only targets are shown**; their captured time is unknown (null), never 0, and the latest stack is the headline until a final picture is linked | Hiding real integration time or showing "0 s captured" would both be wrong |
 | 2026-11-02 | **Re-import never moves already-imported frames**; groups with no new frames create nothing; corrections go through the target page | Prevents phantom nights/targets and duplicates; a "move captures" feature is a possible later addition |
 | 2026-11-02 | Imported observations are never deleted as a side effect (foreign keys RESTRICT; deleting a session with capture sets returns 409) | The user's records are the product |
+| 2026-11-02 | **Phase 2 signed off** by the developer; merged (PR #1) and tagged `phase-2` | Real-data acceptance passed locally; CI green on the PR and the merge commit |

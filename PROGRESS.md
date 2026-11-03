@@ -2,9 +2,18 @@
 
 _Last updated: 2026-11-02 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
-## Current phase: Phase 2, AstroLog: complete pending developer review
+## Current phase: Phase 3, Variable Hunter: planning
 
-Branch `phase-2-astrolog` (not yet merged). Spec: `docs/superpowers/specs/2026-11-02-astrolog-design.md`.
+ROADMAP.md steps 1–5 (review, brainstorm, propose, risks, plan with acceptance criteria). No code before approval.
+
+## Exact next step
+
+Phase 3 brainstorming with the developer, then a written design in `docs/superpowers/specs/`, then an
+implementation plan for approval.
+
+## Phase 2, AstroLog: ✅ complete (signed off 2026-11-02, merged in PR #1, tag `phase-2`)
+
+Spec: `docs/superpowers/specs/2026-11-02-astrolog-design.md`. CI green on the merge commit (run 41567244494).
 
 | Area | Status | Evidence |
 |---|---|---|
@@ -63,14 +72,8 @@ Screenshots (`astrolog-library-desktop.png`, `astrolog-target-desktop.png`) use 
 
 - [x] All implementation tasks complete with review
 - [x] Full suites and local real-data acceptance run (above)
-- [ ] Developer review of the branch, then merge and push (controller)
-- [ ] CI green on push (Postgres migration test only runs there)
-
-## Exact next step
-
-Developer reviews `phase-2-astrolog` (try Import on a real folder, view the library and a target page, check the
-Tonight/Explore badge). After sign-off: merge, push, confirm CI, tag `phase-2`. Then start Phase 3 planning
-(ROADMAP.md steps 1–6; no code before approval).
+- [x] Developer review → signed off 2026-11-02; merged to `main` (PR #1, merge commit `47cb832`)
+- [x] CI green on the PR and on the merge commit, including the Postgres migration test
 
 ## Phase 1, core planning dashboard: ✅ complete (signed off 2026-11-02, tag `phase-1`)
 

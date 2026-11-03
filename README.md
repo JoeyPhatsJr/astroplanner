@@ -93,8 +93,8 @@ Optional environment variables:
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q        # 179 passed, 6 skipped (astronomy references, scoring, weather, API, AstroLog, migrations)
-cd frontend && npm run typecheck && npm test       # 49 tests: time formatting, header slicing, import merge, components
+cd backend && .venv/bin/python -m pytest -q        # 198 passed, 7 skipped (astronomy references, scoring, weather, API, AstroLog, migrations)
+cd frontend && npm run typecheck && npm test       # 69 tests: time formatting, header slicing, import merge, components
 cd frontend && npm run build
 cd frontend && npx playwright install chromium && npm run test:e2e   # 12 end-to-end tests (10 Phase 1 smoke + AstroLog import), desktop + mobile
 ```
@@ -103,7 +103,7 @@ The end-to-end suite starts its own backend (fresh SQLite file and preview folde
 `frontend/e2e/`) and Vite server on ports 8100/5180, so it never touches your dev servers or data.
 It builds its FITS files itself with dummy coordinates.
 
-The 6 skipped backend tests are 5 local real-data checks and 1 Postgres migration test (runs when
+The 7 skipped backend tests are 6 local real-data checks and 1 Postgres migration test (runs when
 `TEST_POSTGRES_URL` is set; CI provides it). To run the real-data acceptance checks against your own
 folder of Seestar and Canon files (read-only, header slices only, prints no coordinates or serial numbers):
 
