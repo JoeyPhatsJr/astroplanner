@@ -101,6 +101,20 @@ export function formatDuration(minutes: number): string {
   return r ? `${h} h ${String(r).padStart(2, "0")} min` : `${h} h`;
 }
 
+/** Exposure/integration time: "1 h 49 m", "3 m 20 s", "45 s"; null is "unknown" (never estimated). */
+export function formatIntegration(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "unknown";
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    if (s === 60) return `${m + 1} m`;
+    if (m === 0) return `${s} s`;
+    return s ? `${m} m ${s} s` : `${m} m`;
+  }
+  const total = Math.round(seconds / 60);
+  return `${Math.floor(total / 60)} h ${total % 60} m`;
+}
+
 /** "12 min ago" relative to now (for data-age labels). */
 export function formatAge(x: Instant, now: Instant = Date.now()): string {
   const s = Math.round((toDate(now).getTime() - toDate(x).getTime()) / 1000);

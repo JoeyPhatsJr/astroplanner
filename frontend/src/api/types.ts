@@ -303,6 +303,18 @@ export interface ObservingSession {
   updated_at: string;
   target_count: number;
   targets: SessionTarget[];
+  source?: string;
+  capture_sets?: SessionCaptureSet[];
+  /** Catalog target ids that were planned but nothing was imported for. */
+  not_shot?: string[];
+}
+
+export interface SessionCaptureSet {
+  library_target_id: string;
+  display_name: string;
+  device: string;
+  frames: number;
+  captured_s: number | null;
 }
 
 export interface GeocodeResult {

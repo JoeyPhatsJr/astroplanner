@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, defaultNightDate, formatDuration, formatTime, formatTimeTz, localDate, nightLabel, tzAbbrev } from "./time";
+import { addDays, defaultNightDate, formatDuration, formatIntegration, formatTime, formatTimeTz, localDate, nightLabel, tzAbbrev } from "./time";
 
 describe("formatTime in the observer's timezone", () => {
   it("formats in the given zone, not the runner's", () => {
@@ -64,5 +64,16 @@ describe("formatDuration", () => {
     expect(formatDuration(45)).toBe("45 min");
     expect(formatDuration(60)).toBe("1 h");
     expect(formatDuration(304)).toBe("5 h 04 min");
+  });
+});
+
+describe("formatIntegration", () => {
+  it("formats long, short and unknown times", () => {
+    expect(formatIntegration(6540)).toBe("1 h 49 m");
+    expect(formatIntegration(10150)).toBe("2 h 49 m");
+    expect(formatIntegration(200)).toBe("3 m 20 s");
+    expect(formatIntegration(3600)).toBe("1 h 0 m");
+    expect(formatIntegration(45)).toBe("45 s");
+    expect(formatIntegration(null)).toBe("unknown");
   });
 });

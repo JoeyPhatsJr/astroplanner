@@ -9,6 +9,8 @@ import { TonightPage } from "./pages/TonightPage";
 const ExplorePage = lazy(() => import("./pages/ExplorePage").then((m) => ({ default: m.ExplorePage })));
 const ResearchLabPage = lazy(() => import("./pages/ResearchLabPage").then((m) => ({ default: m.ResearchLabPage })));
 const AstroLogPage = lazy(() => import("./pages/AstroLogPage").then((m) => ({ default: m.AstroLogPage })));
+const LibraryPage = lazy(() => import("./pages/LibraryPage").then((m) => ({ default: m.LibraryPage })));
+const TargetLogPage = lazy(() => import("./pages/TargetLogPage").then((m) => ({ default: m.TargetLogPage })));
 const AstroLogImportPage = lazy(() => import("./pages/AstroLogImportPage").then((m) => ({ default: m.AstroLogImportPage })));
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
@@ -35,7 +37,8 @@ export default function App() {
             <Route path="/" element={<TonightPage />} />
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/research" element={<ResearchLabPage />} />
-            <Route path="/astrolog" element={<AstroLogPage />} />
+            <Route path="/astrolog" element={<LibraryPage />} />
+            <Route path="/astrolog/targets/:targetId" element={<TargetLogPage />} />
             <Route path="/astrolog/import" element={<AstroLogImportPage />} />
             <Route path="/astrolog/nights" element={<AstroLogPage />} />
             <Route path="/astrolog/nights/:sessionId" element={<AstroLogPage />} />
