@@ -146,6 +146,16 @@ describe("ProcessingCoachPage", () => {
     expect(screen.queryByText("Hidden setting")).toBeNull();
   });
 
+  it("offers no Done on a blocked step and sends no PATCH when moving on", async () => {
+    run = mkRun({ report: { blocked: "Run the first script first." } });
+    renderPage();
+    await screen.findByText("Run the first script first.");
+    expect(screen.queryByRole("button", { name: "Done, next step" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("Step 2 of 10");
+    expect(patches).toHaveLength(0);
+  });
+
   it("shows an error state when the run cannot start", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ detail: "The coach supports Seestar S30 FITS nights only." }), { status: 422 })));
     renderPage();

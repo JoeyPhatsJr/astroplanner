@@ -91,7 +91,18 @@ function Coach({ run, loadError }: { run: RunOut; loadError: unknown }) {
               <button type="button" className="btn" disabled={idx === 0} onClick={() => setCurrentId(run.steps[idx - 1].id)}>
                 Back
               </button>
-              {last ? (
+              {step.blocked ? (
+                // A blocked step cannot be marked done; moving on records nothing.
+                last ? (
+                  <Link to={targetPath} className="btn btn-primary">
+                    Back to {run.target.name}
+                  </Link>
+                ) : (
+                  <button type="button" className="btn btn-primary" onClick={() => setCurrentId(run.steps[idx + 1].id)}>
+                    Next
+                  </button>
+                )
+              ) : last ? (
                 <button type="button" className="btn btn-primary" disabled={patch.isPending} onClick={() => void markDone(() => navigate(targetPath))}>
                   Save to AstroLog
                 </button>
