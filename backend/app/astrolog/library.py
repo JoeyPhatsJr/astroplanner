@@ -15,7 +15,7 @@ import numpy as np
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app import catalog
+from app import targets
 from app.db import ObservingLocation, ObservingSession, SessionTarget
 
 from .headers import parse_stack_filename
@@ -25,11 +25,16 @@ UNSORTED_NAME = "Unsorted"
 UNIX_JD_EPOCH = 2440587.5
 
 
+def variable_key(star_id: str) -> str:
+    """Library key of a curated variable star: ``var:ss-cyg`` -> ``variable:ss-cyg``."""
+    return f"variable:{star_id.split(':', 1)[1]}"
+
+
 def display_name(lt: LibraryTarget) -> str:
     if lt.kind == "unsorted":
         return UNSORTED_NAME
-    if lt.kind == "catalog" and lt.catalog_target_id:
-        t = catalog.get_target(lt.catalog_target_id)
+    if lt.kind in ("catalog", "variable") and lt.catalog_target_id:
+        t = targets.lookup(lt.catalog_target_id)
         if t is not None:
             return t["name"]
     return lt.custom_name or lt.catalog_target_id or UNSORTED_NAME
@@ -37,7 +42,7 @@ def display_name(lt: LibraryTarget) -> str:
 
 def _category(lt: LibraryTarget) -> str | None:
     if lt.catalog_target_id:
-        t = catalog.get_target(lt.catalog_target_id)
+        t = targets.lookup(lt.catalog_target_id)
         return t["category"] if t else None
     return None
 
@@ -348,16 +353,34 @@ def canonical_unsorted(db: Session) -> LibraryTarget:
 
 
 def merge_into_unsorted(db: Session, lt: LibraryTarget) -> LibraryTarget:
-    """Move everything of ``lt`` onto the one canonical Unsorted target, then delete ``lt``.
+    """Move everything of ``lt`` onto the one canonical Unsorted target, then delete ``lt``."""
+    return _move_records(db, lt, canonical_unsorted(db))
 
-    Capture sets keep the unique (session, target, device): when Unsorted already has a set for
+
+def link_to_variable(db: Session, lt: LibraryTarget, star_id: str) -> LibraryTarget:
+    """User-initiated "This is SS Cyg": the whole custom target becomes the curated star's target.
+
+    If a target for that star already exists, everything moves into it (as for Unsorted) and ``lt``
+    is deleted; otherwise ``lt`` itself is converted in place."""
+    key = variable_key(star_id)
+    dest = db.scalars(select(LibraryTarget).where(LibraryTarget.normalized_key == key)).first()
+    if dest is not None:
+        return _move_records(db, lt, dest)
+    lt.kind, lt.catalog_target_id, lt.normalized_key, lt.custom_name = "variable", star_id, key, None
+    db.flush()
+    return lt
+
+
+def _move_records(db: Session, src: LibraryTarget, dest: LibraryTarget) -> LibraryTarget:
+    """Move everything of ``src`` onto ``dest``, then delete ``src``.
+
+    Capture sets keep the unique (session, target, device): when ``dest`` already has a set for
     that night and device, the frames join it. Stacks and final pictures move with the target; if
-    Unsorted already has a current picture it stays current (the moved one is kept as history).
+    ``dest`` already has a current picture it stays current (the moved one is kept as history).
     Nothing is summed or recomputed here: totals are always derived from the frames."""
     from sqlalchemy import update
 
-    dest = canonical_unsorted(db)
-    for cs in list(db.scalars(select(CaptureSet).where(CaptureSet.library_target_id == lt.id))):
+    for cs in list(db.scalars(select(CaptureSet).where(CaptureSet.library_target_id == src.id))):
         existing = db.scalars(select(CaptureSet).where(
             CaptureSet.session_id == cs.session_id, CaptureSet.library_target_id == dest.id,
             CaptureSet.device == cs.device)).first()
@@ -369,17 +392,17 @@ def merge_into_unsorted(db: Session, lt: LibraryTarget) -> LibraryTarget:
             existing.lens = existing.lens or cs.lens
             db.delete(cs)
         db.flush()
-    for st in db.scalars(select(Stack).where(Stack.library_target_id == lt.id)):
+    for st in db.scalars(select(Stack).where(Stack.library_target_id == src.id)):
         st.library_target_id = dest.id
     dest_has_current = db.scalars(select(FinalImage).where(
         FinalImage.library_target_id == dest.id, FinalImage.is_current.is_(True))).first() is not None
-    for img in db.scalars(select(FinalImage).where(FinalImage.library_target_id == lt.id)):
+    for img in db.scalars(select(FinalImage).where(FinalImage.library_target_id == src.id)):
         img.library_target_id = dest.id
         if dest_has_current:
             img.is_current = False
-    for st in db.scalars(select(SessionTarget).where(SessionTarget.library_target_id == lt.id)):
+    for st in db.scalars(select(SessionTarget).where(SessionTarget.library_target_id == src.id)):
         st.library_target_id = dest.id
     db.flush()
-    db.delete(lt)
+    db.delete(src)
     db.flush()
     return dest
