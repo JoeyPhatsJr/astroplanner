@@ -44,6 +44,7 @@ class PreviewIn(BaseModel):
 
 class CommitIn(PreviewIn):
     plan_session_id: str | None = None
+    plan_choices: dict[str, str] = Field(default_factory=dict, max_length=MAX_ITEMS)
     canon_set_names: dict[str, str] = Field(default_factory=dict)
     unsorted_groups: list[str] = Field(default_factory=list, max_length=MAX_ITEMS)
 
@@ -113,7 +114,7 @@ def import_commit(body: Any = Body(...), db: Session = Depends(get_db)) -> dict[
     try:
         result = importer.commit_import(db, parsed, loc, clock_offset_minutes=req.clock_offset_minutes,
                                         plan_session_id=req.plan_session_id, canon_set_names=names,
-                                        unsorted_groups=req.unsorted_groups)
+                                        unsorted_groups=req.unsorted_groups, plan_choices=req.plan_choices)
         db.commit()
     except importer.ImportRequestError as exc:
         db.rollback()

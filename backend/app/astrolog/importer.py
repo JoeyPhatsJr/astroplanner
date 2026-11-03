@@ -358,6 +358,7 @@ class Group:
         first, last = self.first_utc, self.last_utc
         return {
             "group_key": self.group_key,
+            "is_canon": self.is_canon,
             "night_date": self.night_date.isoformat() if self.night_date else None,
             "device": self.device,
             "target": self.target.out(),
@@ -532,8 +533,10 @@ def _snapshot(db: Session, device: str) -> tuple[str | None, dict[str, Any] | No
 class _Sessions:
     """Resolves the one session per (night, location) for a commit, attaching to plans per §7a."""
 
-    def __init__(self, db: Session, location: ObservingLocation, plan_session_id: str | None):
+    def __init__(self, db: Session, location: ObservingLocation, plan_session_id: str | None,
+                 plan_choices: dict[str, str] | None = None):
         self.db, self.location, self.plan_session_id = db, location, plan_session_id
+        self.plan_choices = plan_choices or {}
         self.by_night: dict[date, ObservingSession] = {}
         self.plan_used = False
 
@@ -546,7 +549,13 @@ class _Sessions:
             self.plan_used |= s.id == self.plan_session_id
         else:
             cands = plan_candidates(db, night, loc.id)
-            chosen = [c for c in cands if c.id == self.plan_session_id]
+            pick = self.plan_choices.get(night.isoformat())
+            if pick is not None:
+                if pick not in {c.id for c in cands}:
+                    raise ImportRequestError("That plan doesn't match this night.")
+                chosen = [c for c in cands if c.id == pick]
+            else:
+                chosen = [c for c in cands if c.id == self.plan_session_id]
             if len(cands) > 1 and not chosen:
                 raise ImportRequestError(f"Several planned sessions match the night of {night.isoformat()}; "
                                    "choose one with plan_session_id.")
@@ -603,7 +612,7 @@ def _stack_coords(st: StackInfo) -> tuple[float | None, float | None]:
 
 def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation, *, clock_offset_minutes: int = 0,
                   plan_session_id: str | None = None, canon_set_names: dict[str, str] | None = None,
-                  unsorted_groups: Iterable[str] = ()) -> dict[str, Any]:
+                  unsorted_groups: Iterable[str] = (), plan_choices: dict[str, str] | None = None) -> dict[str, Any]:
     """Write one import (caller commits or rolls back). Raises ImportRequestError for request problems.
 
     Only new frames and stacks are written. A group whose frames were all imported before is a
@@ -614,7 +623,7 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
         raise ImportRequestError("plan_session_id does not exist.")
     groups = group_items(parsed, location, clock_offset_minutes)
     apply_overrides(groups, dict(canon_set_names or {}), set(unsorted_groups))
-    sessions = _Sessions(db, location, plan_session_id)
+    sessions = _Sessions(db, location, plan_session_id, plan_choices)
     targets: dict[str, LibraryTarget] = {}
     sets: dict[tuple[str, str, str], CaptureSet] = {}
     known = existing_keys(db, CaptureFrame, (f.dedup_key for g in groups for f in g.frames))
@@ -646,7 +655,7 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
                                 source_filename=f.parsed.filename, dedup_key=f.dedup_key))
             inserted_frames += 1
 
-    if plan_session_id is not None and sessions.by_night and not sessions.plan_used:
+    if plan_session_id is not None and sessions.by_night and not sessions.plan_used and not plan_choices:
         raise ImportRequestError("plan_session_id is not a planned session for any night in this import.")
 
     stacks = stack_infos(parsed, location)

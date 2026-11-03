@@ -271,6 +271,30 @@ def test_several_plans_require_a_choice(api):
         assert s.get(ObservingSession, b).source == "both"
 
 
+def test_plan_choices_resolve_two_ambiguous_nights(api):
+    loc = make_location(api)
+    a1, a2 = make_plan(api, loc, "2026-09-11", "A1"), make_plan(api, None, "2026-09-11", "A2")
+    b1, b2 = make_plan(api, loc, "2026-09-12", "B1"), make_plan(api, None, "2026-09-12", "B2")
+    items = [sub("NGC 7635", "2026-09-12T03:11:00"), sub("NGC 7635", "2026-09-13T03:11:00")]
+    assert commit(api, items, loc).status_code == 422  # ambiguous, no choice
+    assert commit(api, items, loc, plan_choices={"2026-09-11": a2}).status_code == 422  # second night unresolved
+    bad = commit(api, items, loc, plan_choices={"2026-09-11": a2, "2026-09-12": a1})
+    assert bad.status_code == 422 and "doesn't match this night" in bad.json()["detail"]
+    r = commit(api, items, loc, plan_choices={"2026-09-11": a2, "2026-09-12": b1})
+    assert r.status_code == 200, r.text
+    assert sorted(r.json()["session_ids"]) == sorted([a2, b1])
+    with dbs(api) as s:
+        assert s.get(ObservingSession, a2).source == "both" and s.get(ObservingSession, a1).source == "planned"
+        assert s.get(ObservingSession, b1).source == "both" and s.get(ObservingSession, b2).source == "planned"
+
+
+def test_group_summary_has_is_canon(api):
+    loc = make_location(api)
+    fits = preview(api, ngc_subs([11]), location_id=loc)["groups"][0]
+    canon = preview(api, canon_items(), location_id=loc)["groups"][0]
+    assert fits["is_canon"] is False and canon["is_canon"] is True
+
+
 # ---- equipment, Canon, unsorted, stacks ------------------------------------------
 
 def test_capture_set_snapshot_of_matched_equipment(api):
