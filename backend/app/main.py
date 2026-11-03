@@ -28,8 +28,18 @@ DEFAULT_PREVIEWS_DIR = Path(__file__).resolve().parents[1] / "data" / "previews"
 MAX_UPLOAD_BYTES = 150 * 1024 * 1024
 
 
+def select_aavso_mode(environ) -> str:
+    """Which AAVSO source the environment asks for: fixture wins over live; default is off (fallback)."""
+    if (environ.get("ASTROPLANNER_AAVSO_FIXTURE_DIR") or "").strip():
+        return "fixture"
+    if environ.get("ASTROPLANNER_AAVSO_ENABLED") == "1":
+        return "live"
+    return "off"
+
+
 def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = None,
-               storage: Storage | None = None, max_upload_bytes: int = MAX_UPLOAD_BYTES) -> FastAPI:
+               storage: Storage | None = None, max_upload_bytes: int = MAX_UPLOAD_BYTES,
+               aavso=None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.db.init()
@@ -40,6 +50,9 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     app.state.weather = weather or OpenMeteoProvider()
     app.state.storage = storage or LocalStorage(Path(os.environ.get("ASTROPLANNER_PREVIEWS_DIR") or DEFAULT_PREVIEWS_DIR))
     app.state.max_upload_bytes = max_upload_bytes
+    # Real providers are constructed from this mode in Task 6; until then only an injected one is enabled.
+    app.state.aavso_mode = select_aavso_mode(os.environ)
+    app.state.aavso = aavso
 
     origins = [o.strip() for o in os.environ.get("ASTROPLANNER_CORS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
