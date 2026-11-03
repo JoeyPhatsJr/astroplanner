@@ -149,6 +149,7 @@ class AppMeta(Base):
 
 
 import app.astrolog.models  # noqa: E402,F401  (registers Phase 2 tables on Base.metadata)
+import app.variables.models  # noqa: E402,F401  (registers Phase 3 tables on Base.metadata)
 
 SEESTAR_S30 = {
     "id": "seestar-s30",

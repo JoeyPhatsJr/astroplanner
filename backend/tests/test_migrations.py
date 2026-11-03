@@ -186,3 +186,39 @@ def test_0004_adds_and_drops_exif_columns(tmp_path):
     assert "lens" not in {c["name"] for c in insp.get_columns("capture_sets")}
     command.upgrade(cfg, "head")
     eng.dispose()
+
+
+VARIABLE_TABLES = {"variable_observations", "variable_fetches", "variable_alert_dismissals"}
+
+
+def test_0005_creates_and_drops_variable_hunter_tables(tmp_path):
+    from alembic import command
+    from alembic.config import Config
+    from app.db import BACKEND_DIR
+    url = f"sqlite:///{tmp_path / 'v.db'}"
+    run_migrations(url)
+    eng = create_engine(url)
+    insp = sqlalchemy.inspect(eng)
+    assert VARIABLE_TABLES <= set(insp.get_table_names())
+    assert {"star_id", "obs_id", "jd", "mag", "uncert", "band", "fainter_than", "obs_type", "val",
+            "observer_hash"} <= {c["name"] for c in insp.get_columns("variable_observations")}
+    uniques = [tuple(u["column_names"]) for u in insp.get_unique_constraints("variable_observations")]
+    assert ("star_id", "obs_id") in uniques
+    with eng.begin() as c:
+        c.execute(text("INSERT INTO variable_observations (star_id,obs_id,jd,mag,band,fainter_than,obs_type,val,"
+                       "observer_hash) VALUES ('var:ss-cyg','1',2461000.5,12.0,'V',false,'CCD','V','abcd')"))
+        c.execute(text("INSERT INTO variable_fetches (star_id,path,from_jd,to_jd,started_at,ok,rows) "
+                       "VALUES ('var:ss-cyg','alert',1,2,'x',true,1)"))
+        c.execute(text("INSERT INTO variable_alert_dismissals (star_id,dismissed_at,alert_since_jd) "
+                       "VALUES ('var:ss-cyg','x',2461000.5)"))
+    with pytest.raises(sqlalchemy.exc.IntegrityError):
+        with eng.begin() as c:
+            c.execute(text("INSERT INTO variable_observations (star_id,obs_id,jd,mag,band,fainter_than,obs_type,"
+                           "val,observer_hash) VALUES ('var:ss-cyg','1',2461000.6,12.1,'V',false,'CCD','V','ef')"))
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.downgrade(cfg, "0004_capture_exif")
+    assert not VARIABLE_TABLES & set(sqlalchemy.inspect(eng).get_table_names())
+    command.upgrade(cfg, "head")
+    eng.dispose()

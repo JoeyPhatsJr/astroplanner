@@ -72,7 +72,7 @@ def test_missions_outburst_unavailable_when_off(api):
 def test_injected_aavso_enables_and_adds_observation_attribution(make_client, clear_provider):
     with make_client(clear_provider, aavso=object()) as c:
         j = c.get("/api/variables/ss-cyg").json()
-        assert j["aavso"]["enabled"] is True and j["aavso"]["mode"] == "off"  # no env: mode stays as selected
+        assert j["aavso"]["enabled"] is True and j["aavso"]["mode"] == "injected"
         assert len(j["attribution"]) == 2 and j["attribution"][0] == VSX_SENTENCE
         out = {m["key"]: m for m in j["missions"]}["outburst"]
         assert out["available"] is False and out["reason"] == "Outburst windows not computed yet"
