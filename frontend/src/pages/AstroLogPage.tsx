@@ -56,7 +56,7 @@ function SessionList({ sessions }: { sessions: ObservingSession[] }) {
         <ul className="flex flex-col gap-2">
           {sessions.map((s) => (
             <li key={s.id}>
-              <Link to={`/astrolog/${s.id}`} className="panel flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:border-ice/40">
+              <Link to={`/astrolog/nights/${s.id}`} className="panel flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:border-ice/40">
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium text-ink">{s.title}</span>
                   <span className="block text-xs text-muted">{nightLabel(s.local_night_date)}</span>

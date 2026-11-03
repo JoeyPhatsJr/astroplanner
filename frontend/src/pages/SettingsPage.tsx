@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Copy, Crosshair, ExternalLink, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { qk, useAbout, useCurrentLocation, useEquipmentList, useLocations } from "../api/hooks";
 import type { EquipmentInput, EquipmentProfile, FovDefinition, GeocodeResult, LocationInput, ObservingLocation } from "../api/types";
@@ -31,13 +32,21 @@ function errMsg(e: unknown) {
 
 // ---- Locations -----------------------------------------------------------------
 
+/** Navigation state sent by the AstroLog import to pre-fill the new-location form. */
+export interface PrefillLocationState {
+  prefillLocation?: { latitude_deg: number; longitude_deg: number; timezone: string | null; returnTo?: string };
+}
+
 function LocationsSection() {
+  const navigate = useNavigate();
+  const routeState = (useLocation().state ?? null) as PrefillLocationState | null;
+  const prefill = routeState?.prefillLocation ?? null;
   const q = useLocations();
   const qc = useQueryClient();
   const { prefs, update } = usePrefs();
   const currentId = useCurrentLocation().location?.id ?? null;
   const confirm = useConfirm();
-  const [editing, setEditing] = useState<ObservingLocation | "new" | null>(null);
+  const [editing, setEditing] = useState<ObservingLocation | "new" | null>(prefill ? "new" : null);
   const del = useMutation({
     mutationFn: (id: string) => api.deleteLocation(id),
     onSuccess: (_, id) => {
@@ -61,9 +70,11 @@ function LocationsSection() {
       {editing !== null && (
         <LocationForm
           initial={editing === "new" ? null : editing}
+          prefill={editing === "new" ? prefill : null}
           onDone={(saved) => {
             setEditing(null);
             if (saved) update({ locationId: saved.id, nightDate: null });
+            if (prefill?.returnTo) navigate(prefill.returnTo, { replace: true });
           }}
         />
       )}
@@ -134,14 +145,22 @@ function allTimezones(): string[] {
   return ["UTC"];
 }
 
-function LocationForm({ initial, onDone }: { initial: ObservingLocation | null; onDone: (saved: ObservingLocation | null) => void }) {
+function LocationForm({
+  initial,
+  prefill = null,
+  onDone,
+}: {
+  initial: ObservingLocation | null;
+  prefill?: PrefillLocationState["prefillLocation"] | null;
+  onDone: (saved: ObservingLocation | null) => void;
+}) {
   const qc = useQueryClient();
   const zones = useMemo(allTimezones, []);
   const [label, setLabel] = useState(initial?.label ?? "");
-  const [lat, setLat] = useState(initial ? String(initial.latitude_deg) : "");
-  const [lon, setLon] = useState(initial ? String(initial.longitude_deg) : "");
+  const [lat, setLat] = useState(initial ? String(initial.latitude_deg) : prefill ? String(prefill.latitude_deg) : "");
+  const [lon, setLon] = useState(initial ? String(initial.longitude_deg) : prefill ? String(prefill.longitude_deg) : "");
   const [elev, setElev] = useState(initial?.elevation_m != null ? String(Math.round(initial.elevation_m)) : "");
-  const [tz, setTz] = useState(initial?.timezone ?? "");
+  const [tz, setTz] = useState(initial?.timezone ?? prefill?.timezone ?? "");
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<GeocodeResult[] | null>(null);
   const [status, setStatus] = useState<{ tone: "info" | "warn"; text: string } | null>(null);
@@ -277,6 +296,9 @@ function LocationForm({ initial, onDone }: { initial: ObservingLocation | null; 
             </li>
           ))}
         </ul>
+      )}
+      {prefill && !initial && (
+        <Notice>Latitude and longitude were filled from your imported files, rounded to ~1 km. Give the place a name, check the values, then save.</Notice>
       )}
       {status && <Notice tone={status.tone}>{status.text}</Notice>}
 

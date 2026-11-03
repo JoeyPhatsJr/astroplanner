@@ -18,7 +18,7 @@ export function SessionPlanPanel() {
         <h2 id="plan-heading" className="font-semibold tracking-tight text-xl">
           Session plan
         </h2>
-        <Link to={session ? `/astrolog/${session.id}` : "/astrolog"} className="text-sm text-ice hover:underline">
+        <Link to={session ? `/astrolog/nights/${session.id}` : "/astrolog"} className="text-sm text-ice hover:underline">
           {session ? "Open session" : "All sessions"}
         </Link>
       </div>
