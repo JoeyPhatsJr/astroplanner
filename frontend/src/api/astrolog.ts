@@ -15,7 +15,7 @@ export interface TargetRef {
   library_key: string;
   catalog_target_id: string | null;
   display_name: string;
-  kind: "catalog" | "custom" | "unsorted";
+  kind: "catalog" | "custom" | "unsorted" | "variable";
 }
 
 export interface PreviewGroup {
@@ -108,7 +108,7 @@ export interface Headline {
 export interface LibraryTargetSummary {
   id: string;
   display_name: string;
-  kind: "catalog" | "custom" | "unsorted";
+  kind: "catalog" | "custom" | "unsorted" | "variable";
   catalog_target_id: string | null;
   custom_name: string | null;
   category: string | null;

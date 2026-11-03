@@ -246,7 +246,7 @@ function LinkVariableForm({ id, name, list }: { id: string; name: string; list: 
             if (!chosen) return;
             const ok = await confirm({
               title: `Link to ${chosen.name}?`,
-              body: `"${name}" will be merged into ${chosen.name} and its nights will count toward that star's missions.`,
+              body: `"${name}" will become ${chosen.name} (merged with any existing ${chosen.name} target) and its nights will count toward that star's missions.`,
               confirmLabel: `This is ${chosen.name}`,
             });
             if (!ok) return;

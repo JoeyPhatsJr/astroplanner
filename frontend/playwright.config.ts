@@ -4,6 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 // on dedicated ports, so it never touches a developer's running dev servers or data.
 const API_PORT = 8100;
 const WEB_PORT = 5180;
+// Both backends blank the AAVSO switches they must not inherit (e2e never calls VSX).
 // Second pair for tests that need AAVSO data: the backend reads synthetic CSV fixtures
 // (e2e/aavso-fixtures, regenerated with times relative to "now" just before it starts).
 const FIXTURE_API_PORT = 8101;
@@ -30,7 +31,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `rm -rf e2e/.e2e.db e2e/.previews && ASTROPLANNER_DB=e2e/.e2e.db ASTROPLANNER_PREVIEWS_DIR=e2e/.previews ../backend/.venv/bin/uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port ${API_PORT}`,
+      command: `rm -rf e2e/.e2e.db e2e/.previews && ASTROPLANNER_AAVSO_ENABLED= ASTROPLANNER_AAVSO_FIXTURE_DIR= ASTROPLANNER_DB=e2e/.e2e.db ASTROPLANNER_PREVIEWS_DIR=e2e/.previews ../backend/.venv/bin/uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port ${API_PORT}`,
       url: `http://127.0.0.1:${API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,
@@ -42,7 +43,7 @@ export default defineConfig({
       timeout: 60_000,
     },
     {
-      command: `rm -rf e2e/.e2e-fixture.db e2e/.previews-fixture && node e2e/make-aavso-fixtures.mjs && ASTROPLANNER_DB=e2e/.e2e-fixture.db ASTROPLANNER_PREVIEWS_DIR=e2e/.previews-fixture ASTROPLANNER_AAVSO_FIXTURE_DIR=e2e/aavso-fixtures ../backend/.venv/bin/uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port ${FIXTURE_API_PORT}`,
+      command: `rm -rf e2e/.e2e-fixture.db e2e/.previews-fixture && node e2e/make-aavso-fixtures.mjs && ASTROPLANNER_AAVSO_ENABLED= ASTROPLANNER_DB=e2e/.e2e-fixture.db ASTROPLANNER_PREVIEWS_DIR=e2e/.previews-fixture ASTROPLANNER_AAVSO_FIXTURE_DIR=e2e/aavso-fixtures ../backend/.venv/bin/uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port ${FIXTURE_API_PORT}`,
       url: `http://127.0.0.1:${FIXTURE_API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,

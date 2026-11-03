@@ -11,7 +11,9 @@ const GAP_DAYS = 3;
 /** Whole-magnitude bounds [brightest, faintest] covering the data, rounded outward; drawn reversed so brighter is up. */
 export function curveYDomain(mags: number[]): [number, number] {
   if (mags.length === 0) return [8, 14];
-  return [Math.floor(Math.min(...mags)), Math.ceil(Math.max(...mags))];
+  const lo = Math.floor(Math.min(...mags));
+  const hi = Math.ceil(Math.max(...mags));
+  return [lo, hi > lo ? hi : lo + 1]; // a flat curve on a whole magnitude still gets a one-magnitude axis
 }
 
 export function curveYTicks([lo, hi]: [number, number]): number[] {
@@ -131,9 +133,10 @@ export function LightCurve({ curve, nights }: { curve: CurveResponse; nights: st
   );
 }
 
-function CurveTooltip({ active, payload }: { active?: boolean; payload?: { payload: Row }[] }) {
+export function CurveTooltip({ active, payload }: { active?: boolean; payload?: { payload: Row }[] }) {
   if (!active || !payload?.length) return null;
   const r = payload[0].payload;
+  if (r.kind !== "night" && r.mag == null) return null; // a line-break row between distant daily means
   return (
     <div className="rounded-lg border border-line bg-night-deep px-3 py-2 text-xs shadow-lg">
       <p className="font-semibold text-ink">{dayLabel(r.t)} UT</p>
@@ -141,7 +144,7 @@ function CurveTooltip({ active, payload }: { active?: boolean; payload?: { paylo
         <p className="text-ink-2">Your night</p>
       ) : (
         <>
-          <p className="text-ice">{r.kind === "daily" ? `Daily average ${(r.mag as number).toFixed(2)} (${r.n} obs.)` : `Magnitude ${(r.mag as number).toFixed(2)}`}</p>
+          <p className="text-ice">{r.kind === "daily" ? `Daily average ${r.mag?.toFixed(2)} (${r.n} obs.)` : `Magnitude ${r.mag?.toFixed(2)}`}</p>
           <p className="text-muted">Band: {r.band}</p>
         </>
       )}

@@ -23,7 +23,7 @@ vi.mock("recharts", async () => {
 });
 vi.mock("../../state/prefs", () => ({ usePrefs: () => ({ prefs: { nightVision: false }, update: vi.fn() }) }));
 
-import { LightCurve, curveYDomain, curveYTicks, dailyLineRows, timeTicks } from "./LightCurve";
+import { CurveTooltip, LightCurve, curveYDomain, curveYTicks, dailyLineRows, timeTicks } from "./LightCurve";
 import { LightCurveSection } from "./LightCurveSection";
 import type { CurveResponse } from "../../api/variables";
 
@@ -155,5 +155,34 @@ describe("LightCurveSection", () => {
     body = curve({ status: { ...curve().status, last_error: "timeout" } });
     renderSection();
     expect(await screen.findByText(/AAVSO unreachable \(timeout\)\. Last successful check 2 h ago/)).toBeInTheDocument();
+  });
+});
+
+describe("final review fixes", () => {
+  it("widens a flat curve (every magnitude the same integer) to one magnitude", () => {
+    expect(curveYDomain([12, 12, 12])).toEqual([12, 13]);
+    expect(curveYTicks(curveYDomain([12]))).toEqual([12, 13]);
+    expect(curveYDomain([12.4, 12.4])).toEqual([12, 13]);
+  });
+
+  it("tooltip renders nothing for a gap row with no magnitude instead of throwing", () => {
+    const { container } = render(<CurveTooltip active payload={[{ payload: { t: Date.UTC(2026, 8, 1), mag: null, band: "V + Vis.", kind: "daily" } }]} />);
+    expect(container.textContent).toBe("");
+  });
+
+  it("in fixture mode says the data is synthetic and drops the AAVSO observations line", async () => {
+    body = curve({ mode: "fixture" });
+    renderSection();
+    expect(await screen.findByText(/Synthetic test data — not AAVSO observations/)).toBeInTheDocument();
+    expect(screen.getByText(/^Synthetic fixture data · 40 observations cached/)).toBeInTheDocument();
+    expect(screen.queryByText(/Observations from the AAVSO International Database/)).toBeNull();
+    expect(screen.queryByText(/AAVSO International Database via VSX/)).toBeNull();
+  });
+
+  it("shows no synthetic-data notice for live data", async () => {
+    body = curve({ mode: "live" });
+    renderSection();
+    expect(await screen.findByText(/AAVSO International Database via VSX/)).toBeInTheDocument();
+    expect(screen.queryByText(/Synthetic test data/)).toBeNull();
   });
 });

@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useStarCurve } from "../../api/variables";
+import { isFixtureMode, shownAttribution, useStarCurve } from "../../api/variables";
 import { formatAge } from "../../lib/time";
 import { LightCurve } from "../charts/LazyCharts";
 import { ErrorState, Notice, Skeleton } from "../ui/States";
+import { FixtureNotice } from "./FixtureNotice";
 
 /** Extra fixed history windows by star (keys match backend `history_windows`). */
 const EXTRA_WINDOWS: Record<string, { key: string; label: string }[]> = {
@@ -47,12 +48,14 @@ function CurveBody({ slug, window, nights }: { slug: string; window: string; nig
   const d = q.data;
   if (!d) return null;
   const { counts, status } = d;
+  const fixture = isFixtureMode(d.mode);
   const checked = status.last_ok_utc ? `checked ${formatAge(status.last_ok_utc)}` : "not yet checked";
   const joined = d.bands_included.join(", ");
   const bands = joined.endsWith(".") ? joined : `${joined}.`;
   const shown = counts.every_nth > 1 ? `${counts.plotted_points} shown (every ${ordinal(counts.every_nth)})` : `${counts.plotted_points} shown`;
   return (
     <div className="flex flex-col gap-2">
+      {fixture && <FixtureNotice />}
       {status.last_error && (
         <Notice tone="warn">
           AAVSO unreachable ({status.last_error}).{" "}
@@ -73,13 +76,13 @@ function CurveBody({ slug, window, nights }: { slug: string; window: string; nig
         </p>
       )}
       <p className="text-xs text-muted">
-        AAVSO International Database via VSX · {counts.cached} observations cached · {shown} · {checked}
+        {fixture ? "Synthetic fixture data" : "AAVSO International Database via VSX"} · {counts.cached} observations cached · {shown} · {checked}
       </p>
       <p className="text-xs text-muted">
         Bands shown: {bands} {d.excluded_note}
       </p>
       <div className="flex flex-col gap-0.5 text-xs text-muted">
-        {d.attribution.map((a) => (
+        {shownAttribution(d.attribution, d.mode).map((a) => (
           <p key={a}>{a}</p>
         ))}
       </div>

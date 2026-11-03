@@ -1,6 +1,6 @@
 import { Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useVariables, type VariableListItem } from "../api/variables";
+import { FIXTURE_NOTICE, isFixtureMode, useVariables, type VariableListItem } from "../api/variables";
 import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Skeleton } from "../components/ui/States";
 
@@ -53,7 +53,12 @@ export function VariableHunterPage() {
       {q.data && (
         <div className="flex flex-col gap-0.5 text-xs text-muted">
           <p>Catalog data: International Variable Star Index (VSX), operated at AAVSO, Cambridge, Massachusetts, USA.</p>
-          {q.data.aavso.enabled && <p>Observations from the AAVSO International Database, contributed by observers worldwide. © AAVSO.</p>}
+          {q.data.aavso.enabled &&
+            (isFixtureMode(q.data.aavso.mode) ? (
+              <p className="font-semibold text-warn">{FIXTURE_NOTICE}.</p>
+            ) : (
+              <p>Observations from the AAVSO International Database, contributed by observers worldwide. © AAVSO.</p>
+            ))}
         </div>
       )}
     </div>

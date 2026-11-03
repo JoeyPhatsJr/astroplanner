@@ -83,13 +83,15 @@ test("@fixture Sky alerts: SS Cyg outburst evidence, nav dot, honest unavailable
   await expect(card).toBeVisible();
   const ss = card.getByRole("listitem").filter({ hasText: "SS Cygni" });
   await expect(ss).toContainText("in outburst");
-  await expect(ss).toContainText(/\d+ observers reported it brighter than 10 in the last 48 h · AAVSO, checked/);
+  await expect(ss).toContainText(/\d+ observers reported it brighter than 10 in the last 48 h · synthetic data, checked/);
   await expect(card.getByRole("listitem").filter({ hasText: "T Coronae Borealis" })).toContainText("no change");
   // U Gem has no fixture file: stated as missing data, never as "no change"
   const gem = card.getByRole("listitem").filter({ hasText: "U Geminorum" });
   await expect(gem).toContainText("No AAVSO data yet");
   await expect(gem).not.toContainText("no change");
-  await expect(card.getByText("Observations from the AAVSO International Database, contributed by observers worldwide. © AAVSO.")).toBeVisible();
+  // Fixture data is synthetic: the card says so in place of the AAVSO observations attribution
+  await expect(card.getByText("Synthetic test data — not AAVSO observations.")).toBeVisible();
+  await expect(card.getByText(/Observations from the AAVSO International Database/)).toHaveCount(0);
   await expect(await navLink(page, testInfo.project.name, true)).toBeVisible();
   // Observer identity never reaches the page
   await expect(page.locator("body")).not.toContainText(/ZZ_SENTINEL|ZZOB|ZZSEN/);
@@ -100,11 +102,12 @@ test("@fixture SS Cyg page shows the light curve and its source line", async ({ 
   const errors = trackErrors(page);
   await page.goto("/variables/ss-cyg");
   await expect(page.getByRole("heading", { name: "Light curve", level: 2 })).toBeVisible();
-  await expect(page.getByText(/AAVSO International Database via VSX · \d+ observations cached/)).toBeVisible();
+  await expect(page.getByText(/Synthetic fixture data · \d+ observations cached/)).toBeVisible();
   await expect(page.getByText(/Bands shown: .*Vis/)).toBeVisible();
   await expect(page.getByText(/Magnitude \(V\)/).first()).toBeVisible();
   await expect(page.getByText(/Brighter ↑/).first()).toBeVisible();
-  await expect(page.getByText("Observations from the AAVSO International Database, contributed by observers worldwide. © AAVSO.").first()).toBeVisible();
+  await expect(page.getByText("Synthetic test data — not AAVSO observations.").first()).toBeVisible();
+  await expect(page.getByText(/Observations from the AAVSO International Database/)).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText(/ZZ_SENTINEL|ZZOB|ZZSEN/);
   expect(errors).toEqual([]);
 });

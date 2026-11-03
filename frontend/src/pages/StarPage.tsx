@@ -1,10 +1,11 @@
 import { ArrowLeft, Check, ExternalLink, Plus } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useCurrentEquipment, useObserver } from "../api/hooks";
-import { useStar, useStarVisibility, type StarResponse } from "../api/variables";
+import { FIXTURE_NOTICE, isFixtureMode, shownAttribution, useStar, useStarVisibility, type StarResponse } from "../api/variables";
 import { MissionCard } from "../components/variables/MissionCard";
 import { LightCurveSection } from "../components/variables/LightCurveSection";
 import { StarExplainer } from "../components/variables/StarExplainer";
+import { StatusChip } from "../components/variables/StatusChip";
 import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { useActiveSession } from "../state/activeSession";
@@ -82,7 +83,10 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
       </Link>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-semibold tracking-tight text-3xl md:text-[2.4rem]">{star.name}</h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h1 className="font-semibold tracking-tight text-3xl md:text-[2.4rem]">{star.name}</h1>
+            {data.aavso.enabled && <StatusChip starId={star.id} />}
+          </div>
           <p className="mt-1 text-sm text-ink-2">
             {data.type_label} · {star.constellation} · {vsxRange(data.vsx)}
           </p>
@@ -137,7 +141,7 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
       {data.seestar_fit && (
         <section className="panel flex flex-col gap-1 p-4" aria-labelledby="vh-fit">
           <h2 id="vh-fit" className="label">
-            Seestar fit{eq ? ` (${eq.name})` : ""}
+            Seestar fit{eq ? ` · ${eq.name}` : ""}
           </h2>
           <p className="text-sm text-ink-2">{data.seestar_fit.text}</p>
         </section>
@@ -153,7 +157,8 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
       </section>
 
       <div className="flex flex-col gap-0.5 text-xs text-muted">
-        {data.attribution.map((a) => (
+        {isFixtureMode(data.aavso.mode) && <p className="font-semibold text-warn">{FIXTURE_NOTICE}.</p>}
+        {shownAttribution(data.attribution, data.aavso.mode).map((a) => (
           <p key={a}>{a}</p>
         ))}
         <p>Facts retrieved {data.retrieved}.</p>

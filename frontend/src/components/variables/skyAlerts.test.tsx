@@ -165,3 +165,27 @@ describe("Opening the app never fetches a light curve", () => {
     expect(calls.filter((c) => c.url.includes("/curve"))).toEqual([]);
   });
 });
+
+describe("Sky alerts: final review fixes", () => {
+  it("labels the normal level as a curated reference", async () => {
+    alertsBody = body([row({ normal_text: "quiet near 12 V" })]);
+    wrap(<SkyAlertsCard />);
+    expect(await screen.findByText("(quiet near 12 V — curated reference level)")).toBeInTheDocument();
+  });
+
+  it("in fixture mode says the data is synthetic and never claims AAVSO observations", async () => {
+    alertsBody = body([row({}), row({ star_id: "var:t-crb", slug: "t-crb", name: "T Coronae Borealis", state: "no_change", visibility: null })], {
+      mode: "fixture",
+      attribution: [
+        "Catalog data: International Variable Star Index (VSX), operated at AAVSO, Cambridge, Massachusetts, USA.",
+        "Observations from the AAVSO International Database, contributed by observers worldwide. © AAVSO.",
+      ],
+    });
+    const { container } = wrap(<SkyAlertsCard />);
+    expect(await screen.findByText(/Synthetic test data — not AAVSO observations/)).toBeInTheDocument();
+    expect(screen.getByText(/Catalog data: International Variable Star Index/)).toBeInTheDocument();
+    expect(screen.queryByText(/Observations from the AAVSO International Database/)).toBeNull();
+    expect(screen.getByText(/3 observers reported it brighter than 10 in the last 48 h · synthetic data, checked 2 h ago/)).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/AAVSO, checked/);
+  });
+});

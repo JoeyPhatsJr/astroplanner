@@ -34,7 +34,6 @@ export interface VariableListItem extends VariableStarView {
   type_label: string;
   vsx: VsxFacts;
   nights_count: number;
-  alert: unknown | null;
 }
 
 export interface VariablesResponse {
@@ -51,6 +50,8 @@ export interface Mission {
   unit: string;
   available: boolean;
   reason?: string;
+  /** How progress is counted, e.g. "Outburst days: … (UT dates)." */
+  note?: string;
 }
 
 export interface SeestarFit {
@@ -99,6 +100,8 @@ export interface CurveResponse {
   excluded_note: string;
   status: CurveStatus;
   attribution: string[];
+  /** AAVSO source on the server: "live" | "fixture" (synthetic test data) | "injected" | "off". */
+  mode?: string;
 }
 
 export type AlertState = "alert" | "no_change" | "stale" | "unavailable";
@@ -118,9 +121,21 @@ export interface SkyAlert {
 
 export interface AlertsResponse {
   enabled: boolean;
+  mode?: string;
   alerts: SkyAlert[];
   dot: boolean;
   attribution?: string[];
+}
+
+/** Fixture mode serves synthetic CSV files (e2e, demos): never present them as AAVSO observations. */
+export const FIXTURE_NOTICE = "Synthetic test data — not AAVSO observations";
+const OBS_ATTRIBUTION_PREFIX = "Observations from the AAVSO International Database";
+
+export const isFixtureMode = (mode: string | null | undefined) => mode === "fixture";
+
+/** Attribution lines to show: in fixture mode the AAVSO observations line is dropped (the VSX catalog line is real). */
+export function shownAttribution(lines: string[] | undefined, mode: string | null | undefined): string[] {
+  return (lines ?? []).filter((l) => !(isFixtureMode(mode) && l.startsWith(OBS_ATTRIBUTION_PREFIX)));
 }
 
 const enc = encodeURIComponent;
