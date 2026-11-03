@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { request } from "./client";
 import { useCurrentEquipment, useObserver } from "./hooks";
 import { usePrefs } from "../state/prefs";
@@ -80,6 +80,49 @@ export interface StarVisibilityResponse {
   night: Pick<NightSummary, "timezone" | "night_date" | "has_darkness" | "notes">;
 }
 
+export interface CurveStatus {
+  last_ok_utc: string | null;
+  last_error: string | null;
+  coverage_days: number;
+  target_days: number;
+  loading: boolean;
+}
+
+export interface CurveResponse {
+  window: { key: string; label: string; from_date: string | null; to_date: string | null };
+  /** [JD, magnitude, band] */
+  points: [number, number, string][];
+  /** [UT date, mean magnitude, observation count] */
+  daily: [string, number, number][];
+  counts: { cached: number; plotted_points: number; every_nth: number; included: number };
+  bands_included: string[];
+  excluded_note: string;
+  status: CurveStatus;
+  attribution: string[];
+}
+
+export type AlertState = "alert" | "no_change" | "stale" | "unavailable";
+
+export interface SkyAlert {
+  star_id: string;
+  slug: string;
+  name: string;
+  state: AlertState;
+  evidence: { observers: number; threshold: number; window_hours: number; brightest: number | null };
+  current_mag: number | null;
+  normal_text: string;
+  checked_utc: string | null;
+  last_error: string | null;
+  visibility: Visibility | null;
+}
+
+export interface AlertsResponse {
+  enabled: boolean;
+  alerts: SkyAlert[];
+  dot: boolean;
+  attribution?: string[];
+}
+
 const enc = encodeURIComponent;
 
 function query(params: Record<string, string | number | null | undefined>): string {
@@ -89,6 +132,20 @@ function query(params: Record<string, string | number | null | undefined>): stri
 }
 
 export const variablesApi = {
+  curve: (slug: string, window: string) => request<CurveResponse>(`/api/variables/${enc(slug)}/curve?${query({ window })}`),
+  alerts: (o: { lat: number; lon: number; elevation_m?: number | null; date: string; timezone: string }, minAlt: number, darkness: string) =>
+    request<AlertsResponse>(
+      `/api/variables/alerts?${query({
+        lat: o.lat,
+        lon: o.lon,
+        elevation_m: o.elevation_m ?? 0,
+        date: o.date,
+        timezone: o.timezone,
+        min_altitude_deg: minAlt,
+        darkness,
+      })}`,
+    ),
+  dismissAlert: (slug: string) => request<void>(`/api/variables/${enc(slug)}/alerts/dismiss`, { method: "POST" }),
   list: (timezone?: string | null) => request<VariablesResponse>(`/api/variables?${query({ timezone })}`),
   star: (slug: string, equipmentId?: string | null, timezone?: string | null) =>
     request<StarResponse>(`/api/variables/${enc(slug)}?${query({ equipment_id: equipmentId, timezone })}`),
@@ -105,6 +162,39 @@ export const variablesApi = {
       })}`,
     ),
 };
+
+export const CURVE_POLL_MS = 5000;
+
+export function useStarCurve(slug: string | undefined, window: string, enabled = true) {
+  return useQuery({
+    queryKey: ["variables", "curve", slug, window],
+    queryFn: () => variablesApi.curve(slug as string, window),
+    enabled: enabled && !!slug,
+    // The backend fills history in the background; poll for progress only while it says it is loading.
+    refetchInterval: (q) => (q.state.status !== "error" && q.state.data?.status.loading ? CURVE_POLL_MS : false),
+    refetchOnWindowFocus: false,
+  });
+}
+
+/** The only AAVSO request made when the app opens (Tonight card and menu dot share this query). */
+export function useVariableAlerts() {
+  const o = useObserver();
+  const { prefs } = usePrefs();
+  return useQuery({
+    queryKey: ["variables", "alerts", o, prefs.minAltitudeDeg, prefs.darkness],
+    queryFn: () => variablesApi.alerts(o!, prefs.minAltitudeDeg, prefs.darkness),
+    enabled: !!o,
+    staleTime: 10 * 60_000,
+  });
+}
+
+export function useDismissAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (slug: string) => variablesApi.dismissAlert(slug),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["variables", "alerts"] }),
+  });
+}
 
 export function useVariables() {
   const o = useObserver();

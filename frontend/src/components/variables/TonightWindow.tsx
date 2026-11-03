@@ -5,8 +5,9 @@ import { formatTime, tzAbbrev } from "../../lib/time";
 import { Skeleton } from "../ui/States";
 
 /** One line: tonight's window above the minimum altitude, or why there is none. Calculated from the saved location. */
+/** `bare` drops the "Tonight:" prefix for use under a heading that already says it. */
 /** `plain` renders the no-location hint without a link, for use inside another link (no nested anchors). */
-export function TonightWindow({ slug, plain = false }: { slug: string; plain?: boolean }) {
+export function TonightWindow({ slug, plain = false, bare = false }: { slug: string; plain?: boolean; bare?: boolean }) {
   const o = useObserver();
   const q = useStarVisibility(slug);
   if (!o)
@@ -28,7 +29,7 @@ export function TonightWindow({ slug, plain = false }: { slug: string; plain?: b
   if (v.best_window)
     return (
       <span className="text-sm text-ink">
-        Tonight: above {v.min_altitude_deg}° from {formatTime(v.best_window.start_utc, tz)} to {formatTime(v.best_window.end_utc, tz)}{" "}
+        {bare ? "Above" : "Tonight: above"} {v.min_altitude_deg}° from {formatTime(v.best_window.start_utc, tz)} to {formatTime(v.best_window.end_utc, tz)}{" "}
         {tzAbbrev(v.best_window.start_utc, tz)}
       </span>
     );

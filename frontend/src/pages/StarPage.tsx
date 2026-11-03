@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useCurrentEquipment, useObserver } from "../api/hooks";
 import { useStar, useStarVisibility, type StarResponse } from "../api/variables";
 import { MissionCard } from "../components/variables/MissionCard";
+import { LightCurveSection } from "../components/variables/LightCurveSection";
 import { StarExplainer } from "../components/variables/StarExplainer";
 import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
@@ -94,7 +95,7 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
         <div className="panel p-4">
           <dt className="label">Tonight</dt>
           <dd className="mt-1">
-            <TonightWindow slug={slug} />
+            <TonightWindow slug={slug} bare />
           </dd>
         </div>
         <div className="panel p-4">
@@ -102,6 +103,8 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
           <dd className="mt-1 text-sm text-ink">{data.nights.length === 0 ? "None yet" : data.nights.length}</dd>
         </div>
       </dl>
+
+      {data.aavso.enabled && <LightCurveSection slug={slug} nights={data.nights} />}
 
       {!data.aavso.enabled && (
         <section className="panel flex flex-col gap-2 p-4" aria-labelledby="vh-fallback">
@@ -137,7 +140,6 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
             Seestar fit{eq ? ` (${eq.name})` : ""}
           </h2>
           <p className="text-sm text-ink-2">{data.seestar_fit.text}</p>
-          <p className="text-xs text-muted">Label: {data.seestar_fit.label}</p>
         </section>
       )}
 

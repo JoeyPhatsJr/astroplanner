@@ -7,6 +7,7 @@ import { NightTimeline } from "../components/charts/LazyCharts";
 import { SessionPlanPanel } from "../components/session/SessionPlanPanel";
 import { TargetCard } from "../components/targets/TargetCard";
 import { TargetDetail } from "../components/targets/TargetDetail";
+import { SkyAlertsCard } from "../components/variables/SkyAlertsCard";
 import { TargetFilters } from "../components/targets/TargetFilters";
 import { ConditionTiles, ForecastMeta } from "../components/tonight/Conditions";
 import { ScoreHero } from "../components/tonight/ScoreHero";
@@ -164,7 +165,8 @@ export function TonightPage() {
             </Link>
           )}
         </section>
-        <aside className="xl:sticky xl:top-20 xl:self-start">
+        <aside className="flex flex-col gap-4 xl:sticky xl:top-20 xl:self-start">
+          <SkyAlertsCard />
           <SessionPlanPanel />
         </aside>
       </div>

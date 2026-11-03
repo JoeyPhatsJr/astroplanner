@@ -170,7 +170,7 @@ describe("Star page, AAVSO off", () => {
 
   it("renders the Seestar estimate label when present", async () => {
     routes["GET /api/variables/ss-cyg"] = () =>
-      starBody({ seestar_fit: { estimate_range: [7, 12.5], label: "estimate, not yet measured", text: "Estimated S30 working range is about V 7 to 12.5." } });
+      starBody({ seestar_fit: { estimate_range: [7, 12.5], label: "estimate, not yet measured", text: "Estimated S30 working range is about V 7 to 12.5 (estimate, not yet measured)." } });
     open();
     expect(await screen.findByText(/estimate, not yet measured/)).toBeInTheDocument();
   });
