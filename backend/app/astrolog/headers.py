@@ -42,6 +42,12 @@ class FitsInfo:
     expend_jd: float | None
     program: str | None
     creator: str | None = None
+    ra_deg: float | None = None  # the object's RA/DEC, not the site
+    dec_deg: float | None = None
+
+
+def _in_range(v: float | None, lo: float, hi: float) -> float | None:
+    return v if v is not None and math.isfinite(v) and lo <= v <= hi else None
 
 
 @dataclass
@@ -129,6 +135,8 @@ def parse_fits_header(data: bytes) -> FitsInfo:
         expend_jd=_f(h.get("EXPEND")),
         program=program,
         creator=_s(h.get("CREATOR")),
+        ra_deg=_in_range(_f(h.get("RA")), 0.0, 360.0),
+        dec_deg=_in_range(_f(h.get("DEC")), -90.0, 90.0),
     )
 
 

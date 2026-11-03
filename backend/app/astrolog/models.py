@@ -20,6 +20,9 @@ class LibraryTarget(Base):
     custom_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
     normalized_key: Mapped[str] = mapped_column(String(200), unique=True)
     kind: Mapped[str] = mapped_column(String(16))  # TargetKind
+    # Header RA/Dec of the OBJECT (not the site), kept as provenance for custom targets.
+    ra_deg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dec_deg: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[str] = mapped_column(String, default=_utcnow)
 
 

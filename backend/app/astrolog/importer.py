@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import logging
 import math
 import re
 import statistics
@@ -46,6 +47,10 @@ UNSORTED_KEY = "unsorted"
 SEESTAR_ID = "seestar-s30"
 CANON_ID = "canon-t3-18-55"
 _CANON_T3 = re.compile(r"\bREBEL T3\b", re.IGNORECASE)  # T3 only, not T3i (a different camera)
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+UNKNOWN_GROUP = "Unknown group; re-run the preview."
+
+log = logging.getLogger(__name__)
 
 
 class ImportRequestError(Exception):
@@ -168,7 +173,8 @@ def parse_items(items: Iterable[ItemLike]) -> tuple[list[Parsed], list[dict[str,
                 parsed.append(Parsed(it.path, filename, "cr2", exif=exif))
         except HeaderError as err:
             skip(it.path, _safe_reason(err))
-        except Exception:  # one odd file must never sink the batch (Review Focus 2); no detail echoed
+        except Exception as exc:  # one odd file must never sink the batch (Review Focus 2)
+            log.debug("header parse failed: %s", type(exc).__name__)  # type only: messages can echo cards
             skip(it.path, "unreadable header")
     return parsed, skipped
 
@@ -308,13 +314,28 @@ class Frame:
     dedup_key: str
 
 
+def group_key(night: date | None, device: str, library_key: str) -> str:
+    """Stable id of a preview group: (night, device, target as read from the files), hashed."""
+    raw = f"{night.isoformat() if night else ''}|{device}|{library_key}"
+    return "g" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+
+
 @dataclass
 class Group:
     night_date: date | None
     device: str
     target: TargetRef
     is_canon: bool
+    group_key: str
     frames: list[Frame] = field(default_factory=list)
+
+    def object_coords(self) -> tuple[float | None, float | None]:
+        """Header RA/Dec of the object (first frame that has both); provenance for custom targets."""
+        for f in self.frames:
+            fi = f.parsed.fits
+            if fi is not None and fi.ra_deg is not None and fi.dec_deg is not None:
+                return fi.ra_deg, fi.dec_deg
+        return None, None
 
     def sort_key(self) -> tuple:
         first = self.first_utc
@@ -336,6 +357,7 @@ class Group:
         temps = [f.ccd_temp_c for f in self.frames if f.ccd_temp_c is not None]
         first, last = self.first_utc, self.last_utc
         return {
+            "group_key": self.group_key,
             "night_date": self.night_date.isoformat() if self.night_date else None,
             "device": self.device,
             "target": self.target.out(),
@@ -400,7 +422,8 @@ def group_items(infos: list[Parsed], location: ObservingLocation | None, clock_o
         key = (fr.night_date, fr.device, fr.target.library_key)
         g = groups.get(key)
         if g is None:
-            g = groups[key] = Group(fr.night_date, fr.device, fr.target, p.source == "cr2")
+            g = groups[key] = Group(fr.night_date, fr.device, fr.target, p.source == "cr2",
+                                    group_key(fr.night_date, fr.device, fr.target.library_key))
         g.frames.append(fr)
     return sorted(groups.values(), key=Group.sort_key)
 
@@ -469,6 +492,7 @@ def plan_candidates(db: Session, night: date, location_id: str) -> list[Observin
     return list(db.scalars(select(ObservingSession).where(
         ObservingSession.local_night_date == night.isoformat(),
         ObservingSession.source == "planned",
+        ObservingSession.status == "planned",  # cancelled/completed plans are never auto-attached
         (ObservingSession.location_id == location_id) | (ObservingSession.location_id.is_(None)),
     ).order_by(ObservingSession.created_at)))
 
@@ -481,18 +505,20 @@ def plan_ids_for(db: Session, night: date | None, location_id: str | None) -> li
 
 
 def _night_title(night: date) -> str:
-    return f"Night of {night.day} {night.strftime('%b %Y')}"
+    return f"Night of {night.day} {_MONTHS[night.month - 1]} {night.year}"  # locale-independent
 
 
-def _get_or_create_target(db: Session, ref: TargetRef, cache: dict[str, LibraryTarget]) -> LibraryTarget:
-    if ref.library_key in cache:
-        return cache[ref.library_key]
-    lt = db.scalars(select(LibraryTarget).where(LibraryTarget.normalized_key == ref.library_key)).first()
+def _get_or_create_target(db: Session, ref: TargetRef, cache: dict[str, LibraryTarget],
+                          coords: tuple[float | None, float | None] = (None, None)) -> LibraryTarget:
+    lt = cache.get(ref.library_key) or db.scalars(
+        select(LibraryTarget).where(LibraryTarget.normalized_key == ref.library_key)).first()
     if lt is None:
         lt = LibraryTarget(catalog_target_id=ref.catalog_target_id, normalized_key=ref.library_key, kind=ref.kind,
                            custom_name=ref.display_name if ref.kind == "custom" else None)
         db.add(lt)
-        db.flush()
+    if lt.kind == "custom" and lt.ra_deg is None and coords[0] is not None and coords[1] is not None:
+        lt.ra_deg, lt.dec_deg = coords  # object position from the header, as provenance (spec §7)
+    db.flush()
     cache[ref.library_key] = lt
     return lt
 
@@ -552,27 +578,40 @@ def _link_plan_target(s: ObservingSession, lt: LibraryTarget) -> None:
             st.library_target_id = lt.id
 
 
-def apply_overrides(groups: list[Group], canon_set_names: dict[int, str], unsorted_groups: set[int]) -> None:
-    n = len(groups)
-    for i in set(canon_set_names) | unsorted_groups:
-        if not 0 <= i < n:
-            raise ImportRequestError(f"Group index {i} does not exist (this import has {n} group(s)).")
-    for i, name in canon_set_names.items():
-        if not groups[i].is_canon:
-            raise ImportRequestError(f"Group {i} is not a Canon set; only Canon sets can be named.")
-        if i in unsorted_groups:
-            raise ImportRequestError(f"Group {i} cannot be both named and moved to Unsorted.")
+def apply_overrides(groups: list[Group], canon_set_names: dict[str, str], unsorted_groups: set[str]) -> None:
+    """Rename Canon sets / move groups to Unsorted, addressed by the preview's ``group_key``."""
+    by_key = {g.group_key: g for g in groups}
+    if (set(canon_set_names) | unsorted_groups) - set(by_key):
+        raise ImportRequestError(UNKNOWN_GROUP)
+    for k, name in canon_set_names.items():
+        g = by_key[k]
+        if not g.is_canon:
+            raise ImportRequestError("Only Canon sets can be named.")
+        if k in unsorted_groups:
+            raise ImportRequestError("A group cannot be both named and moved to Unsorted.")
         if not name.strip():
-            raise ImportRequestError(f"Group {i} needs a non-empty name.")
-        groups[i].target = resolve_target(name)
-    for i in unsorted_groups:
-        groups[i].target = UNSORTED
+            raise ImportRequestError("A Canon set name must not be empty.")
+        g.target = resolve_target(name)
+    for k in unsorted_groups:
+        by_key[k].target = UNSORTED
+
+
+def _stack_coords(st: StackInfo) -> tuple[float | None, float | None]:
+    f = st.parsed.fits
+    return (f.ra_deg, f.dec_deg) if f.ra_deg is not None and f.dec_deg is not None else (None, None)
 
 
 def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation, *, clock_offset_minutes: int = 0,
-                  plan_session_id: str | None = None, canon_set_names: dict[int, str] | None = None,
-                  unsorted_groups: Iterable[int] = ()) -> dict[str, Any]:
-    """Write one import (caller commits or rolls back). Raises ImportRequestError for request problems."""
+                  plan_session_id: str | None = None, canon_set_names: dict[str, str] | None = None,
+                  unsorted_groups: Iterable[str] = ()) -> dict[str, Any]:
+    """Write one import (caller commits or rolls back). Raises ImportRequestError for request problems.
+
+    Only new frames and stacks are written. A group whose frames were all imported before is a
+    no-op: no session, target or capture set is created and no plan is touched (frames already
+    imported are never moved; corrections go through explicit edit endpoints).
+    """
+    if plan_session_id is not None and db.get(ObservingSession, plan_session_id) is None:
+        raise ImportRequestError("plan_session_id does not exist.")
     groups = group_items(parsed, location, clock_offset_minutes)
     apply_overrides(groups, dict(canon_set_names or {}), set(unsorted_groups))
     sessions = _Sessions(db, location, plan_session_id)
@@ -582,10 +621,13 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
     inserted_frames, session_ids = 0, []
 
     for g in groups:
+        new = [f for f in g.frames if f.dedup_key not in known]
+        if not new:
+            continue
         s = sessions.get(g.night_date)
         if s.id not in session_ids:
             session_ids.append(s.id)
-        lt = _get_or_create_target(db, g.target, targets)
+        lt = _get_or_create_target(db, g.target, targets, g.object_coords())
         _link_plan_target(s, lt)
         key = (s.id, lt.id, g.device)
         cs = sets.get(key) or db.scalars(select(CaptureSet).where(
@@ -597,29 +639,27 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
             db.add(cs)
             db.flush()
         sets[key] = cs
-        for f in g.frames:
-            if f.dedup_key in known:
-                continue
+        for f in new:
             known.add(f.dedup_key)
             db.add(CaptureFrame(capture_set_id=cs.id, date_obs_utc=iso_z(f.utc), exptime_s=f.exptime_s,
                                 filter=f.filter, gain=f.gain, ccd_temp_c=f.ccd_temp_c,
                                 source_filename=f.parsed.filename, dedup_key=f.dedup_key))
             inserted_frames += 1
 
-    if plan_session_id is not None and not sessions.plan_used:
+    if plan_session_id is not None and sessions.by_night and not sessions.plan_used:
         raise ImportRequestError("plan_session_id is not a planned session for any night in this import.")
 
     stacks = stack_infos(parsed, location)
     known_stacks = existing_keys(db, Stack, (st.dedup_key for st in stacks))
     inserted_stacks = 0
     for st in stacks:
-        if st.dedup_key in known_stacks:
+        if st.dedup_key in known_stacks:  # a duplicate stack creates nothing (not even its target)
             continue
         known_stacks.add(st.dedup_key)
         f = st.parsed.fits
         s = sessions.existing(st.night_date)
-        db.add(Stack(library_target_id=_get_or_create_target(db, st.target, targets).id,
-                     session_id=s.id if s else None, source_filename=st.parsed.filename,
+        lt = _get_or_create_target(db, st.target, targets, _stack_coords(st))
+        db.add(Stack(library_target_id=lt.id, session_id=s.id if s else None, source_filename=st.parsed.filename,
                      stack_count=st.stack_count, livetime_s=st.livetime_s, exptime_s=st.exptime_s,
                      expstart_jd=f.expstart_jd, expend_jd=f.expend_jd, program=f.program[:120] if f.program else None,
                      provenance=st.provenance, dedup_key=st.dedup_key))

@@ -119,3 +119,26 @@ def test_migrations_on_postgres():
     assert PHASE1_TABLES | {"alembic_version"} <= set(sqlalchemy.inspect(eng).get_table_names())
     run_migrations(url)  # idempotent
     eng.dispose()
+
+
+def test_0003_adds_and_drops_library_target_coords(tmp_path):
+    from alembic import command
+    from alembic.config import Config
+    from app.db import BACKEND_DIR
+    url = f"sqlite:///{tmp_path / 'c.db'}"
+    run_migrations(url)
+    eng = create_engine(url)
+    cols = {c["name"] for c in sqlalchemy.inspect(eng).get_columns("library_targets")}
+    assert {"ra_deg", "dec_deg"} <= cols
+    with eng.begin() as c:
+        c.execute(text("INSERT INTO library_targets (id,normalized_key,kind,created_at,ra_deg,dec_deg) "
+                       "VALUES ('l1','custom:x','custom','x',1.5,2.5)"))
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.downgrade(cfg, "0002_astrolog")
+    cols = {c["name"] for c in sqlalchemy.inspect(eng).get_columns("library_targets")}
+    assert "ra_deg" not in cols and "dec_deg" not in cols
+    with eng.connect() as c:
+        assert c.execute(text("SELECT normalized_key FROM library_targets WHERE id='l1'")).scalar() == "custom:x"
+    eng.dispose()

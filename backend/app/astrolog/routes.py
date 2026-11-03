@@ -43,7 +43,7 @@ class PreviewIn(BaseModel):
 class CommitIn(PreviewIn):
     plan_session_id: str | None = None
     canon_set_names: dict[str, str] = Field(default_factory=dict)
-    unsorted_groups: list[int] = Field(default_factory=list, max_length=MAX_ITEMS)
+    unsorted_groups: list[str] = Field(default_factory=list, max_length=MAX_ITEMS)
 
 
 class SuggestIn(BaseModel):
@@ -104,10 +104,7 @@ def import_commit(body: Any = Body(...), db: Session = Depends(get_db)) -> dict[
     if not req.location_id:
         raise HTTPException(422, "location_id is required: choose the saved location these files were taken at.")
     loc = _location(db, req.location_id)
-    try:
-        names = {int(k): v for k, v in req.canon_set_names.items()}
-    except ValueError:
-        raise HTTPException(422, "canon_set_names keys must be group indexes")
+    names = req.canon_set_names  # {group_key: name}
     if any(len(v) > 160 for v in names.values()):
         raise HTTPException(422, "Canon set names must be at most 160 characters")
     parsed, skipped = importer.parse_items(req.items)

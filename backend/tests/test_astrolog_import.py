@@ -70,6 +70,17 @@ def dbs(c):
     return c.app.state.db.session()
 
 
+def key0(c, items, loc, **kw) -> str:
+    """group_key of the first preview group (what the UI echoes back on commit)."""
+    return preview(c, items, location_id=loc, **kw)["groups"][0]["group_key"]
+
+
+def counts(c) -> dict[str, int]:
+    with dbs(c) as s:
+        return {m.__name__: s.scalar(select(func.count()).select_from(m))
+                for m in (CaptureFrame, CaptureSet, LibraryTarget, Stack, ObservingSession)}
+
+
 # ---- grouping -------------------------------------------------------------------
 
 def test_three_subs_make_one_group_on_evening_night(api):
@@ -300,7 +311,8 @@ def test_canon_local_time_night_and_named_set_accumulates(api):
     assert g["device"] == "Canon EOS REBEL T3"
     assert g["frames"] == 3 and g["captured_s"] == 60.0
     assert g["first_utc"].startswith("2026-08-13T02:19:50")  # 22:19:50 EDT
-    r = commit(api, items, loc, clock_offset_minutes=0, canon_set_names={"0": "Milky Way (wide field)"})
+    assert g["group_key"]
+    r = commit(api, items, loc, clock_offset_minutes=0, canon_set_names={g["group_key"]: "Milky Way (wide field)"})
     assert r.status_code == 200, r.text
     with dbs(api) as s:
         lt = s.scalars(select(LibraryTarget)).one()
@@ -308,7 +320,7 @@ def test_canon_local_time_night_and_named_set_accumulates(api):
         cs = s.scalars(select(CaptureSet)).one()
         assert cs.equipment_id == "canon-t3-18-55" and cs.equipment_snapshot["id"] == "canon-t3-18-55"
     more = canon_items(day="2026:08:14", times=("21:00:00", "21:00:30"))
-    r2 = commit(api, more, loc, canon_set_names={"0": "Milky Way (wide field)"})
+    r2 = commit(api, more, loc, canon_set_names={key0(api, more, loc): "Milky Way (wide field)"})
     assert r2.json()["inserted_frames"] == 2
     with dbs(api) as s:
         assert s.scalar(select(func.count()).select_from(LibraryTarget)) == 1
@@ -327,7 +339,7 @@ def test_canon_clock_offset_moves_night(api):
 
 def test_canon_set_named_like_catalog_target_uses_catalog(api):
     loc = make_location(api)
-    commit(api, canon_items(), loc, canon_set_names={"0": "M42"})
+    commit(api, canon_items(), loc, canon_set_names={key0(api, canon_items(), loc): "M42"})
     with dbs(api) as s:
         lt = s.scalars(select(LibraryTarget)).one()
         assert lt.kind == "catalog" and lt.catalog_target_id == "m42"
@@ -337,13 +349,15 @@ def test_unsorted_groups(api):
     loc = make_location(api)
     items = [sub("M 27", "2026-09-12T00:28:00"), sub("NGC 7635", "2026-09-12T03:11:00")]
     p = preview(api, items)
-    idx = next(i for i, g in enumerate(p["groups"]) if g["target"]["catalog_target_id"] == "m27")
-    commit(api, items, loc, unsorted_groups=[idx])
+    gk = next(g["group_key"] for g in p["groups"] if g["target"]["catalog_target_id"] == "m27")
+    assert commit(api, items, loc, unsorted_groups=[gk]).status_code == 200
     with dbs(api) as s:
         kinds = {lt.kind: lt for lt in s.scalars(select(LibraryTarget))}
         assert set(kinds) == {"unsorted", "catalog"}
         assert kinds["unsorted"].normalized_key == "unsorted"
-    assert commit(api, items, loc, unsorted_groups=[99]).status_code == 422
+    bad = commit(api, items, loc, unsorted_groups=["g-not-a-group"])
+    assert bad.status_code == 422 and bad.json()["detail"] == "Unknown group; re-run the preview."
+    assert commit(api, items, loc, canon_set_names={"0": "X"}).status_code == 422  # old index form is gone
 
 
 def test_unknown_object_becomes_custom_target(api):
@@ -403,3 +417,151 @@ def test_suggest_location_is_rounded(api):
 def test_suggest_location_without_coordinates(api):
     r = api.post(SUGGEST, json={"items": canon_items()})
     assert r.status_code == 422
+
+
+# ---- fix round 1 ----------------------------------------------------------------------
+
+def test_group_keys_are_stable_and_distinct(api):
+    loc = make_location(api)
+    items = [sub("M 27", "2026-09-12T00:28:00"), sub("NGC 7635", "2026-09-12T03:11:00")]
+    a = [g["group_key"] for g in preview(api, items, location_id=loc)["groups"]]
+    b = [g["group_key"] for g in preview(api, list(reversed(items)), location_id=loc)["groups"]]
+    assert a == b and len(set(a)) == 2
+
+
+def test_reimport_with_new_name_is_a_no_op(api):
+    """A re-import never moves frames already imported: no new target, capture set, session or plan change."""
+    loc_a = make_location(api)
+    items = canon_items()
+    assert commit(api, items, loc_a).json()["inserted_frames"] == 3  # unnamed -> Unsorted
+    loc_b = make_location(api, lat=41.0, lon=-74.0, label="Elsewhere")
+    plan = make_plan(api, loc_b, night="2026-08-12")
+    before = counts(api)
+    r = commit(api, items, loc_b, canon_set_names={key0(api, items, loc_b): "Milky Way (wide field)"})
+    assert r.status_code == 200, r.text
+    assert r.json() == {"session_ids": [], "inserted_frames": 0, "inserted_stacks": 0, "skipped": []}
+    assert counts(api) == before
+    with dbs(api) as s:
+        p = s.get(ObservingSession, plan)
+        assert p.status == "planned" and p.source == "planned"
+        assert s.scalars(select(LibraryTarget)).one().kind == "unsorted"
+
+
+def test_duplicate_stack_creates_nothing(api):
+    loc = make_location(api)
+    stack = fits_item("Comet_12x10sec.fit", siril_stack_header(OBJECT="Comet C/2026 X1"))
+    commit(api, [stack], loc)
+    before = counts(api)
+    assert commit(api, [stack], loc).json()["inserted_stacks"] == 0
+    assert counts(api) == before
+
+
+def test_cancelled_or_completed_plans_are_not_candidates(api):
+    loc = make_location(api)
+    cancelled = make_plan(api, loc, title="Cancelled")
+    api.patch(f"/api/sessions/{cancelled}", json={"status": "cancelled"})
+    done = make_plan(api, loc, title="Done")
+    api.patch(f"/api/sessions/{done}", json={"status": "completed"})
+    items = ngc_subs([11])
+    assert preview(api, items)["groups"][0]["plan_session_ids"] == []
+    sid = commit(api, items, loc).json()["session_ids"][0]
+    assert sid not in (cancelled, done)
+    with dbs(api) as s:
+        assert s.get(ObservingSession, cancelled).status == "cancelled"
+        assert s.get(ObservingSession, cancelled).source == "planned"
+
+
+def test_night_title_is_locale_independent():
+    import locale
+    from datetime import date
+
+    old = locale.setlocale(locale.LC_TIME)
+    try:
+        for name in ("de_DE.UTF-8", "fr_FR.UTF-8"):
+            try:
+                locale.setlocale(locale.LC_TIME, name)
+                break
+            except locale.Error:
+                continue
+        assert importer._night_title(date(2026, 5, 3)) == "Night of 3 May 2026"
+        assert importer._night_title(date(2026, 12, 31)) == "Night of 31 Dec 2026"
+    finally:
+        locale.setlocale(locale.LC_TIME, old)
+
+
+def test_custom_target_stores_object_ra_dec_not_site(api):
+    loc = make_location(api)
+    commit(api, [sub("Comet C/2026 X1", "2026-09-12T03:11:00", RA=12.5, DEC=-3.25)], loc)
+    with dbs(api) as s:
+        lt = s.scalars(select(LibraryTarget)).one()
+        assert (lt.ra_deg, lt.dec_deg) == (12.5, -3.25)
+    commit(api, ngc_subs([11]), loc)  # catalog targets keep the catalog's coordinates, not the header's
+    with dbs(api) as s:
+        cat = s.scalars(select(LibraryTarget).where(LibraryTarget.kind == "catalog")).one()
+        assert cat.ra_deg is None and cat.dec_deg is None
+
+
+def test_failed_commit_writes_nothing(api):
+    """Atomicity: errors raised after rows were flushed still leave the DB untouched."""
+    loc = make_location(api)
+    make_plan(api, loc, title="A")
+    make_plan(api, None, title="B")
+    before = counts(api)
+    assert commit(api, ngc_subs([11, 12]), loc).status_code == 422  # several plans, no choice
+    assert counts(api) == before
+    # single-night import whose plan_session_id matches nothing: rows are flushed before the check fails
+    other = make_plan(api, loc, night="2026-01-01", title="Unrelated")
+    before = counts(api)
+    r = commit(api, [sub("M 27", "2026-11-01T05:30:00")], loc, plan_session_id=other)
+    assert r.status_code == 422
+    assert counts(api) == before
+    with dbs(api) as s:
+        assert s.get(ObservingSession, other).source == "planned"
+
+
+def test_request_location_overrides_header_match(api):
+    near = make_location(api)  # header coordinates match this one
+    far = make_location(api, lat=34.05, lon=-118.24, tz="America/Los_Angeles", label="Far away")
+    items = [sub("M 27", "2026-09-12T05:30:00")]  # 01:30 EDT (night 11 Sep) but 22:30 PDT (night 11 Sep)
+    p = preview(api, items)
+    assert p["location_id"] == near
+    p2 = preview(api, items, location_id=far)
+    assert p2["location_id"] == far and p2["needs_location"] is False
+    late = [sub("M 27", "2026-09-12T18:30:00")]  # 14:30 EDT -> night 12 Sep; 11:30 PDT -> night 11 Sep
+    assert preview(api, late)["groups"][0]["night_date"] == "2026-09-12"
+    assert preview(api, late, location_id=far)["groups"][0]["night_date"] == "2026-09-11"
+    sid = commit(api, late, far).json()["session_ids"][0]
+    with dbs(api) as s:
+        assert s.get(ObservingSession, sid).location_id == far
+
+
+def _coordinate_renderings(*values: float) -> set[str]:
+    out = set()
+    for v in values:
+        out.add(repr(v))
+        out.add(str(v))
+        for d in range(3, 8):
+            out.add(f"{v:.{d}f}")
+    return out
+
+
+def test_db_never_contains_header_coordinates(api):
+    lat, lon = 40.0936123, -75.3041234
+    loc = make_location(api, lat=40.08, lon=-75.30)
+    items = [sub("NGC 7635", "2026-09-12T03:11:00", SITELAT=lat, SITELONG=lon),
+             sub("Comet C/2026 X1", "2026-09-12T04:11:00", SITELAT=lat, SITELONG=lon, RA=12.5, DEC=-3.25),
+             fits_item("stack.fit", siril_stack_header(SITELAT=lat, SITELONG=lon))]
+    assert preview(api, items)["location_id"] == loc  # matched via the header coordinates
+    assert commit(api, items, loc).status_code == 200
+    needles = _coordinate_renderings(lat, lon)
+    from sqlalchemy import text
+
+    with dbs(api) as s:
+        for table in ("sessions", "capture_sets", "capture_frames", "stacks", "library_targets"):
+            rows = s.execute(text(f"SELECT * FROM {table}")).all()
+            assert rows, table
+            for row in rows:
+                for value in row:
+                    cell = "" if value is None else str(value)
+                    hits = [n for n in needles if n in cell]
+                    assert not hits, f"{table} contains a header coordinate rendering"
