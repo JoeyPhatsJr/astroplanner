@@ -32,6 +32,16 @@ developer's images (photometry) and submitting to AAVSO are Phase 4**; Phase 3 l
   - Volume: SS Cyg returned **16,626 observations for 150 days in 19 s**; T CrB ~350 observations per day.
   - `www.aavso.org` (docs, guidelines, the VSX mirror) sits behind a Cloudflare browser challenge and returns 403
     to automated clients. The app must use `vsx.aavso.org` only and must not try to get past the challenge.
+- **VSX's own terms (read 2026-11-02 at `vsx.aavso.org/index.php?view=about.copyright`)**: "Permission is granted
+  to display, copy, distribute and download the materials on this Site for personal, non-commercial use only,
+  provided you do not modify the materials and that you retain all copyright and other proprietary notices
+  contained in the materials. You also may not, without the permission of AAVSO, "mirror" any material contained
+  on this Site on any other server." So local, single-user use looks permitted; **a public deployment would need
+  AAVSO's permission** (record this before the deployment milestone). Acknowledgment wording from
+  `view=about.acknowledgments`: "This research has made use of the International Variable Star Index (VSX)
+  database, operated at AAVSO, Cambridge, Massachusetts, USA." and "…the variable star observations from the AAVSO
+  International Database contributed by observers worldwide…". The VSX star page
+  `https://vsx.aavso.org/index.php?view=detail.top&oid=<OID>` loads (200) and is the fallback link target.
 - **AAVSO Data Usage Guidelines (Oct 2025 revision) exist** (acknowledgement text, facility keyword "AAVSO (AID)",
   observers as co-authors when data are critical to research, "data are and always will be provided free of
   charge"), but their full text and the official VSX API documentation **have not been read yet**: see §8, gate G1.
