@@ -63,8 +63,8 @@ def siril_stack_header(stack_count: int = 654, livetime: float = 6540.0, **overr
     h["PROGRAM"] = "Siril 1.4.4"
     h["STACKCNT"] = stack_count
     h["LIVETIME"] = livetime
-    h["EXPSTART"] = 2461294.63
-    h["EXPEND"] = 2461294.9
+    h["EXPSTART"] = 2461295.63
+    h["EXPEND"] = 2461295.9
     h["HISTORY"] = "Stacking method: average with rejection"
     for k, v in overrides.items():
         h[k] = v

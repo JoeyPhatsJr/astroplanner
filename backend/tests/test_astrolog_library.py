@@ -56,7 +56,7 @@ def upload(c, tid, stack_id=None):
 
 def seeded(c, with_stack=True, link=True):
     loc = make_location(c)
-    items = ngc_frames() + ([stack_item(EXPSTART=2461295.63, EXPEND=2461296.0)] if with_stack else [])
+    items = ngc_frames() + ([stack_item(EXPEND=2461296.0)] if with_stack else [])
     for i in range(0, len(items), 250):  # the API takes at most 300 items per request
         assert commit(c, items[i:i + 250], loc).status_code == 200
     tid = lib_id(c)
@@ -218,3 +218,39 @@ def test_no_header_coordinates_anywhere(api):
         assert not COORD_RE.search(b)
     t = api.get(f"/api/astrolog/targets/{tid}").json()
     assert "ra_deg" not in t["target"] and "dec_deg" not in t["target"]
+
+
+def _stack_only(api, **kw):
+    loc = make_location(api)
+    assert commit(api, [stack_item(**kw)], loc).status_code == 200
+    return lib_id(api)
+
+
+def test_stack_only_target_listed_with_unknown_captured(api):
+    tid = _stack_only(api)
+    row = next(r for r in api.get(LIB).json() if r["id"] == tid)
+    assert row["headline"]["seconds"] == 6540.0 and row["headline"]["label"] == "stack"
+    assert row["captured_s"] is None
+    t = api.get(f"/api/astrolog/targets/{tid}").json()
+    assert t["captured_s"] is None and t["frames_total"] == 0 and t["percent_used"] is None
+    assert t["headline"]["label"] == "stack" and t["headline"]["seconds"] == 6540.0
+    assert api.get("/api/astrolog/history").json()["ngc7635"] == {"seconds": 6540.0, "label": "stack"}
+
+
+def test_frames_plus_unlinked_stack_keeps_captured_headline(api):
+    tid = seeded(api, link=False)
+    row = next(r for r in api.get(LIB).json() if r["id"] == tid)
+    assert row["headline"]["label"] == "captured" and row["headline"]["seconds"] == 10150.0
+    assert api.get("/api/astrolog/history").json()["ngc7635"] == {"seconds": 10150.0, "label": "captured"}
+
+
+def test_linked_stack_without_integration_falls_back_to_captured(api):
+    loc = make_location(api)
+    commit(api, ngc_frames(3), loc)
+    tid = lib_id(api)
+    with api.app.state.db.session() as s:
+        st = Stack(library_target_id=tid, source_filename="mystery.fit", provenance="header", dedup_key="none")
+        s.add(st); s.commit(); sid = st.id
+    upload(api, tid, sid)
+    h = api.get(f"/api/astrolog/targets/{tid}").json()["headline"]
+    assert h == {"seconds": 30.0, "label": "captured", "provenance": "frames"}

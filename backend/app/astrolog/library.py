@@ -67,11 +67,15 @@ def stack_out(st: Stack) -> dict[str, Any]:
             "integration_s": secs, "integration_provenance": prov}
 
 
-def _headline(captured_s: float, stack: Stack | None) -> dict[str, Any]:
-    if stack is not None:
-        secs, prov = stack_seconds(stack)
-        if secs is not None:
-            return {"seconds": secs, "label": "stack", "provenance": prov}
+def _headline(captured_s: float | None, linked: Stack | None, latest: Stack | None = None) -> dict[str, Any]:
+    """Linked stack; else (only when the target has no frames) its latest stack; else captured."""
+    for st in (linked, latest if captured_s is None else None):
+        if st is not None:
+            secs, prov = stack_seconds(st)
+            if secs is not None:
+                return {"seconds": secs, "label": "stack", "provenance": prov}
+    if captured_s is None:
+        return {"seconds": None, "label": "captured", "provenance": "frames"}
     return {"seconds": captured_s, "label": "captured", "provenance": "frames"}
 
 
@@ -84,7 +88,15 @@ def _linked_stacks(db: Session, images: dict[str, FinalImage]) -> dict[str, Stac
     if not ids:
         return {}
     by_id = {s.id: s for s in db.scalars(select(Stack).where(Stack.id.in_(ids)))}
-    return {tid: by_id[i.stack_id] for tid, i in images.items() if i.stack_id in by_id}
+    return {tid: by_id[i.stack_id] for tid, i in images.items()
+            if i.stack_id in by_id and by_id[i.stack_id].library_target_id == tid}
+
+
+def _latest_stacks(db: Session) -> dict[str, Stack]:
+    out: dict[str, Stack] = {}
+    for st in db.scalars(select(Stack).order_by(Stack.imported_at.desc(), Stack.id)):
+        out.setdefault(st.library_target_id, st)
+    return out
 
 
 def _captured(db: Session) -> dict[str, dict[str, Any]]:
@@ -103,30 +115,32 @@ def _thumb_url(img: FinalImage | None) -> str | None:
 
 def library(db: Session) -> list[dict[str, Any]]:
     cap, images = _captured(db), _current_images(db)
-    stacks = _linked_stacks(db, images)
+    stacks, latest = _linked_stacks(db, images), _latest_stacks(db)
     rows = []
     for lt in db.scalars(select(LibraryTarget)):
         c = cap.get(lt.id)
-        if c is None and lt.id not in images:
-            continue  # created without any frames or picture: nothing to show
-        c = c or {"captured_s": 0.0, "frames": 0, "nights": 0, "last": None}
+        if c is None and lt.id not in images and lt.id not in latest:
+            continue  # no frames, no stack, no picture: nothing to show
+        cs = c["captured_s"] if c else None  # no frames: captured time is unknown, never 0
         rows.append(({**summary(lt), "thumb_url": _thumb_url(images.get(lt.id)),
-                      "headline": _headline(c["captured_s"], stacks.get(lt.id)),
-                      "captured_s": c["captured_s"], "nights": c["nights"]}, c["last"] or "", lt.created_at))
+                      "headline": _headline(cs, stacks.get(lt.id), latest.get(lt.id)),
+                      "captured_s": cs, "nights": c["nights"] if c else 0},
+                     (c or {}).get("last") or "", lt.created_at))
     rows.sort(key=lambda r: (r[1], r[2]), reverse=True)
     return [r[0] for r in rows]
 
 
 def history(db: Session) -> dict[str, dict[str, Any]]:
     cap, images = _captured(db), _current_images(db)
-    stacks = _linked_stacks(db, images)
+    stacks, latest = _linked_stacks(db, images), _latest_stacks(db)
     out: dict[str, dict[str, Any]] = {}
     for lt in db.scalars(select(LibraryTarget).where(LibraryTarget.catalog_target_id.is_not(None))):
         c = cap.get(lt.id)
-        if c is None:
+        if c is None and lt.id not in latest and lt.id not in stacks:
             continue
-        h = _headline(c["captured_s"], stacks.get(lt.id))
-        out[lt.catalog_target_id] = {"seconds": h["seconds"], "label": h["label"]}
+        h = _headline(c["captured_s"] if c else None, stacks.get(lt.id), latest.get(lt.id))
+        if h["seconds"] is not None:
+            out[lt.catalog_target_id] = {"seconds": h["seconds"], "label": h["label"]}
     return out
 
 
@@ -167,12 +181,14 @@ def target_page(db: Session, lt: LibraryTarget) -> dict[str, Any]:
     img = db.scalars(select(FinalImage).where(FinalImage.library_target_id == lt.id,
                                               FinalImage.is_current.is_(True))).first()
     stack = db.get(Stack, img.stack_id) if img and img.stack_id else None
+    if stack is not None and stack.library_target_id != lt.id:
+        stack = None
     sets = list(db.scalars(select(CaptureSet).where(CaptureSet.library_target_id == lt.id)))
     rows = list(db.execute(select(CaptureFrame, CaptureSet.session_id, CaptureSet.device)
                            .join(CaptureSet, CaptureFrame.capture_set_id == CaptureSet.id)
                            .where(CaptureSet.library_target_id == lt.id)))
     frames = [r[0] for r in rows]
-    captured = float(sum(f.exptime_s for f in frames))
+    captured = float(sum(f.exptime_s for f in frames)) if frames else None
     per_set: dict[str, list[CaptureFrame]] = {}
     for f in frames:
         per_set.setdefault(f.capture_set_id, []).append(f)
@@ -183,7 +199,9 @@ def target_page(db: Session, lt: LibraryTarget) -> dict[str, Any]:
         fs = per_set.get(cs.id, [])
         if not fs:
             continue
-        s = sessions[cs.session_id]
+        s = sessions.get(cs.session_id)
+        if s is None:
+            continue
         times = sorted(f.date_obs_utc for f in fs)
         nights.append({"session_id": cs.session_id, "night_date": s.local_night_date, "device": cs.device,
                        "frames": len(fs), "captured_s": float(sum(f.exptime_s for f in fs)),
@@ -201,7 +219,7 @@ def target_page(db: Session, lt: LibraryTarget) -> dict[str, Any]:
         "final_image": final,
         "stack": stack_out(stack) if stack else None,
         "stacks": [stack_out(s) for s in all_stacks],  # listed individually; never combined
-        "headline": _headline(captured, stack),
+        "headline": _headline(captured, stack, all_stacks[0] if all_stacks else None),
         "captured_s": captured,
         "frames_total": len(frames),
         "percent_used": percent_used(stack, [f.date_obs_utc for f in frames]),
@@ -211,27 +229,40 @@ def target_page(db: Session, lt: LibraryTarget) -> dict[str, Any]:
     }
 
 
-def session_capture_info(db: Session, s: ObservingSession) -> tuple[list[dict[str, Any]], list[str]]:
-    """Capture sets of a session (plan vs actual) and the planned catalog targets not shot.
+def capture_info(db: Session, session_ids: list[str]) -> dict[str, tuple[list[dict[str, Any]], list[str]]]:
+    """Plan vs actual for many sessions with a fixed number of queries.
 
-    ``not_shot`` is only reported once something was imported for the session; a purely planned
-    session has not been compared with any capture yet.
-    """
-    sets = list(db.scalars(select(CaptureSet).where(CaptureSet.session_id == s.id).order_by(CaptureSet.created_at)))
-    out: list[dict[str, Any]] = []
-    shot: set[str] = set()
+    Per session: its capture sets, and the planned catalog targets not shot. ``not_shot`` is only
+    reported once something was imported for the session (a purely planned one is still [])."""
+    out: dict[str, tuple[list[dict[str, Any]], list[str]]] = {i: ([], []) for i in session_ids}
+    if not session_ids:
+        return out
+    sets = list(db.scalars(select(CaptureSet).where(CaptureSet.session_id.in_(session_ids))
+                           .order_by(CaptureSet.created_at)))
+    targets = {lt.id: lt for lt in db.scalars(select(LibraryTarget).where(
+        LibraryTarget.id.in_({cs.library_target_id for cs in sets})))} if sets else {}
+    agg = {cid: (n, float(secs)) for cid, n, secs in db.execute(
+        select(CaptureFrame.capture_set_id, func.count(CaptureFrame.id), func.coalesce(func.sum(CaptureFrame.exptime_s), 0.0))
+        .where(CaptureFrame.capture_set_id.in_([cs.id for cs in sets])).group_by(CaptureFrame.capture_set_id))} if sets else {}
+    shot: dict[str, set[str]] = {}
     for cs in sets:
-        lt = db.get(LibraryTarget, cs.library_target_id)
-        n, secs = db.execute(select(func.count(CaptureFrame.id), func.coalesce(func.sum(CaptureFrame.exptime_s), 0.0))
-                             .where(CaptureFrame.capture_set_id == cs.id)).one()
+        lt = targets.get(cs.library_target_id)
+        if lt is None:
+            continue
+        n, secs = agg.get(cs.id, (0, 0.0))
         if lt.catalog_target_id:
-            shot.add(lt.catalog_target_id)
-        out.append({"library_target_id": lt.id, "display_name": display_name(lt), "device": cs.device,
-                    "frames": n, "captured_s": float(secs), "equipment_id": cs.equipment_id,
-                    "equipment_snapshot": cs.equipment_snapshot})
-    not_shot: list[str] = []
-    if sets:
-        planned = db.scalars(select(SessionTarget).where(SessionTarget.session_id == s.id)
-                             .order_by(SessionTarget.sort_order))
-        not_shot = [st.target_id for st in planned if st.target_id not in shot]
-    return out, not_shot
+            shot.setdefault(cs.session_id, set()).add(lt.catalog_target_id)
+        out[cs.session_id][0].append({
+            "library_target_id": lt.id, "display_name": display_name(lt), "device": cs.device, "frames": n,
+            "captured_s": secs, "equipment_id": cs.equipment_id, "equipment_snapshot": cs.equipment_snapshot})
+    with_sets = {cs.session_id for cs in sets}
+    if with_sets:
+        for st in db.scalars(select(SessionTarget).where(SessionTarget.session_id.in_(with_sets))
+                             .order_by(SessionTarget.sort_order)):
+            if st.target_id not in shot.get(st.session_id, set()):
+                out[st.session_id][1].append(st.target_id)
+    return out
+
+
+def session_capture_info(db: Session, s: ObservingSession) -> tuple[list[dict[str, Any]], list[str]]:
+    return capture_info(db, [s.id])[s.id]
