@@ -14,7 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { batch, classifyFile, readExifSlice, readFitsHeader } from "../lib/headerSlice";
 import { mergeGroups } from "../lib/importMerge";
-import { formatCalendarDate, formatDateTime, nightLabel } from "../lib/time";
+import { formatCalendarDate, formatDateTime, formatIntegration, nightLabel } from "../lib/time";
 
 type PickedFile = { file: File; path: string };
 
@@ -64,12 +64,6 @@ async function walk(entry: FsEntry, out: PickedFile[]): Promise<void> {
       for (const c of chunk) await walk(c, out);
     }
   }
-}
-
-function fmtSeconds(s: number): string {
-  const h = Math.floor(s / 3600);
-  const m = Math.round((s % 3600) / 60);
-  return h ? `${h} h ${m} min` : `${m} min`;
 }
 
 export function AstroLogImportPage() {
@@ -507,7 +501,7 @@ export function AstroLogImportPage() {
                       <td className="px-4 py-2 text-right text-ink-2">{g.frames}</td>
                       <td className="px-4 py-2 text-ink-2">
                         {g.first_utc ? formatDateTime(g.first_utc, tzFor) : "unknown"}
-                        <span className="block text-xs text-muted">{fmtSeconds(g.captured_s)} exposure</span>
+                        <span className="block text-xs text-muted">{formatIntegration(g.captured_s)} exposure</span>
                       </td>
                       <td className="px-4 py-2 text-right">
                         <span className={`badge ${g.new_frames ? "border-ice/40 text-ice" : ""}`}>{g.new_frames}</span>
@@ -555,7 +549,7 @@ export function AstroLogImportPage() {
                     <span className="text-ink">{s.source_filename}</span>
                     <span>{s.target.display_name}</span>
                     <span className={`badge ${s.new ? "border-ice/40 text-ice" : ""}`}>{s.new ? "New" : "Already imported"}</span>
-                    {s.livetime_s !== null && <span className="text-xs text-muted">{fmtSeconds(s.livetime_s)} integration</span>}
+                    {s.livetime_s !== null && <span className="text-xs text-muted">{formatIntegration(s.livetime_s)} integration</span>}
                   </li>
                 ))}
               </ul>

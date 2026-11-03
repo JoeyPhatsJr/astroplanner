@@ -111,7 +111,7 @@ export function formatIntegration(seconds: number | null | undefined): string {
     if (m === 0) return `${s} s`;
     return s ? `${m} m ${s} s` : `${m} m`;
   }
-  const total = Math.round(seconds / 60);
+  const total = Math.floor(seconds / 60); // floor, never round up to the next hour
   return `${Math.floor(total / 60)} h ${total % 60} m`;
 }
 

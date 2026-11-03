@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 
-// Synthetic FITS headers only: dummy coordinates (40.0, -75.0), no real data anywhere.
+// Synthetic FITS headers only: dummy coordinates (40/-75 desktop, 41/-76 mobile), no real data anywhere.
 
 function card(key: string, value: string | number | boolean): string {
   let v: string;
@@ -19,7 +19,7 @@ function fitsFile(cards: Record<string, string | number | boolean>): Buffer {
   return Buffer.concat([Buffer.from(padded, "ascii"), Buffer.alloc(2880)]); // header + one small data block
 }
 
-function base(object: string, dateObs: string) {
+function base(object: string, dateObs: string, lat: number, lon: number) {
   return {
     SIMPLE: true,
     BITPIX: 16,
@@ -40,8 +40,8 @@ function base(object: string, dateObs: string) {
     GAIN: 200,
     FOCALLEN: 150,
     XPIXSZ: 2.9,
-    SITELAT: 40.0,
-    SITELONG: -75.0,
+    SITELAT: lat,
+    SITELONG: lon,
   };
 }
 
@@ -51,8 +51,8 @@ const PNG_1X1 =
 // The e2e database is shared by the desktop and mobile projects, so each project imports a
 // different target on a different night; the assertions are otherwise identical.
 const PER_PROJECT = {
-  desktop: { object: "NGC 7635", name: "Bubble Nebula", day: "2026-09-12", query: "NGC 7635" },
-  mobile: { object: "M 27", name: "Dumbbell Nebula", day: "2026-09-14", query: "M 27" },
+  desktop: { object: "NGC 7635", name: "Bubble Nebula", day: "2026-09-12", lat: 40.0, lon: -75.0, query: "NGC 7635" },
+  mobile: { object: "M 27", name: "Dumbbell Nebula", day: "2026-09-14", lat: 41.0, lon: -76.0, query: "M 27" },
 } as const;
 
 test("import a folder, review it, commit, and see the target history", async ({ page, request }, testInfo) => {
@@ -61,7 +61,7 @@ test("import a folder, review it, commit, and see the target history", async ({ 
   page.on("pageerror", (e) => errors.push(e.message));
 
   const loc = await request.post("/api/locations", {
-    data: { label: `E2E ${testInfo.project.name}`, latitude_deg: 40.0, longitude_deg: -75.0, timezone: "America/New_York" },
+    data: { label: `E2E ${testInfo.project.name}`, latitude_deg: cfg.lat, longitude_deg: cfg.lon, timezone: "America/New_York" },
   });
   expect(loc.ok()).toBeTruthy();
 
@@ -73,13 +73,13 @@ test("import a folder, review it, commit, and see the target history", async ({ 
     const t = `${cfg.day}T03:${String(11 + Math.floor((i * 10) / 60)).padStart(2, "0")}:${String((i * 10) % 60).padStart(2, "0")}.000000`;
     files.push({
       name: `Light_${cfg.object}_10.0s_LP_${i}.fit`,
-      buffer: fitsFile(base(cfg.object, t)),
+      buffer: fitsFile(base(cfg.object, t, cfg.lat, cfg.lon)),
     });
   }
   files.push({
     name: `Stack_${cfg.object.replace(" ", "_")}.fit`,
     mimeType: "application/octet-stream",
-    buffer: fitsFile({ ...base(cfg.object, `${cfg.day}T03:11:00.000000`), BITPIX: -32, PROGRAM: "Siril 1.4.4", STACKCNT: 12, LIVETIME: 120.0 }),
+    buffer: fitsFile({ ...base(cfg.object, `${cfg.day}T03:11:00.000000`, cfg.lat, cfg.lon), BITPIX: -32, PROGRAM: "Siril 1.4.4", STACKCNT: 12, LIVETIME: 120.0 }),
   });
 
   for (const f of files) writeFileSync(join(folder, f.name), f.buffer);
@@ -90,7 +90,7 @@ test("import a folder, review it, commit, and see the target history", async ({ 
   await expect(page.getByRole("heading", { name: "Review", level: 2 })).toBeVisible();
   const row = page.getByRole("row", { name: new RegExp(cfg.object) });
   await expect(row).toContainText("20");
-  await expect(row).toContainText("3 min exposure");
+  await expect(row).toContainText("3 m 20 s exposure");
   await page.getByRole("button", { name: /^Import 20 new frames and 1 stack$/ }).click();
 
   await expect(page).toHaveURL(/\/astrolog\/targets\//);

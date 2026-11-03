@@ -76,4 +76,11 @@ describe("formatIntegration", () => {
     expect(formatIntegration(45)).toBe("45 s");
     expect(formatIntegration(null)).toBe("unknown");
   });
+
+  it("is exact for non-round seconds and never rounds up", () => {
+    expect(formatIntegration(125)).toBe("2 m 5 s");
+    expect(formatIntegration(20)).toBe("20 s");
+    expect(formatIntegration(14380)).toBe("3 h 59 m");
+    expect(formatIntegration(14380)).not.toMatch(/60 m|^4 h/);
+  });
 });

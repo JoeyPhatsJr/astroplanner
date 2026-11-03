@@ -16,7 +16,7 @@ Branch `phase-2-astrolog` (not yet merged). Spec: `docs/superpowers/specs/2026-1
 | Local real-data acceptance (AC 1, 2, 4, 5) | done | `tests/test_astrolog_real_data.py`, 5 passed locally |
 | Folder import UI (headers sliced in the browser) | done | `AstroLogImportPage.tsx`, `lib/headerSlice.ts` |
 | Library and target pages, nights page | done | `LibraryPage.tsx`, `TargetLogPage.tsx`, `AstroLogPage.tsx` |
-| "You have ... stacked/captured" badge on Tonight and Explore | done | `HistoryBadge.tsx` |
+| "You have ... stacked/captured" badge on Tonight and Explore cards | done | `HistoryBadge.tsx`; e2e-verified on Explore, unit-tested on the shared card (Tonight uses the same card; not e2e-checked because Tonight shows only that night's recommendations) |
 | End-to-end import test, docs, Phase 1 regression | done | `frontend/e2e/astrolog.spec.ts`, screenshots in `docs/screenshots/` |
 
 ### Commands last run (all passing, 2026-11-02)
@@ -24,7 +24,7 @@ Branch `phase-2-astrolog` (not yet merged). Spec: `docs/superpowers/specs/2026-1
 ```
 backend:  .venv/bin/python -m pytest -q          → 179 passed, 6 skipped
 frontend: npm run typecheck                       → ok
-frontend: npm test                                → 48 passed (6 files)
+frontend: npm test                                → 49 passed (6 files)
 frontend: npm run build                           → ok
 frontend: npx playwright test                     → 12 passed (10 Phase 1 smoke + 2 AstroLog import, desktop + mobile)
 local:    ASTROPLANNER_REAL_DATA=<folder> pytest tests/test_astrolog_real_data.py -v
