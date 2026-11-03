@@ -220,7 +220,7 @@ long it was shot; files are imported, not typed; Seestar + Canon only; no deploy
 
 1. Selecting the developer's `Bubble Nebula/lights` folder produces one session (night of
    11 Sep 2026) with target NGC 7635, **1,015 frames, 10 s each, captured 2 h 49 m 10 s**,
-   first/last frame times matching the filenames' local times, filter LP, gain 200; importing
+   first/last frame times 23:11:24 / 05:43:55 local from `DATE-OBS` (the filenames' stamps are save times, 20–37 s later), filter LP, gain 200; importing
    it a second time creates no duplicates.
 2. Importing `NGC_7635_654x10sec_…fit` records a stack with **654 frames, 1 h 49 m**
    (`LIVETIME` 6540 s, provenance "header"); the target page headline shows 1 h 49 m in the
