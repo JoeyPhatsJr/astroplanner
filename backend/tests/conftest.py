@@ -15,6 +15,14 @@ from app.weather import HOURLY_VARS, OpenMeteoProvider
 FIXED_NOW = datetime(2026, 11, 2, 19, 0, tzinfo=timezone.utc)
 
 
+@pytest.fixture(autouse=True)
+def _no_aavso_switch_from_the_environment(monkeypatch):
+    """Tests never touch the network: an exported AAVSO switch must not turn on the real VSX provider.
+    A test that wants a mode sets the variable itself (monkeypatch.setenv)."""
+    monkeypatch.delenv("ASTROPLANNER_AAVSO_ENABLED", raising=False)
+    monkeypatch.delenv("ASTROPLANNER_AAVSO_FIXTURE_DIR", raising=False)
+
+
 def synthetic_open_meteo(params: dict, cloud=lambda i: 10.0, precip=lambda i: 0.0) -> httpx.Response:
     """A response shaped like Open-Meteo's, built ONLY for tests (never used by the app)."""
     start = datetime.fromisoformat(params["start_date"]).replace(tzinfo=timezone.utc)

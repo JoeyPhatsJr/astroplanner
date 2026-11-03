@@ -29,6 +29,7 @@ VSX_URL = "https://vsx.aavso.org/index.php"
 USER_AGENT = "AstroPlanner/0.3 (+https://github.com/JoeyPhatsJr/astroplanner; personal non-commercial)"
 MIN_SPACING_S = 2.0
 TIMEOUT_S = 60.0  # recon: 150 days of SS Cyg took 19 s; a 30-day chunk is far smaller
+ALERT_TIMEOUT_S = 15.0  # 3-day alert requests: a hanging VSX must not hold the Tonight card for minutes
 KEPT_COLUMNS = ("obsID", "JD", "mag", "uncert", "band", "fainterThan", "obsType", "val", "by")
 _REQUIRED_COLUMNS = {"obsID", "JD", "mag"}
 
@@ -51,7 +52,8 @@ class Observation:
 
 
 class AavsoProvider(Protocol):
-    def fetch_observations(self, ident: str, from_jd: float, to_jd: float) -> list[Observation]: ...
+    def fetch_observations(self, ident: str, from_jd: float, to_jd: float,
+                           timeout_s: float = TIMEOUT_S) -> list[Observation]: ...
 
 
 def observer_hash(salt: str, code: str) -> str:
@@ -107,13 +109,13 @@ def reset_request_spacing() -> None:
         _last_request_end = None
 
 
-Fetcher = Callable[[dict], httpx.Response]
+Fetcher = Callable[..., httpx.Response]  # (params, timeout_s=...) -> response
 
 
 def http_fetcher(transport: httpx.BaseTransport | None = None) -> Fetcher:
     """GET ``VSX_URL`` with the app's user agent; redirects are not followed (never to www.aavso.org)."""
-    def fetch(params: dict) -> httpx.Response:
-        with httpx.Client(timeout=TIMEOUT_S, headers={"User-Agent": USER_AGENT}, transport=transport,
+    def fetch(params: dict, timeout_s: float = TIMEOUT_S) -> httpx.Response:
+        with httpx.Client(timeout=timeout_s, headers={"User-Agent": USER_AGENT}, transport=transport,
                           follow_redirects=False) as client:
             return client.get(VSX_URL, params=params)
     return fetch
@@ -127,7 +129,8 @@ class VsxProvider:
         self._clock = clock
         self.salt = salt
 
-    def fetch_observations(self, ident: str, from_jd: float, to_jd: float) -> list[Observation]:
+    def fetch_observations(self, ident: str, from_jd: float, to_jd: float,
+                           timeout_s: float = TIMEOUT_S) -> list[Observation]:
         params = {"view": "api.delim", "ident": ident, "fromjd": f"{from_jd:.5f}", "tojd": f"{to_jd:.5f}",
                   "delimiter": ","}
         global _last_request_end
@@ -137,7 +140,7 @@ class VsxProvider:
                 if wait > 0:
                     self._sleep(wait)
             try:
-                resp = self._fetch(params)
+                resp = self._fetch(params, timeout_s=timeout_s)
             except httpx.HTTPError as exc:
                 raise AavsoError(f"Could not reach VSX ({type(exc).__name__})") from None
             finally:
@@ -157,7 +160,8 @@ class FixtureProvider:
         self.dir = Path(dir)
         self.salt = salt
 
-    def fetch_observations(self, ident: str, from_jd: float, to_jd: float) -> list[Observation]:
+    def fetch_observations(self, ident: str, from_jd: float, to_jd: float,
+                           timeout_s: float = TIMEOUT_S) -> list[Observation]:
         slug = next((s["slug"] for s in catalog.all_stars() if s["primary_designation"] == ident),
                     ident.lower().replace(" ", "-"))
         path = self.dir / f"{slug}.csv"

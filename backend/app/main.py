@@ -88,9 +88,10 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     app.include_router(astrolog_router)
     app.include_router(variables_router)
 
-    # Optional single-process mode: serve the built frontend if present.
-    if FRONTEND_DIST.is_dir():
+    # Optional single-process mode: serve the built frontend if present (a half-built dist must not crash startup).
+    if (FRONTEND_DIST / "assets").is_dir():
         app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+    if (FRONTEND_DIST / "index.html").is_file():
 
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str):

@@ -91,16 +91,19 @@ class VsxResponder:
 
 
 class RecordingFetch:
-    """Records every params dict; raises ``fail_with`` on the calls listed in ``fail_on`` (1-based)."""
+    """Records every params dict (and the timeout asked for); raises ``fail_with`` on the calls listed in
+    ``fail_on`` (1-based)."""
 
     def __init__(self, responder, fail_on: set[int] | None = None, fail_with: Exception | None = None):
         self.responder = responder
         self.calls: list[dict] = []
+        self.timeouts: list[float | None] = []
         self.fail_on = fail_on or set()
         self.fail_with = fail_with or httpx.ConnectError("offline")
 
-    def __call__(self, params: dict) -> httpx.Response:
+    def __call__(self, params: dict, timeout_s: float | None = None) -> httpx.Response:
         self.calls.append(params)
+        self.timeouts.append(timeout_s)
         if len(self.calls) in self.fail_on:
             raise self.fail_with
         return self.responder(params)

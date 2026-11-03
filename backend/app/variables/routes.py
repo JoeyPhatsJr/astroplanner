@@ -95,7 +95,7 @@ def list_stars(request: Request, timezone: str | None = Query(None, description=
         stars.append({**catalog.target_view(s), "type_label": s["type_label"], "slug": s["slug"],
                       "vsx": {"max_mag": v["max_mag"], "min_mag": v["min_mag"], "band": v["band"],
                               "raw_range": v["raw_range"]},
-                      "nights_count": len(missions.star_nights(db, s["id"])), "alert": None})
+                      "nights_count": len(missions.star_nights(db, s["id"]))})
     return {"aavso": _aavso_info(request), "stars": stars}
 
 
@@ -109,7 +109,7 @@ def sky_alerts(
     """Refresh the 3-day alert window of each star with an alert rule (sequentially), then evaluate."""
     provider = request.app.state.aavso
     if provider is None:
-        return {"enabled": False, "alerts": [], "dot": False}
+        return {"enabled": False, "mode": "off", "alerts": [], "dot": False}
     now = _now()
     out = []
     with request.app.state.db.session() as s:
@@ -125,7 +125,7 @@ def sky_alerts(
                 vis = analyse_target(ctx, 0, star["dec_deg"], min_altitude_deg, darkness)
                 visibility = visibility_payload(vis, ctx, min_altitude_deg, include_series=False)
             out.append({**result, "slug": star["slug"], "name": star["name"], "visibility": visibility})
-    return {"enabled": True, "alerts": out, "dot": any(a["state"] == "alert" for a in out),
+    return {"enabled": True, "mode": request.app.state.aavso_mode, "alerts": out, "dot": any(a["state"] == "alert" for a in out),
             "attribution": [VSX_ATTRIBUTION, OBS_ATTRIBUTION]}
 
 
@@ -171,6 +171,7 @@ def star_curve(slug: str, request: Request, background: BackgroundTasks,
     now = _now()
     with request.app.state.db.session() as s:
         body = curve.payload(s, star, w, now, [VSX_ATTRIBUTION, OBS_ATTRIBUTION])
+    body["mode"] = request.app.state.aavso_mode  # "fixture" = synthetic test data, never AAVSO observations
     # Always one task: the fill itself is a no-op when fresh, in progress or backing off, so a
     # "loading" status is always followed by a fill and polling ends.
     background.add_task(curve.run_fill, request.app.state.db, provider, star, w, now)

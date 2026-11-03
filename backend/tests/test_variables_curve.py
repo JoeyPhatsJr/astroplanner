@@ -228,3 +228,19 @@ def test_mission_today_follows_the_observer_timezone(make_client, clear_provider
         assert c.get("/api/variables/ss-cyg", params={"timezone": "Not/AZone"}).status_code == 422
         assert c.get("/api/variables", params={"timezone": "America/New_York"}).status_code == 200
         assert c.get("/api/variables", params={"timezone": "Not/AZone"}).status_code == 422
+
+
+def test_curve_and_alerts_payloads_say_which_aavso_source_they_come_from(make_client, clear_provider, at, tmp_path):
+    """I2: the frontend must be able to tell synthetic fixture data from real AAVSO observations."""
+    from app.variables.aavso import FixtureProvider
+    from tests.conftest import PHILLY_PARAMS
+
+    with make_client(clear_provider) as c:
+        assert c.get("/api/variables/alerts", params=PHILLY_PARAMS).json()["mode"] == "off"
+    c, _ = client_with(make_client, clear_provider, quiet_curve(NOW_JD - 5, 5))  # a VsxProvider (fake fetch)
+    with c:
+        assert c.get("/api/variables/ss-cyg/curve").json()["mode"] == "live"
+        assert c.get("/api/variables/alerts", params=PHILLY_PARAMS).json()["mode"] == "live"
+    with make_client(clear_provider, db_path=tmp_path / "fx.db", aavso=FixtureProvider(tmp_path, salt="s")) as c:
+        assert c.get("/api/variables/ss-cyg/curve").json()["mode"] == "fixture"
+        assert c.get("/api/variables/alerts", params=PHILLY_PARAMS).json()["mode"] == "fixture"

@@ -223,7 +223,7 @@ def test_concurrent_alert_refreshes_for_one_star_send_one_request(db):
     barrier = threading.Barrier(2)
 
     class Slow:
-        def fetch_observations(self, ident, from_jd, to_jd):
+        def fetch_observations(self, ident, from_jd, to_jd, timeout_s=None):
             calls.append((ident, from_jd, to_jd))
             time.sleep(0.3)
             return []
@@ -363,7 +363,7 @@ def test_no_observer_identity_in_observations_db_rows_db_file_or_logs(db, tmp_pa
 
 def test_unexpected_provider_exceptions_are_recorded_without_their_message(db):
     class Broken:
-        def fetch_observations(self, ident, from_jd, to_jd):
+        def fetch_observations(self, ident, from_jd, to_jd, timeout_s=None):
             raise ValueError("ZZ_SENTINEL_NAME")
 
     with db.session() as s:
@@ -408,3 +408,73 @@ def test_injected_provider_wins_over_the_environment(monkeypatch, make_client, c
     fake = object()
     with make_client(clear_provider, aavso=fake) as c:
         assert c.app.state.aavso is fake and c.app.state.aavso_mode == "injected"
+
+
+# ---------- final review fixes ----------
+
+def test_a_failed_save_closes_the_fetch_row_and_backs_off_like_a_failed_request(db, monkeypatch):
+    """I4: a store/commit error after a good provider call must not leave the row open (re-requested every poll)."""
+    from sqlalchemy.exc import OperationalError
+
+    real_store, calls = cache._store, []
+
+    def store_once_broken(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise OperationalError("INSERT INTO variable_observations", {}, Exception("disk I/O error"))
+        return real_store(*args, **kwargs)
+
+    monkeypatch.setattr(cache, "_store", store_once_broken)
+    fetch = RecordingFetch(VsxResponder(recent_rows(30)))
+    message = "Could not save AAVSO data (OperationalError)"
+    with db.session() as s:
+        res = cache.fill_history(s, provider(fetch), SS_CYG, NOW, days=30)
+        assert not res.ok and res.error == message and res.inserted == 0 and len(fetch.calls) == 1
+        f = s.scalars(select(VariableFetch)).one()
+        assert (f.ok, f.rows, f.error, f.finished_at is not None) == (False, 0, message, True)
+        assert s.scalar(select(func.count()).select_from(VariableObservation)) == 0
+        st = cache.status(s, "var:ss-cyg", NOW, days=30)
+        assert st["loading"] is False and st["last_error"] == message
+
+        held = cache.fill_history(s, provider(fetch), SS_CYG, NOW + timedelta(minutes=10), days=30)
+        assert held.skipped == "backoff" and len(fetch.calls) == 1
+        later = cache.fill_history(s, provider(fetch), SS_CYG, NOW + timedelta(minutes=31), days=30)
+        assert later.ok and later.requests >= 1 and len(fetch.calls) == 1 + later.requests
+        assert later.inserted > 0
+
+
+def test_incremental_refresh_after_a_long_observing_gap_starts_at_most_three_days_back(db):
+    """M7: the newest cached observation is 265 days old; the 6-hourly refresh must not re-fetch all of that."""
+    rows = quiet_curve(NOW_JD - 365, 100, per_day=2)
+    with db.session() as s:
+        assert cache.fill_history(s, provider(RecordingFetch(VsxResponder(rows))), SS_CYG, NOW).ok
+        later = NOW + timedelta(hours=7)
+        inc = RecordingFetch(VsxResponder(rows))
+        res = cache.fill_history(s, provider(inc), SS_CYG, later)
+        assert res.ok and res.requests == 1
+        assert inc.ranges() == [(pytest.approx(NOW_JD - cache.ALERT_DAYS, abs=1e-5),
+                                 pytest.approx(cache.to_jd(later), abs=1e-5))]
+
+
+def test_alert_requests_use_a_shorter_timeout_than_history_requests(db):
+    """M8: a hanging VSX must not hold the Tonight card for a minute per star."""
+    assert (aavso.ALERT_TIMEOUT_S, aavso.TIMEOUT_S) == (15.0, 60.0)
+    fetch = RecordingFetch(VsxResponder(recent_rows(10)))
+    p = provider(fetch)
+    with db.session() as s:
+        assert cache.refresh_alert_window(s, p, SS_CYG, NOW).ok
+        assert cache.fill_history(s, p, SS_CYG, NOW, days=30).ok
+    assert fetch.timeouts == [aavso.ALERT_TIMEOUT_S, aavso.TIMEOUT_S]
+
+
+def test_http_fetcher_applies_the_requested_timeout():
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, text=make_csv([]))
+
+    p = VsxProvider(fetch=aavso.http_fetcher(httpx.MockTransport(handler)), salt=SALT)
+    p.fetch_observations("T CrB", 2461000.0, 2461001.0, timeout_s=aavso.ALERT_TIMEOUT_S)
+    p.fetch_observations("T CrB", 2461000.0, 2461001.0)
+    assert [r.extensions["timeout"]["read"] for r in seen] == [15.0, 60.0]

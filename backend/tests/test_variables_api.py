@@ -31,7 +31,7 @@ def test_list_in_fallback_mode(api):
     assert j["aavso"] == {"enabled": False, "mode": "off"}
     assert len(j["stars"]) == 4
     r_leo = next(s for s in j["stars"] if s["slug"] == "r-leo")
-    assert r_leo["nights_count"] == 0 and r_leo["alert"] is None and r_leo["type_label"]
+    assert r_leo["nights_count"] == 0 and "alert" not in r_leo and r_leo["type_label"]
     assert r_leo["vsx"]["max_mag"] == 4.4 and r_leo["vsx"]["min_mag"] == 11.0
 
 
@@ -87,3 +87,17 @@ def test_nights_reflect_imported_ss_cyg_set(api):
     assert j["nights"] == ["2026-09-11"]
     assert next(s for s in api.get("/api/variables").json()["stars"] if s["slug"] == "ss-cyg")["nights_count"] == 1
     assert api.get("/api/variables/r-leo").json()["nights"] == []
+
+
+def test_aavso_switches_from_the_outer_environment_never_reach_a_test():
+    """I1: conftest clears them, so an exported ASTROPLANNER_AAVSO_ENABLED=1 cannot make a test call VSX."""
+    import os
+
+    assert os.environ.get("ASTROPLANNER_AAVSO_ENABLED") is None
+    assert os.environ.get("ASTROPLANNER_AAVSO_FIXTURE_DIR") is None
+
+
+def test_a_test_can_still_turn_the_aavso_switch_on_itself(monkeypatch, make_client, clear_provider):
+    monkeypatch.setenv("ASTROPLANNER_AAVSO_ENABLED", "1")
+    with make_client(clear_provider) as c:
+        assert c.app.state.aavso_mode == "live"  # provider built, no request made

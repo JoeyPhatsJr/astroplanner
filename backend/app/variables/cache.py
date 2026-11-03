@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from app.astrolog.library import UNIX_JD_EPOCH
 from app.db import AppMeta
-from app.variables.aavso import AavsoError, AavsoProvider, Observation
+from app.variables.aavso import ALERT_TIMEOUT_S, TIMEOUT_S, AavsoError, AavsoProvider, Observation
 from app.variables.models import VariableFetch, VariableObservation
 
 log = logging.getLogger(__name__)
@@ -142,14 +142,17 @@ def cached_observations(db: Session, star_id: str, from_jd: float, to_jd: float)
 
 
 def _fetch_range(db: Session, provider: AavsoProvider, star: dict[str, Any], path: str, lo: float, hi: float,
-                 stamp) -> tuple[int, str | None]:
-    """One logged provider request; returns (observations inserted, error text or None)."""
+                 stamp, timeout_s: float = TIMEOUT_S) -> tuple[int, str | None]:
+    """One logged provider request; returns (observations inserted, error text or None).
+
+    The row is always closed: a failed request, or a failed save after a good one, is recorded as
+    not ok so ``FAILURE_BACKOFF`` applies (an open row would make every status poll re-request it)."""
     f = VariableFetch(star_id=star["id"], path=path, from_jd=lo, to_jd=hi, started_at=stamp(), ok=False, rows=0)
     db.add(f)
     db.commit()  # visible as in progress
     error: str | None = None
     try:
-        obs = provider.fetch_observations(star["primary_designation"], lo, hi)
+        obs = provider.fetch_observations(star["primary_designation"], lo, hi, timeout_s=timeout_s)
     except AavsoError as exc:
         error = str(exc)[:200]
     except Exception as exc:  # a provider bug must still close the fetch row; its message is not kept
@@ -158,12 +161,19 @@ def _fetch_range(db: Session, provider: AavsoProvider, star: dict[str, Any], pat
         log.warning("AAVSO %s fetch for %s failed: %s", path, star["id"], error)
     with _WRITE_LOCK:
         inserted = 0
-        if error is None:
-            inserted = _store(db, star["id"], obs)
-            f.ok, f.rows = True, len(obs)
-        f.error = error
-        f.finished_at = stamp()
-        db.commit()
+        try:
+            if error is None:
+                inserted = _store(db, star["id"], obs)
+                f.ok, f.rows = True, len(obs)
+            f.error = error
+            f.finished_at = stamp()
+            db.commit()
+        except Exception as exc:  # the database message is not kept (it may quote row values)
+            db.rollback()
+            inserted, error = 0, f"Could not save AAVSO data ({type(exc).__name__})"
+            log.warning("AAVSO %s fetch for %s could not be saved: %s", path, star["id"], error)
+            f.ok, f.rows, f.error, f.finished_at = False, 0, error, stamp()
+            db.commit()
     return inserted, error
 
 
@@ -234,7 +244,10 @@ def _plan(db: Session, star_id: str, lo: float, hi: float, now: datetime,
         max_jd = db.scalar(select(func.max(VariableObservation.jd)).where(
             VariableObservation.star_id == star_id, VariableObservation.jd >= lo, VariableObservation.jd <= hi))
         cov_end = covered[-1][1]
-        return [(cov_end if max_jd is None else min(max_jd, cov_end), hi)], None
+        # From the newest cached observation, but never more than the alert window back: after a long
+        # observing gap the stretch since the last observation is already covered by ok fetches.
+        start = cov_end if max_jd is None else max(min(max_jd, cov_end), cov_end - ALERT_DAYS)
+        return [(start, hi)], None
     return missing, None  # first fill, a hole, or resuming after a failed/abandoned chunk
 
 
@@ -278,7 +291,8 @@ def refresh_alert_window(db: Session, provider: AavsoProvider, star: dict[str, A
         if _in_backoff(latest, now):
             return FetchResult(skipped="backoff")
         hi = to_jd(now)
-        inserted, error = _fetch_range(db, provider, star, "alert", hi - ALERT_DAYS, hi, _stamper(now))
+        inserted, error = _fetch_range(db, provider, star, "alert", hi - ALERT_DAYS, hi, _stamper(now),
+                                       timeout_s=ALERT_TIMEOUT_S)
         return FetchResult(requests=1, inserted=inserted, error=error)
 
 

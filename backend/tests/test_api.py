@@ -138,3 +138,16 @@ def test_session_timestamps_require_timezone(client):
     assert r.status_code == 422
     r = client.post(f"/api/sessions/{s['id']}/targets", json={"target_id": "m31", "planned_start_utc": "2026-11-03T01:00:00Z"})
     assert r.json()["targets"][0]["planned_start_utc"] == "2026-11-03T01:00:00Z"
+
+
+def test_app_starts_when_frontend_dist_exists_without_assets(tmp_path, monkeypatch, make_client, clear_provider):
+    """M10: a half-built frontend/dist (index.html but no assets/) must not crash startup."""
+    import app.main as main
+
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><title>AstroPlanner</title>", encoding="utf-8")
+    monkeypatch.setattr(main, "FRONTEND_DIST", dist)
+    with make_client(clear_provider) as c:
+        assert c.get("/api/health").status_code == 200
+        assert "AstroPlanner" in c.get("/tonight").text
