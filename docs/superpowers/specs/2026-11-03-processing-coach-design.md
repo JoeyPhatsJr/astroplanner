@@ -265,3 +265,152 @@ chart via the existing lazy chart library; every button works or is not shown.
 Exact step split and wording; file/module layout; API shape; chart details; whether post-stack steps go into a
 script; how the "what you should see" text is verified; fixture design; milestone order (UI milestone early so
 the developer can click through the coach mid-phase).
+
+## 2a. Recon: Siril 1.4.5 (G1)
+
+_Recorded 2026-11-03 by the Task 1 builder. Facts are in my own words; URLs are the places read. Siril is
+GPL-3.0 and its documentation has its own licence, so nothing here is copied from either. "Probe" means a throwaway
+run of `siril-cli` 1.4.5 on a 40-frame synthetic night (60 Gaussian stars on noise, four blank frames, shifts of
+a few pixels, GRBG header) built in a scratch folder; no real data was touched. Probe output is the authority when
+it differs from reading._
+
+**Version.** `siril-cli --version` prints `siril 1.4.5`. The "stable" command reference
+(<https://siril.readthedocs.io/en/stable/Commands.html>) is headed "Siril 1.4.4 documentation"; the built-in
+`help <command>` of the installed 1.4.5 prints the same syntax lines for every command below, so the reference
+is valid for 1.4.5. Source tag: <https://gitlab.com/free-astro/siril/-/tree/1.4.5>.
+
+### Script mechanics
+
+- A script must begin with `requires <min>`. **Probe:** without it Siril logs "requires command is missing",
+  executes none of the lines, and still ends with "Script execution finished successfully" (exit looks fine).
+  Generated scripts therefore start with `requires 1.4.5`; the coach must also say this in the step text.
+- `requires min [obsolete]` fails if Siril is older than `min`, or at/after `obsolete` (optional).
+- `cd directory`: `~` expands, quote names with spaces; relative paths are relative to the current directory
+  (set with `-d` on the command line, then moved by each `cd`).
+- `convert basename [-debayer] [-fitseq] [-ser] [-start=index] [-out=dir]`. FITS inputs are **symlinked** (copied if
+  linking fails; `-debayer` disables linking). `-out=` sets the output directory. **Probe:** from inside the
+  lights folder, `convert light -out=../w` creates `w/light_00001.fit` ... (symlinks of 139 bytes), `w/light_.seq`
+  (name is the basename plus `_`) and `w/light_conversion.txt`. Each conversion line is
+  `'<source path as given>' -> '<dest path relative to the folder convert ran in>'`, one per image, in order;
+  numbering starts at 1 (`-start=` changes it). Parse the source **basename** only.
+  A harmless "Reading sequence failed ... light.seq" line is printed before the sequence is first written.
+- `calibrate sequencename [-bias=] [-dark=] [-flat=] [-cc=...] [-cfa] [-debayer] [-fix_xtrans] [-equalize_cfa]
+  [-opt[=exp]] [-all] [-prefix=] [-fitseq]`. Output prefix defaults to `pp_`. `-debayer` demosaics before saving;
+  `-cfa` only applies cosmetic correction to CFA data; `-equalize_cfa` equalises the RGB means of the *master
+  flat* (irrelevant with no flats). **Probe:** `calibrate light -debayer` with no bias/dark/flat runs, reads
+  `BAYERPAT` ("Filter Pattern: GRBG from header", orientation taken from Siril settings) and writes
+  `pp_light_NNNNN.fit` as 3-layer 32-bit float and `pp_light_.seq`.
+- `register sequencename [-2pass] [-selected] [-prefix=] [-scale=] [-layer=] [-transf=] [-minpairs=] [-maxstars=]
+  [-nostarlist] [-disto=] [-interp=] [-noclamp] [-drizzle ...]`. `-2pass` finds a reference frame, computes the
+  transforms **and writes no images** (apply them with `seqapplyreg`). Default transform is homography; detection
+  runs on the green layer for colour images. **Probe:** `register pp_light -2pass` rewrote `pp_light_.seq` in place
+  with registration data and printed per-frame FWHM and roundness, then "Total: 4 failed, 36 registered."
+- `seqapplyreg sequencename [-prefix=] [-scale=] [-layer=] [-framing=current|min|max|cog] [-interp=] [-noclamp]
+  [-drizzle ...] [-filter-fwhm=] [-filter-wfwhm=] [-filter-round=] [-filter-bkg=] [-filter-nbstars=]
+  [-filter-quality=] [-filter-incl[uded]]`. Writes registered images with prefix `r_` (default). **The prefix is put
+  in front of the sequence name** (`-prefix=r80_` on `light_` gave `r80_light_.seq`). Frames with no registration
+  are always skipped ("Some images were not registered, excluding them").
+- `stack seqname rej|mean [type] [sigma_low sigma_high] [-nonorm | -norm=add|mul|addscale|mulscale] [-fastnorm]
+  [-weight={noise|wfwhm|nbstars|nbstack}] [-feather=] [-rgb_equal] [-output_norm] [-out=name] [-maximize]
+  [-upscale] [-32b] [-rejmap[s]]`. Rejection letters: n p s m w l g a (none, percentile, sigma, median,
+  winsorized, linear fit, generalised ESD, MAD); winsorized is the default when the letter is omitted and the
+  two sigmas are mandatory unless `n`. Default normalisation is additive-with-scale. `-out=` sets the result
+  name (otherwise `<sequence>_stacked.fit`). **Probe:** `stack r_pp_light rej w 3 3 -norm=addscale -output_norm
+  -rgb_equal -out=result_coach` wrote `result_coach.fit` with `STACKCNT` = frames stacked, `LIVETIME` = frames x
+  `EXPTIME`, `PROGRAM='Siril 1.4.5'`, 3 layers, and a HISTORY line "mean stacking with winsorized sigma clipping
+  rejection (low=3.000 high=3.000), additive+scaling normalized input, normalized output, no image weighting,
+  equalized RGB" — the same wording as the 1.4.4 tutorial stack in section 2. `stack` accepts the same `-filter-*`
+  options as `seqapplyreg`.
+- Single-image commands need an image loaded first: `load name`, then `subsky { -rbf | degree } [-dither]
+  [-samples=20] [-tolerance=1.0] [-smooth=0.5] [-existing]`, `autostretch [-linked] [shadowsclip [targetbg]]`
+  (defaults -2.8 and 0.25; the docs warn that unlinked stretching after colour calibration alters white balance),
+  `save name` (writes `name.fit`), `savetif name [-astro] [-deflate]`, `close`. **Probe:** `load` + `subsky 1` +
+  `autostretch` + `save` ran clean on the probe stack.
+- `pcc [-limitmag=] [-catalog=apass|localgaia|gaia|nomad] [-bgtol=lo,hi]` and `spcc [-limitmag=]
+  [-monosensor=|-oscsensor= ...] [-whiteref=] [-narrowband ...] [-bgtol=] [-atmos ...]` both need a **plate-solved**
+  image. **Probe:** `pcc` on an unsolved image fails with "command is only for plate solved images" and the script
+  aborts. `platesolve [-force] [centre coords] [-focal=] [-pixelsize=] ...` is the preceding step. SPCC sensor, filter
+  and white-reference names must match the SPCC tool's lists exactly (`spcc_list` prints them); Gaia DR3 is always
+  the catalogue. PCC defaults to NOMAD. Both therefore depend on the user's catalogues and on a successful solve;
+  the coach advises, it cannot promise.
+- `starnet [-stretch] [-upscale] [-stride=] [-nostarmask]` calls the separately installed StarNet CLI (path set in
+  Siril's preferences); it is not tested here.
+
+### Frame filters (`-filter-*`) and the percentage rule
+
+Each filter value is one of three forms: a literal limit (roundness and quality 0 to 1, other properties in their
+own units), `N%` for the best N percent, or `Nk` for a k-sigma limit. Literal and percent for the **same**
+property together are an error; different properties combine with AND (probe: wfwhm 90 % and round 80 % kept 32
+frames, the intersection of 32 and 33). Comparisons: roundness `>=`, FWHM and weighted FWHM `<=`, background
+`<=`, star count `>=`. A frame with zero for the property never passes. Source:
+<https://gitlab.com/free-astro/siril/-/blob/1.4.5/src/core/sequence_filtering.c>.
+
+**Percentage rule (read in the source, confirmed by probe).** Let N be the number of frames in the sequence being
+filtered (aligned or not) and sort the property across all N frames, putting unaligned frames at the "worst" end.
+
+- Lower-is-better (FWHM, wFWHM, background): if any frame is unaligned, only the n aligned frames count (a warning
+  is printed); threshold = sorted[floor(p x (n-1) / 100)]; kept = aligned frames with value <= threshold.
+- Higher-is-better (roundness, star count, quality): the sorted list **includes** the unaligned frames (they sort
+  first as zero), so threshold = sorted[floor((100-p) x (N-1) / 100)] with N the full frame count.
+  **Consequence:** with unaligned frames present, `-filter-round=80%` keeps *more* than 80 % of the aligned frames.
+  Probe: N = 40, 36 aligned: threshold index floor(20 x 39 / 100) = 7, the 4th-lowest aligned roundness, kept 33
+  of 36 (92 %). Literal `-filter-round=0.8` kept 28; `-filter-wfwhm=50%` (n = 36, index floor(50 x 35 / 100) = 17)
+  kept 18 of 36. The plan's selection options must predict counts with this rule, and the step text must not call
+  it "the best 80 %" when frames are unaligned.
+- Ties at the threshold are all kept.
+
+### `.seq` format (version 6, written by 1.4.5)
+
+Source: <https://gitlab.com/free-astro/siril/-/blob/1.4.5/src/io/seqfile.c>; `CURRENT_SEQFILE_VERSION` is 6 there
+and the probe wrote 6. Versions 0 to 5 are older layouts the same reader still accepts; the coach accepts **only
+6** (`SUPPORTED_SEQ_VERSIONS = {6}` stands).
+
+- Two `#` comment lines first.
+- `S 'name' start nb_images nb_selected fixed_len reference_image version variable_size fz_flag drizzle`: ten
+  fields. `start` is the first file number (1 for converted sequences); **`reference_image` is a 0-based index**
+  into the image list, not a file number; `version` is 6.
+- `L <nb_layers>`: `-1` in a freshly converted sequence (not yet loaded), `3` once debayered (`pp_`, `r_`).
+- `I <filenum> <incl>` per image, in sequence order (`I <filenum> <incl> <w>,<h>` only when `variable_size` is 1).
+  `filenum` is the number in the file name (`light_00007.fit` is 7); `incl` is 1 or 0 (selected or not).
+  Optional `T<S|A|F>` line for SER, film or FITS-sequence containers; none for ordinary FITS sequences.
+- Registration, one line **per image per layer, for every image**, in sequence order:
+  `R<layer> fwhm weighted_fwhm roundness quality background number_of_stars H h00 h01 h02 h10 h11 h12 h20 h21 h22`
+  (`R*` instead of a digit for CFA registration of a mosaic SER). `<layer>` is a digit. **Probe: for debayered
+  colour sequences the data is on `R1` (the green layer, where Siril detects stars), not `R0`**; a sequence that
+  was registered before debayering would use `R0`. The parser must take whichever single `R<digit>` layer is
+  present (prefer `R1` if several). The first value is FWHM in pixels; quality is 0 in the flows probed.
+  **Background units follow the image data:** about 1009 for the 16-bit-integer probe frames (ADU) but 0.0154 for
+  the debayered 32-bit float frames (0 to 1 scale). Label the report's background as "Siril units, relative"
+  and compare only within one sequence.
+- **Unaligned frame:** `R1 0 0 0 0 0 0 H 0 0 0 0 0 0 0 0 0` (same with `R0` when the data layer is 0; all zero, including the matrix) together with `I <n> 0`
+  (probe: all four blank frames; source: failed frames keep the zeroed registration record and are marked
+  unselected). Siril's own tests for "has data" are `fwhm > 0` or `roundness > 0` per property. A *reference*
+  frame has an identity matrix and real statistics.
+- `M<layer>-<index> ...` statistics lines (0-based image index) and `D*`/`O*` distortion and overlap cards may be
+  present; the coach ignores them.
+- **The kept (`r_`) sequence preserves order and original file numbers.** `seqapplyreg` writes the filtered frames in
+  input order (gaps are closed in order), copies each frame's FWHM, weighted FWHM, roundness, background and star
+  count unchanged, sets the matrix to identity and leaves quality 0, and copies `filenum` into its `I` lines
+  (probe: all three filtered sequences had strictly increasing `filenum`s and statistics equal to the source
+  sequence's for the same `filenum`). Its `S` line has its own count and `reference_image` index. So the exact
+  mapping from kept frames to the registration sequence is **by `filenum`**, and it can be checked: every kept
+  `filenum` must exist in the registration sequence and the first five statistics (FWHM to background; compare the
+  printed text) must match; otherwise the kept sequence is stale.
+- Conversion index = `filenum` = the number in the `light_conversion.txt` destination name; calibration
+  (`pp_`) and registration keep it (probe).
+
+### Pinned dependency
+
+`photutils==3.0.0` (latest release, BSD-3-Clause per its package metadata) installs with numpy 2.4.6 and astropy
+8.0.2; it pulls in `scipy` 1.17.1, which is pinned too. `photutils.psf.fit_fwhm` and
+`photutils.detection.DAOStarFinder` both exist in 3.0.0 (checked by import). Signatures in 3.0.0:
+`fit_fwhm(data, *, xypos=None, fwhm=None, fit_shape=None, mask=None, error=None)`; `DAOStarFinder(threshold, fwhm,
+ratio=1.0, theta=0.0, sigma_radius=1.5, ..., exclude_border=False, n_brightest=None, peak_max=None, ...,
+sharpness_range=(0.2, 1.0), roundness_range=(-1.0, 1.0))` (the old `sharplo/sharphi/roundlo/roundhi` arguments are
+deprecated). Full backend suite after the pin: 232 passed, 7 skipped.
+
+### Not verified here
+
+`starnet`, `platesolve`, `pcc` and `spcc` success paths (they need StarNet, catalogues and a solvable image); the
+real Bubble Nebula folder was not touched in this task (script validation on it is Task 8 step 5); the 1.4.5
+reading of `ROWORDER` for real Seestar frames (the probe reported "top-down from settings").
