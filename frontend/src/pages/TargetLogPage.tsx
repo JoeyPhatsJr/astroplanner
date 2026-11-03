@@ -1,11 +1,11 @@
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAstroLogTarget, useUpdateLibraryTarget, type TargetPage } from "../api/astrolog";
 import { FinalPicturePicker } from "../components/astrolog/FinalPicturePicker";
 import { headlineLabel, imageSrc } from "../components/astrolog/TargetTile";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
-import { formatCalendarDate, formatIntegration } from "../lib/time";
+import { formatCalendarDate, formatExposures, formatIntegration, formatLocalSpan } from "../lib/time";
 
 export function TargetLogPage() {
   const { targetId } = useParams();
@@ -32,6 +32,11 @@ function TargetBody({ data }: { data: TargetPage }) {
   const { headline } = data;
   const fi = data.final_image;
   const nStack = data.stack?.stack_count ?? null;
+  // Shown only when the backend could compute it: frames inside the stack's range is the denominator.
+  const usage =
+    data.percent_used !== null && data.frames_in_stack_range !== null && nStack !== null
+      ? { pct: data.percent_used, n: data.frames_in_stack_range }
+      : null;
 
   return (
     <div className="mx-auto flex max-w-[1100px] flex-col gap-5">
@@ -71,9 +76,9 @@ function TargetBody({ data }: { data: TargetPage }) {
             </h2>
             <div className="mt-1 flex flex-wrap items-end gap-x-3">
               <span className="font-semibold tracking-tight text-5xl text-ink">{formatIntegration(headline.seconds)}</span>
-              {headline.seconds !== null && <span className="pb-1.5 text-sm text-ink-2">{headlineLabel(headline.label)}</span>}
+              {headline.seconds !== null && <span className="pb-1.5 text-sm text-ink-2">{headlineLabel(headline)}</span>}
             </div>
-            {data.percent_used !== null && (
+            {usage && nStack !== null && (
               <div className="mt-3">
                 <div
                   className="h-2 overflow-hidden rounded-full bg-line"
@@ -81,17 +86,16 @@ function TargetBody({ data }: { data: TargetPage }) {
                   aria-label="Frames used in the final stack"
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-valuenow={Math.round(data.percent_used)}
+                  aria-valuenow={Math.round(usage.pct)}
                 >
-                  <div className="h-full bg-ice" style={{ width: `${Math.min(100, Math.max(0, data.percent_used))}%` }} />
+                  <div className="h-full bg-ice" style={{ width: `${Math.min(100, Math.max(0, usage.pct))}%` }} />
                 </div>
                 <p className="mt-1.5 text-sm text-ink-2">
-                  {nStack !== null ? `${nStack.toLocaleString()} of ${data.frames_total.toLocaleString()}` : `${Math.round(data.percent_used)}% of ${data.frames_total.toLocaleString()}`}{" "}
-                  frames used{nStack !== null ? ` (${Math.round(data.percent_used)}%)` : ""} · {formatIntegration(data.captured_s)} captured
+                  {nStack.toLocaleString()} of {usage.n.toLocaleString()} frames used ({Math.round(usage.pct)}%) · {formatIntegration(data.captured_s)} captured
                 </p>
               </div>
             )}
-            {data.percent_used === null && headline.label === "stack" && data.captured_s !== null && (
+            {!usage && headline.label === "stack" && data.captured_s !== null && (
               <p className="mt-1.5 text-sm text-ink-2">{formatIntegration(data.captured_s)} captured in total</p>
             )}
           </section>
@@ -110,14 +114,24 @@ function TargetBody({ data }: { data: TargetPage }) {
             </dl>
           )}
 
-          {t.kind !== "catalog" && <ManageTarget id={t.id} name={t.display_name} kind={t.kind} />}
+          {t.kind === "custom" && <ManageTarget id={t.id} name={t.display_name} />}
+          {t.kind === "unsorted" && (
+            <section className="panel flex flex-col gap-1 p-4" aria-labelledby="tl-manage">
+              <h2 id="tl-manage" className="label">
+                Unsorted
+              </h2>
+              <p className="text-sm text-ink-2">Re-import is not needed: name sets during import.</p>
+            </section>
+          )}
 
           <section aria-labelledby="tl-nights">
             <h2 id="tl-nights" className="label">
               Nights
             </h2>
             {data.nights.length === 0 ? (
-              <p className="mt-1 text-sm text-muted">No nights recorded.</p>
+              <p className="mt-1 text-sm text-muted">
+                {data.frames_total === 0 && data.stacks.length > 0 ? "Nights unknown: only a stack was imported for this target." : "No nights recorded."}
+              </p>
             ) : (
               <ul className="mt-1 flex flex-col gap-2">
                 {data.nights.map((n) => (
@@ -125,8 +139,9 @@ function TargetBody({ data }: { data: TargetPage }) {
                     <Link to={`/astrolog/nights/${n.session_id}`} className="panel flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 hover:border-ice/40">
                       <span className="flex-1 font-medium text-ink">Night of {formatCalendarDate(n.night_date, true)}</span>
                       <span className="badge">{n.device}</span>
+                      <span className="w-full text-sm text-ink-2">{formatLocalSpan(n.first_utc, n.last_utc, n.timezone)}</span>
                       <span className="w-full text-xs text-muted">
-                        {n.frames.toLocaleString()} frames · {formatIntegration(n.captured_s)} captured{n.planned ? " · matched a plan" : ""}
+                        {formatExposures(n.frames, n.exptimes_s)} · {formatIntegration(n.captured_s)} captured{n.planned ? " · matched a plan" : ""}
                       </span>
                     </Link>
                   </li>
@@ -140,8 +155,9 @@ function TargetBody({ data }: { data: TargetPage }) {
   );
 }
 
-function ManageTarget({ id, name, kind }: { id: string; name: string; kind: "custom" | "unsorted" | "catalog" }) {
+function ManageTarget({ id, name }: { id: string; name: string }) {
   const upd = useUpdateLibraryTarget(id);
+  const navigate = useNavigate();
   const [value, setValue] = useState(name);
   useEffect(() => setValue(name), [name]);
   const trimmed = value.trim();
@@ -156,7 +172,7 @@ function ManageTarget({ id, name, kind }: { id: string; name: string; kind: "cus
           <label htmlFor="tl-rename" className="label">
             Name
           </label>
-          <input id="tl-rename" className="field" value={value} maxLength={120} onChange={(e) => setValue(e.target.value)} />
+          <input id="tl-rename" className="field" value={value} maxLength={160} onChange={(e) => setValue(e.target.value)} />
         </div>
         <button
           type="button"
@@ -166,11 +182,20 @@ function ManageTarget({ id, name, kind }: { id: string; name: string; kind: "cus
         >
           Rename
         </button>
-        {kind === "custom" && (
-          <button type="button" className="btn" disabled={upd.isPending} onClick={() => upd.mutate({ kind: "unsorted" })}>
-            Move to Unsorted
-          </button>
-        )}
+        <button
+          type="button"
+          className="btn"
+          disabled={upd.isPending}
+          onClick={() =>
+            // The target is merged into the one Unsorted group (and removed): follow it there.
+            void upd
+              .mutateAsync({ kind: "unsorted" })
+              .then((r) => r && r.target.id !== id && navigate(`/astrolog/targets/${r.target.id}`, { replace: true }))
+              .catch(() => undefined)
+          }
+        >
+          Move to Unsorted
+        </button>
       </div>
     </section>
   );

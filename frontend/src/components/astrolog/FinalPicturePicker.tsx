@@ -1,6 +1,7 @@
 import { ImagePlus } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useLinkStack, useUploadFinalImage, type StackOut } from "../../api/astrolog";
+import { suggestStackId } from "../../lib/stackSuggest";
 import { formatIntegration } from "../../lib/time";
 import { Notice } from "../ui/States";
 
@@ -23,8 +24,11 @@ export function FinalPicturePicker({
   const upload = useUploadFinalImage(targetId);
   const link = useLinkStack(targetId);
   const [file, setFile] = useState<File | null>(null);
-  const [stackId, setStackId] = useState<string>(suggestionId ?? "");
-  const suggested = stacks.find((s) => s.id === suggestionId);
+  // Before upload the suggestion comes from the CHOSEN file's name; until one is chosen, the server's.
+  const suggestion = file ? suggestStackId(file.name, stacks) : suggestionId;
+  const [stackId, setStackId] = useState<string>(suggestion ?? "");
+  useEffect(() => setStackId(suggestion ?? ""), [suggestion]);
+  const suggested = stacks.find((s) => s.id === suggestion);
   const err = upload.error ?? link.error;
 
   const submit = async () => {
@@ -58,7 +62,7 @@ export function FinalPicturePicker({
             <option value="">No linked stack</option>
             {stacks.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.source_filename} ({formatIntegration(s.integration_s)}){s.id === suggestionId ? " · suggested" : ""}
+                {s.source_filename} ({formatIntegration(s.integration_s)}){s.id === suggestion ? " · suggested" : ""}
               </option>
             ))}
           </select>

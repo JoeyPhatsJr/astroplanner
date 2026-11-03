@@ -6,7 +6,7 @@ import type { ObservingSession, SessionStatus } from "../api/types";
 import { SessionTargetList } from "../components/session/SessionTargetList";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
-import { formatCalendarDate, formatIntegration, nightLabel } from "../lib/time";
+import { formatCalendarDate, formatExposures, formatIntegration, formatLocalSpan, nightLabel } from "../lib/time";
 import { usePrefs } from "../state/prefs";
 
 const STATUS_LABEL: Record<SessionStatus, string> = { planned: "Planned", completed: "Completed", cancelled: "Cancelled" };
@@ -105,10 +105,15 @@ function SessionDetail({ session }: { session: ObservingSession }) {
       destructive: true,
     });
     if (!ok) return;
-    await m.remove.mutateAsync(session.id);
+    try {
+      await m.remove.mutateAsync(session.id);
+    } catch {
+      return; // shown through m.remove.error
+    }
     if (prefs.activeSessionId === session.id) update({ activeSessionId: null });
     navigate("/astrolog/nights");
   };
+  const hasCaptures = (session.capture_sets ?? []).length > 0;
 
   return (
     <div className="mx-auto flex max-w-[860px] flex-col gap-5">
@@ -136,7 +141,13 @@ function SessionDetail({ session }: { session: ObservingSession }) {
               Open night of {formatCalendarDate(session.local_night_date)}
             </button>
           )}
-          <button type="button" className="btn text-warn" onClick={del}>
+          <button
+            type="button"
+            className="btn text-warn"
+            onClick={() => void del()}
+            disabled={hasCaptures || m.remove.isPending}
+            title={hasCaptures ? "This night has imported captures, so it can't be deleted." : undefined}
+          >
             <Trash2 className="size-4" aria-hidden /> Delete
           </button>
         </div>
@@ -172,7 +183,7 @@ function SessionDetail({ session }: { session: ObservingSession }) {
             >
               <option value="planned">Planned</option>
               <option value="cancelled">Cancelled</option>
-              <option value="completed">Completed </option>
+              <option value="completed">Completed</option>
             </select>
           </div>
           <button type="button" className="btn btn-primary ml-auto self-end" disabled={!dirty || m.update.isPending} onClick={save}>
@@ -184,7 +195,7 @@ function SessionDetail({ session }: { session: ObservingSession }) {
         </div>
       </section>
 
-      <CaptureSummary session={session} />
+      <CaptureSummary session={session} tz={loc?.timezone ?? null} />
 
       <section className="panel flex flex-col gap-3 p-5" aria-labelledby="sd-targets">
         <h2 id="sd-targets" className="font-semibold tracking-tight text-xl">
@@ -212,10 +223,11 @@ function SessionDetail({ session }: { session: ObservingSession }) {
   );
 }
 
-function CaptureSummary({ session }: { session: ObservingSession }) {
+function CaptureSummary({ session, tz }: { session: ObservingSession; tz: string | null }) {
   const sets = session.capture_sets ?? [];
   const notShot = session.not_shot ?? [];
   if (!sets.length && !notShot.length) return null;
+  // not_shot ids are catalog ids of this session's planned targets; their catalog summary is in the payload.
   const names = new Map(session.targets.map((t) => [t.target_id, t.target?.name ?? t.target?.primary_designation ?? t.target_id]));
   return (
     <>
@@ -231,8 +243,11 @@ function CaptureSummary({ session }: { session: ObservingSession }) {
                   <span className="min-w-0 flex-1 truncate font-medium text-ink">{c.display_name}</span>
                   <span className="badge">{c.device}</span>
                   <span className="text-sm text-ink-2">
-                    {c.frames.toLocaleString()} frames · {formatIntegration(c.captured_s)} captured
+                    {formatExposures(c.frames, c.exptimes_s ?? [])} · {formatIntegration(c.captured_s)} captured
                   </span>
+                  {c.first_utc && c.last_utc && (
+                    <span className="w-full text-xs text-muted">{formatLocalSpan(c.first_utc, c.last_utc, tz)}</span>
+                  )}
                 </Link>
               </li>
             ))}

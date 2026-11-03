@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, defaultNightDate, formatDuration, formatIntegration, formatTime, formatTimeTz, localDate, nightLabel, tzAbbrev } from "./time";
+import { addDays, defaultNightDate, formatDuration, formatExposures, formatIntegration, formatLocalSpan, formatTime, formatTimeTz, localDate, nightLabel, tzAbbrev } from "./time";
 
 describe("formatTime in the observer's timezone", () => {
   it("formats in the given zone, not the runner's", () => {
@@ -82,5 +82,33 @@ describe("formatIntegration", () => {
     expect(formatIntegration(20)).toBe("20 s");
     expect(formatIntegration(14380)).toBe("3 h 59 m");
     expect(formatIntegration(14380)).not.toMatch(/60 m|^4 h/);
+  });
+
+  it("floors to whole seconds under an hour (never '60 m')", () => {
+    expect(formatIntegration(3599.6)).toBe("59 m 59 s");
+    expect(formatIntegration(59.9)).toBe("59 s");
+    expect(formatIntegration(119.5)).toBe("1 m 59 s");
+    expect(formatIntegration(0.4)).toBe("0 s");
+  });
+});
+
+describe("formatExposures", () => {
+  it("shows count × exposure, listing distinct values when mixed", () => {
+    expect(formatExposures(1015, [10])).toBe("1,015 × 10 s");
+    expect(formatExposures(5, [10, 30])).toBe("5 frames · 10 s, 30 s");
+    expect(formatExposures(3, [0.5])).toBe("3 × 0.5 s");
+    expect(formatExposures(3, [])).toBe("3 frames");
+  });
+});
+
+describe("formatLocalSpan", () => {
+  it("formats first → last in the location's timezone, with seconds", () => {
+    expect(formatLocalSpan("2026-09-12T03:11:24.634Z", "2026-09-12T09:43:55.1Z", "America/New_York")).toBe("23:11:24 → 05:43:55 EDT");
+  });
+  it("falls back to UTC, labelled, when the timezone is unknown", () => {
+    expect(formatLocalSpan("2026-09-12T03:11:24Z", "2026-09-12T09:43:55Z", null)).toBe("03:11:24 → 09:43:55 UTC");
+  });
+  it("is empty when the times are unknown", () => {
+    expect(formatLocalSpan(null, null, "UTC")).toBe("");
   });
 });

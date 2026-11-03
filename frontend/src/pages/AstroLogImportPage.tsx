@@ -26,6 +26,7 @@ interface Stash {
   items: ImportItem[];
   readSkipped: SkippedItem[];
   ignored: number;
+  images: number;
 }
 // Header slices survive one trip to Settings (create location) and back. Set only right before
 // navigating there, consumed and cleared on return, cleared on any other exit. Never persisted.
@@ -35,6 +36,10 @@ function toB64(bytes: Uint8Array): string {
   let s = "";
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(s);
+}
+
+function imagesNote(n: number): string {
+  return `${n} image${n === 1 ? "" : "s"} not imported — choose a final picture on the target page.`;
 }
 
 function describe(e: unknown): string {
@@ -77,6 +82,7 @@ export function AstroLogImportPage() {
   const [items, setItems] = useState<ImportItem[]>([]);
   const [readSkipped, setReadSkipped] = useState<SkippedItem[]>([]);
   const [ignored, setIgnored] = useState(0);
+  const [images, setImages] = useState(0); // TIFF/JPEG/PNG finals: chosen on the target page, not imported
   const [review, setReview] = useState<Review | null>(null);
   const [progress, setProgress] = useState<{ label: string; done: number; total: number } | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -135,11 +141,16 @@ export function AstroLogImportPage() {
       const out: ImportItem[] = [];
       const skipped: SkippedItem[] = [];
       let ign = 0;
+      let img = 0;
       for (let i = 0; i < files.length; i++) {
         const { file, path } = files[i];
         if (i % 20 === 0) setProgress({ label: "Reading file headers", done: i, total: files.length });
         const kind = classifyFile(path);
-        if (kind === "ignored" || kind === "image") {
+        if (kind === "image") {
+          img++;
+          continue;
+        }
+        if (kind === "ignored") {
           ign++;
           continue;
         }
@@ -153,6 +164,7 @@ export function AstroLogImportPage() {
       setItems(out);
       setReadSkipped(skipped);
       setIgnored(ign);
+      setImages(img);
       if (!out.length) {
         setProgress(null);
         return;
@@ -170,6 +182,7 @@ export function AstroLogImportPage() {
       setItems(s.items);
       setReadSkipped(s.readSkipped);
       setIgnored(s.ignored);
+      setImages(s.images);
       if (s.items.length) void runPreview(s.items, routeLocationId, 0);
     }
     return () => {
@@ -258,7 +271,7 @@ export function AstroLogImportPage() {
         setNotice("These files contain no site position, so a location can't be suggested. Add one in Settings.");
         return;
       }
-      stash = { items, readSkipped, ignored };
+      stash = { items, readSkipped, ignored, images };
       keepStash.current = true;
       navigate("/settings", {
         state: { prefillLocation: { ...found, returnTo: "/astrolog/import" } },
@@ -395,7 +408,8 @@ export function AstroLogImportPage() {
 
       {!review && !progress && !error && items.length === 0 && (
         <EmptyState icon={<Upload className="size-6" />} title="Nothing selected yet">
-          Choose the folder from your Seestar or camera. {ignored > 0 ? `${ignored} working or non-frame files were ignored.` : ""}
+          Choose the folder from your Seestar or camera. {ignored > 0 ? `${ignored} working or non-frame files were ignored.` : ""}{" "}
+          {images > 0 ? imagesNote(images) : ""}
         </EmptyState>
       )}
       {!review && progress && <Skeleton className="h-24" label="Preparing the review" />}
@@ -556,6 +570,7 @@ export function AstroLogImportPage() {
             </div>
           )}
 
+          {images > 0 && <Notice tone="info">{imagesNote(images)}</Notice>}
           {(skipped.length > 0 || ignored > 0) && (
             <details className="panel p-5" open={skipped.length > 0 && skipped.length <= 8}>
               <summary className="cursor-pointer font-semibold tracking-tight text-lg">

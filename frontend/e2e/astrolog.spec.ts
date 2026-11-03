@@ -83,6 +83,7 @@ test("import a folder, review it, commit, and see the target history", async ({ 
   });
 
   for (const f of files) writeFileSync(join(folder, f.name), f.buffer);
+  writeFileSync(join(folder, "final_starnet.tif"), Buffer.from("II*\0")); // a final picture: counted, not imported
 
   await page.goto("/astrolog/import");
   await page.locator("#astrolog-folder").setInputFiles(folder);
@@ -91,11 +92,15 @@ test("import a folder, review it, commit, and see the target history", async ({ 
   const row = page.getByRole("row", { name: new RegExp(cfg.object) });
   await expect(row).toContainText("20");
   await expect(row).toContainText("3 m 20 s exposure");
+  await expect(page.getByText("1 image not imported — choose a final picture on the target page.")).toBeVisible();
   await page.getByRole("button", { name: /^Import 20 new frames and 1 stack$/ }).click();
 
   await expect(page).toHaveURL(/\/astrolog\/targets\//);
   // Before a final picture is linked to the stack, the headline is the captured time.
   await expect(page.getByText(/3 m 20 s captured/).first()).toBeVisible();
+  // The night row shows local first → last frame (America/New_York) and the per-frame exposure.
+  await expect(page.getByText("23:11:00 → 23:14:10 EDT")).toBeVisible();
+  await expect(page.getByText(/20 × 10 s/)).toBeVisible();
   await page.locator("input[type=file]").setInputFiles({ name: "final.png", mimeType: "image/png", buffer: Buffer.from(PNG_1X1, "base64") });
   await page.getByLabel("Stacked from").selectOption({ index: 1 });
   await page.getByRole("button", { name: "Upload picture" }).click();

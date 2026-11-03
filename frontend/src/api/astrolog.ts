@@ -101,6 +101,8 @@ export interface Headline {
   seconds: number | null;
   label: "stack" | "captured";
   provenance: string;
+  /** Which stack a "stack" headline is: the final picture's linked one, or the latest (stack-only target). */
+  basis?: "linked" | "latest" | null;
 }
 
 export interface LibraryTargetSummary {
@@ -116,7 +118,8 @@ export interface LibraryRow extends LibraryTargetSummary {
   thumb_url: string | null;
   headline: Headline;
   captured_s: number | null;
-  nights: number;
+  /** null for a stack-only target: how many nights went into it is unknown. */
+  nights: number | null;
 }
 
 export interface StackOut {
@@ -173,6 +176,10 @@ export interface TargetNight {
   captured_s: number;
   first_utc: string;
   last_utc: string;
+  /** Distinct per-frame exposures in seconds, ascending. */
+  exptimes_s: number[];
+  /** IANA timezone of the night's location (null when the session has no location). */
+  timezone: string | null;
   planned: boolean;
 }
 
@@ -185,6 +192,8 @@ export interface TargetPage {
   captured_s: number | null;
   frames_total: number;
   percent_used: number | null;
+  /** Captured frames inside the linked stack's EXPSTART–EXPEND: the denominator of percent_used. */
+  frames_in_stack_range: number | null;
   facts: TargetFact[];
   nights: TargetNight[];
   stack_suggestion_id: string | null;
@@ -289,12 +298,15 @@ export function useLinkStack(targetId: string) {
 }
 
 export function useUpdateLibraryTarget(id: string) {
-  const done = useInvalidateTarget(id);
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: TargetPatch) => astrologApi.updateTarget(id, body),
-    onSuccess: () => {
-      done();
+    onSuccess: (page) => {
+      // Moving to Unsorted merges this target into the Unsorted one and removes it: refresh that one
+      // (refetching the removed id would only 404).
+      qc.setQueryData(alk.target(page.target.id), page);
+      void qc.invalidateQueries({ queryKey: alk.library });
+      void qc.invalidateQueries({ queryKey: alk.history });
       void qc.invalidateQueries({ queryKey: qk.sessions });
     },
   });

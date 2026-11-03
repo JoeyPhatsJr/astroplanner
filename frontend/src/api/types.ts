@@ -315,6 +315,9 @@ export interface SessionCaptureSet {
   device: string;
   frames: number;
   captured_s: number | null;
+  first_utc?: string | null;
+  last_utc?: string | null;
+  exptimes_s?: number[];
 }
 
 export interface GeocodeResult {

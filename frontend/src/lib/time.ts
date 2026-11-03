@@ -105,14 +105,30 @@ export function formatDuration(minutes: number): string {
 export function formatIntegration(seconds: number | null | undefined): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return "unknown";
   if (seconds < 3600) {
-    const m = Math.floor(seconds / 60);
-    const s = Math.round(seconds % 60);
-    if (s === 60) return `${m + 1} m`;
+    const whole = Math.floor(seconds); // floor: 3599.6 s is "59 m 59 s", never "60 m"
+    const m = Math.floor(whole / 60);
+    const s = whole % 60;
     if (m === 0) return `${s} s`;
     return s ? `${m} m ${s} s` : `${m} m`;
   }
   const total = Math.floor(seconds / 60); // floor, never round up to the next hour
   return `${Math.floor(total / 60)} h ${total % 60} m`;
+}
+
+/** Per-frame exposure: "1,015 × 10 s"; mixed exposures list the distinct values. */
+export function formatExposures(frames: number, exptimes: number[]): string {
+  const n = frames.toLocaleString("en-US");
+  if (exptimes.length === 1) return `${n} × ${exptimes[0]} s`;
+  if (exptimes.length === 0) return `${n} frames`;
+  return `${n} frames · ${exptimes.map((e) => `${e} s`).join(", ")}`;
+}
+
+/** "23:11:24 → 05:43:55 EDT": first → last frame in the location's timezone (UTC, labelled, if unknown). */
+export function formatLocalSpan(first: Instant | null | undefined, last: Instant | null | undefined, tz: string | null): string {
+  if (first == null || last == null) return "";
+  const zone = tz ?? "UTC";
+  const hms = (x: Instant) => fmt(zone, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(toDate(x));
+  return `${hms(first)} → ${hms(last)} ${tz ? tzAbbrev(last, tz) : "UTC"}`;
 }
 
 /** "12 min ago" relative to now (for data-age labels). */

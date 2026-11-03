@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { LibraryRow } from "../../api/astrolog";
+import type { Headline, LibraryRow } from "../../api/astrolog";
 import { formatIntegration } from "../../lib/time";
 
 const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
@@ -9,12 +9,18 @@ export function imageSrc(url: string): string {
   return url.startsWith("/") ? `${BASE}${url}` : url;
 }
 
-export function headlineLabel(label: "stack" | "captured"): string {
-  return label === "stack" ? "in the final stack" : "captured";
+/** "in the final stack" only for the stack linked to the current final picture. */
+export function headlineLabel(h: Pick<Headline, "label" | "basis">): string {
+  if (h.label === "captured") return "captured";
+  return h.basis === "latest" ? "in the latest stack" : "in the final stack";
+}
+
+export function nightsLabel(nights: number | null): string {
+  return nights === null ? "nights unknown" : `${nights} night${nights === 1 ? "" : "s"}`;
 }
 
 export function TargetTile({ row }: { row: LibraryRow }) {
-  const { seconds, label } = row.headline;
+  const { seconds } = row.headline;
   return (
     <Link
       to={`/astrolog/targets/${row.id}`}
@@ -31,11 +37,9 @@ export function TargetTile({ row }: { row: LibraryRow }) {
         <span className="truncate font-semibold text-ink">{row.display_name}</span>
         <span className="flex flex-wrap items-baseline gap-x-2">
           <span className="text-lg font-semibold tracking-tight text-ice">{formatIntegration(seconds)}</span>
-          {seconds !== null && <span className="text-xs text-ink-2">{headlineLabel(label)}</span>}
+          {seconds !== null && <span className="text-xs text-ink-2">{headlineLabel(row.headline)}</span>}
         </span>
-        <span className="text-xs text-muted">
-          {row.nights} night{row.nights === 1 ? "" : "s"}
-        </span>
+        <span className="text-xs text-muted">{nightsLabel(row.nights)}</span>
       </div>
     </Link>
   );
