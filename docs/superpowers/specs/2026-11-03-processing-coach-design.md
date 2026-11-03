@@ -378,7 +378,7 @@ and the probe wrote 6. Versions 0 to 5 are older layouts the same reader still a
   (`R*` instead of a digit for CFA registration of a mosaic SER). `<layer>` is a digit. **Probe: for debayered
   colour sequences the data is on `R1` (the green layer, where Siril detects stars), not `R0`**; a sequence that
   was registered before debayering would use `R0`. The parser must take whichever single `R<digit>` layer is
-  present (prefer `R1` if several). The first value is FWHM in pixels; quality is 0 in the flows probed.
+  present (prefer `R1` if several). The first value is FWHM in pixels; `quality` was 0 in every probe and is never compared or used.
   **Background units follow the image data:** about 1009 for the 16-bit-integer probe frames (ADU) but 0.0154 for
   the debayered 32-bit float frames (0 to 1 scale). Label the report's background as "Siril units, relative"
   and compare only within one sequence.
@@ -390,12 +390,15 @@ and the probe wrote 6. Versions 0 to 5 are older layouts the same reader still a
   present; the coach ignores them.
 - **The kept (`r_`) sequence preserves order and original file numbers.** `seqapplyreg` writes the filtered frames in
   input order (gaps are closed in order), copies each frame's FWHM, weighted FWHM, roundness, background and star
-  count unchanged, sets the matrix to identity and leaves quality 0, and copies `filenum` into its `I` lines
+  count unchanged, sets the matrix to identity, and copies `filenum` into its `I` lines
   (probe: all three filtered sequences had strictly increasing `filenum`s and statistics equal to the source
   sequence's for the same `filenum`). Its `S` line has its own count and `reference_image` index. So the exact
   mapping from kept frames to the registration sequence is **by `filenum`**, and it can be checked: every kept
-  `filenum` must exist in the registration sequence and the first five statistics (FWHM to background; compare the
-  printed text) must match; otherwise the kept sequence is stale.
+  `filenum` must exist in the registration sequence and the five copied statistics (`fwhm`, `weighted_fwhm`, `roundness`, `background`, `number_of_stars`; compare the
+  printed text) must match; otherwise the kept sequence is stale. `quality` is **not** in that set: the `r_` writer
+  (`apply_reg_image_hook` in `applyreg.c`, the block that assigns `fwhm`, `weighted_fwhm`, `roundness`,
+  `background_lvl`, `number_of_stars` and `H`) has no assignment for it, so it stays at its zero-initialised value
+  (observed 0 in probes); it is not compared.
 - Conversion index = `filenum` = the number in the `light_conversion.txt` destination name; calibration
   (`pp_`) and registration keep it (probe).
 
