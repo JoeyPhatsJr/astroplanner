@@ -71,7 +71,7 @@ A short, curated list of variable stars a Seestar can follow: **SS Cygni, U Gemi
 (light curves from the AAVSO International Database, sky alerts) was built and then removed before merge: VSX's
 copyright page allows personal, non-commercial use only, and neither AAVSO's Data Usage Guidelines (2026-07-16) nor
 its forum API notes say whether a third-party app may download and display observations. That code is kept on the
-`aavso-live-layer` branch. Phase 4 will plot your own brightness measurements instead, which need nobody's permission.
+`aavso-live-layer` branch. A later phase (Phase 5, image analysis) will plot your own brightness measurements instead, which need nobody's permission.
 
 Attribution shown with the catalog facts: "Catalog data: International Variable Star Index (VSX), operated at AAVSO,
 Cambridge, Massachusetts, USA."

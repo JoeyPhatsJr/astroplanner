@@ -2,20 +2,30 @@
 
 _Last updated: 2026-11-03 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
-## Current phase: Phase 3, Variable Hunter: complete, pending developer review
+## Current phase: Phase 4, Processing Coach: design approved, implementation plan next
 
-Branch `phase-3-variable-hunter` (not merged). Spec: `docs/superpowers/specs/2026-11-02-variable-hunter-design.md`.
-The live AAVSO observation layer was removed on 2026-11-03 (gate G1 outcome below); it is preserved on branch
-`aavso-live-layer` (commit c505789).
+Branch `phase-4-processing-coach` (from `main` after the Phase 3 merge). Spec:
+`docs/superpowers/specs/2026-11-03-processing-coach-design.md`. Approved mockups:
+`docs/superpowers/mockups/2026-11-03-processing-coach/` (open the HTML files in a browser).
+Phase 3 was merged on 2026-11-03 (PR #2) and tagged `phase-3`.
 
 ## Exact next step
 
-Developer review of the branch, then merge and tag `phase-3`. Phase 4 (scientific image analysis) starts with its
-**Design activity only**. Per ROADMAP.md "How each phase is run": start from the developer's notes from a real S30
-night, show usable screen designs before the plan, and build nothing before approval. Phase 4 work branches from `main`
-after Phase 3 is merged.
+Write the Phase 4 implementation plan (`docs/superpowers/plans/2026-11-03-processing-coach.md`) with milestones,
+tests and acceptance checks from the spec; the developer approves it before any code is written. First build task
+after approval: gate G1 (verify Siril 1.4.5 script syntax and the `.seq` format from Siril's documentation).
 
-## Phase 3, Variable Hunter: ✅ complete pending developer review
+## Phase 4, Processing Coach: design ✅ approved 2026-11-03
+
+| Design step | Status | Evidence |
+|---|---|---|
+| Real S30 night as input | done | Bubble Nebula, 2026-09-11/12: 1,015 frames, re-stacked in Siril 1.4.4 from a tutorial, finished in Lightroom |
+| Brainstorm and decisions | done | spec §1, §3, §7 (developer decisions and marked "Claude's call" items) |
+| Screen designs (real data, night vision) | done | `processing-guide.html` (night report, coach option B chosen), `compare.html` |
+| Builder check of the spec | done | six questions: two settled in the spec, four answered by the developer |
+| Implementation plan | next | |
+
+## Phase 3, Variable Hunter: ✅ complete (merged 2026-11-03 in PR #2, tag `phase-3`)
 
 | Area | Status | Evidence |
 |---|---|---|
