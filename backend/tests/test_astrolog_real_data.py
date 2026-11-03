@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -177,7 +178,6 @@ def test_filename_time_relationship(bubble_items):
     Measured over all 1015 frames: the stamp trails DATE-OBS by 19.9 s to 37.3 s, i.e. the 10 s exposure
     plus readout/save overhead. Asserted tolerance: 10 s (at least one exposure) to 40 s.
     """
-    import re
     lo, hi = float("inf"), float("-inf")
     for it in bubble_items:
         info = parse_fits_header(base64.b64decode(it["header_b64"]))
@@ -216,8 +216,9 @@ def test_ac5_canon_night_folder(api, bubble_items):
     assert files, "no Canon files found"
     items = items_for(files, "cr2")
     exif = parse_cr2_exif(base64.b64decode(items[0]["header_b64"]))
-    assert exif.model == "Canon EOS REBEL T3"
-    assert exif.lens and "18-55" in exif.lens
+    model_ok = exif.model == "Canon EOS REBEL T3"
+    lens_ok = bool(exif.lens) and "18-55" in exif.lens
+    assert model_ok and lens_ok
 
     loc = site_location(api, bubble_items[0])  # Canon EXIF has no GPS: the user chooses the location
     pv = api.post(PREVIEW, json={"items": items, "location_id": loc})
