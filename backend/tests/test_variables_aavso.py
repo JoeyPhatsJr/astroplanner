@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
+import time
 from dataclasses import fields
 from datetime import date, datetime, timedelta, timezone
 
@@ -205,6 +207,64 @@ def test_alert_window_is_three_days_and_refreshes_at_most_every_six_hours(db):
         assert paths == ["alert", "alert"]  # the alert path never touches history
 
 
+def test_failed_alert_fetch_is_not_retried_for_30_minutes(db):
+    fetch = RecordingFetch(VsxResponder(recent_rows(10)), fail_on={1})
+    p = provider(fetch)
+    with db.session() as s:
+        assert cache.refresh_alert_window(s, p, SS_CYG, NOW).error == "Could not reach VSX (ConnectError)"
+        held = cache.refresh_alert_window(s, p, SS_CYG, NOW + timedelta(minutes=10))
+        assert held.skipped == "backoff" and held.requests == 0 and len(fetch.calls) == 1
+        later = cache.refresh_alert_window(s, p, SS_CYG, NOW + timedelta(minutes=31))
+        assert later.ok and later.requests == 1 and len(fetch.calls) == 2
+
+
+def test_concurrent_alert_refreshes_for_one_star_send_one_request(db):
+    calls: list[tuple] = []
+    barrier = threading.Barrier(2)
+
+    class Slow:
+        def fetch_observations(self, ident, from_jd, to_jd):
+            calls.append((ident, from_jd, to_jd))
+            time.sleep(0.3)
+            return []
+
+    results: list = []
+
+    def run():
+        with db.session() as s:
+            barrier.wait()
+            results.append(cache.refresh_alert_window(s, Slow(), SS_CYG, NOW))
+
+    threads = [threading.Thread(target=run) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(calls) == 1
+    assert sorted(r.requests for r in results) == [0, 1]
+
+
+def test_status_of_the_recent_window_ignores_the_fixed_1946_window(db):
+    window = (date(1946, 1, 1), date(1946, 6, 30))
+    with db.session() as s:
+        failing = RecordingFetch(VsxResponder([]), fail_on={1})
+        assert not cache.fill_window(s, provider(failing), T_CRB, *window, now=NOW).ok
+        recent = cache.status(s, "var:t-crb", NOW)
+        assert (recent["last_error"], recent["last_ok_utc"]) == (None, None)
+        assert cache.status(s, "var:t-crb", NOW, window=window)["last_error"] == "Could not reach VSX (ConnectError)"
+
+        ok = RecordingFetch(VsxResponder([row(2431870.5, "3.0", obs_id="1946a")]))
+        assert cache.fill_window(s, provider(ok), T_CRB, *window, now=NOW + timedelta(minutes=31)).ok
+        later = NOW + timedelta(minutes=32)
+        recent = cache.status(s, "var:t-crb", later)
+        assert (recent["last_error"], recent["last_ok_utc"]) == (None, None)
+        old = cache.status(s, "var:t-crb", later, window=window)
+        assert old["last_ok_utc"] is not None and old["last_error"] is None
+
+        assert cache.refresh_alert_window(s, provider(RecordingFetch(VsxResponder([])), FakeClock()), T_CRB, later).ok
+        assert cache.status(s, "var:t-crb", later)["last_ok_utc"] is not None  # alert rows count for recent
+
+
 def test_fill_history_failure_keeps_earlier_chunks_and_resumes_at_the_first_missing_chunk(db):
     rows = recent_rows()
     fetch = RecordingFetch(VsxResponder(rows), fail_on={3})
@@ -226,11 +286,17 @@ def test_fill_history_failure_keeps_earlier_chunks_and_resumes_at_the_first_miss
         assert (st["coverage_days"], st["target_days"], st["loading"]) == (60, 365, False)
         assert st["last_ok_utc"] is not None
 
+        backoff = RecordingFetch(VsxResponder(rows))
+        held = cache.fill_history(s, provider(backoff), SS_CYG, NOW + timedelta(minutes=10))
+        assert held.skipped == "backoff" and backoff.calls == []  # a failure is not retried for 30 min
+        st = cache.status(s, "var:ss-cyg", NOW + timedelta(minutes=10))
+        assert st["last_error"] == "Could not reach VSX (ConnectError)" and st["loading"] is False
+
         resume = RecordingFetch(VsxResponder(rows))
-        res2 = cache.fill_history(s, provider(resume), SS_CYG, NOW + timedelta(minutes=1))
+        res2 = cache.fill_history(s, provider(resume), SS_CYG, NOW + timedelta(minutes=31))
         assert res2.ok and resume.ranges()[0][0] == pytest.approx(start + 60)
         assert len(resume.calls) == 11  # chunks 3..13 (12 x 30 d + 5 d)
-        st = cache.status(s, "var:ss-cyg", NOW + timedelta(minutes=1))
+        st = cache.status(s, "var:ss-cyg", NOW + timedelta(minutes=31))
         assert (st["coverage_days"], st["last_error"], st["loading"]) == (365, None, False)
         assert s.scalar(select(func.count()).select_from(VariableObservation)) == len(rows)
 

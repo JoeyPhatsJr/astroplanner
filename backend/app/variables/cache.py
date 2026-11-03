@@ -6,6 +6,7 @@
   keeps chunks 1-2 and the next call resumes at chunk 3. Once the window is covered, a refresh
   fetches only from the last cached JD, at most once per ``REFRESH_EVERY``.
 * Fixed windows (T CrB 1946): fetched once, with the same chunking and resume.
+* After a failed request, the same path is not retried for that star for ``FAILURE_BACKOFF``.
 
 Observations are de-duplicated on ``(star_id, obs_id)``: existing keys are read first (portable
 across SQLite and Postgres, like Phase 2's ``existing_keys``) under a process-wide write lock, so
@@ -38,18 +39,19 @@ ALERT_DAYS = 3
 HISTORY_DAYS = 365
 CHUNK_DAYS = 30
 REFRESH_EVERY = timedelta(hours=6)
+FAILURE_BACKOFF = timedelta(minutes=30)  # after a failed request, that path waits this long for the star
 _EPS_DAYS = 1e-5  # ~1 s: JD ranges closer than this count as touching
 
 _WRITE_LOCK = threading.Lock()
-_FILL_LOCKS: dict[str, threading.Lock] = {}
-_FILL_LOCKS_GUARD = threading.Lock()
+_PATH_LOCKS: dict[str, threading.Lock] = {}
+_PATH_LOCKS_GUARD = threading.Lock()
 
 
 @dataclass
 class FetchResult:
     requests: int = 0  # provider calls made
     inserted: int = 0  # new observations stored
-    skipped: str | None = None  # why nothing was requested: "fresh" | "covered" | "in_progress"
+    skipped: str | None = None  # why nothing was requested: "fresh" | "covered" | "in_progress" | "backoff"
     error: str | None = None
 
     @property
@@ -91,9 +93,19 @@ def observer_salt(db: Session) -> str:
     return row.value
 
 
+def _path_lock(path: str, star_id: str) -> threading.Lock:
+    with _PATH_LOCKS_GUARD:
+        return _PATH_LOCKS.setdefault(f"{path}:{star_id}", threading.Lock())
+
+
 def _fill_lock(star_id: str) -> threading.Lock:
-    with _FILL_LOCKS_GUARD:
-        return _FILL_LOCKS.setdefault(star_id, threading.Lock())
+    return _path_lock("history", star_id)
+
+
+def _in_backoff(row: VariableFetch | None, now: datetime) -> bool:
+    """True while a failed request is less than ``FAILURE_BACKOFF`` old (abandoned rows do not count)."""
+    return (row is not None and not row.ok and row.finished_at is not None
+            and now - _parse_iso(row.finished_at) < FAILURE_BACKOFF)
 
 
 # ---------- storage ----------
@@ -212,6 +224,8 @@ def _plan(db: Session, star_id: str, lo: float, hi: float, now: datetime,
     if not missing:
         return [], "fresh" if incremental else "covered"
     latest = rows[-1] if rows else None
+    if _in_backoff(latest, now):
+        return [], "backoff"
     tail_only = bool(covered) and len(missing) == 1 and missing[0][0] >= covered[-1][1] - _EPS_DAYS
     if incremental and tail_only and latest is not None and latest.ok:
         # Fully covered except the newest stretch, and the last run ended cleanly: refresh, rate-limited.
@@ -249,15 +263,23 @@ def _fill(db: Session, provider: AavsoProvider, star: dict[str, Any], now: datet
 
 
 def refresh_alert_window(db: Session, provider: AavsoProvider, star: dict[str, Any], now: datetime) -> FetchResult:
-    """Fetch the last ``ALERT_DAYS`` days, unless an ok alert fetch finished less than 6 h ago."""
-    last = db.scalars(select(VariableFetch).where(
-        VariableFetch.star_id == star["id"], VariableFetch.path == "alert", VariableFetch.ok.is_(True),
-    ).order_by(VariableFetch.id.desc()).limit(1)).first()
-    if last is not None and now - _parse_iso(last.finished_at) < REFRESH_EVERY:
-        return FetchResult(skipped="fresh")
-    hi = to_jd(now)
-    inserted, error = _fetch_range(db, provider, star, "alert", hi - ALERT_DAYS, hi, _stamper(now))
-    return FetchResult(requests=1, inserted=inserted, error=error)
+    """Fetch the last ``ALERT_DAYS`` days, unless an ok alert fetch finished less than 6 h ago or one failed
+    less than ``FAILURE_BACKOFF`` ago. Concurrent callers for one star are serialized and re-check freshness."""
+    with _path_lock("alert", star["id"]):
+        db.expire_all()  # see rows committed by another thread while we waited
+        latest_ok = db.scalars(select(VariableFetch).where(
+            VariableFetch.star_id == star["id"], VariableFetch.path == "alert", VariableFetch.ok.is_(True),
+        ).order_by(VariableFetch.id.desc()).limit(1)).first()
+        if latest_ok is not None and now - _parse_iso(latest_ok.finished_at) < REFRESH_EVERY:
+            return FetchResult(skipped="fresh")
+        latest = db.scalars(select(VariableFetch).where(
+            VariableFetch.star_id == star["id"], VariableFetch.path == "alert", VariableFetch.finished_at.is_not(None),
+        ).order_by(VariableFetch.id.desc()).limit(1)).first()
+        if _in_backoff(latest, now):
+            return FetchResult(skipped="backoff")
+        hi = to_jd(now)
+        inserted, error = _fetch_range(db, provider, star, "alert", hi - ALERT_DAYS, hi, _stamper(now))
+        return FetchResult(requests=1, inserted=inserted, error=error)
 
 
 def fill_history(db: Session, provider: AavsoProvider, star: dict[str, Any], now: datetime,
@@ -278,17 +300,22 @@ def status(db: Session, star_id: str, now: datetime, days: float = HISTORY_DAYS,
     """Freshness and coverage of the recent history (or of a fixed ``window``) for the UI and alerts.
 
     ``loading`` is true while a fill runs or when the next fill would request data, except right
-    after a failed chunk (the error is shown instead, and the next page view retries).
+    after a failed chunk (the error is shown instead; a page view after ``FAILURE_BACKOFF`` retries).
+    ``last_ok_utc`` / ``last_error`` come only from fetches overlapping the requested range (plus the
+    alert path for the recent window), so the 1946 window and today's data never vouch for each other.
     """
     if window is not None:
         lo, hi = _window_jd(*window)
     else:
         hi = to_jd(now)
         lo = hi - days
+    in_range = (VariableFetch.path == "history") & (VariableFetch.from_jd < hi) & (VariableFetch.to_jd > lo)
+    relevant = (in_range | (VariableFetch.path == "alert")) if window is None else in_range
     last_ok = db.scalars(select(VariableFetch.finished_at).where(
-        VariableFetch.star_id == star_id, VariableFetch.ok.is_(True)).order_by(VariableFetch.id.desc()).limit(1)).first()
+        VariableFetch.star_id == star_id, relevant, VariableFetch.ok.is_(True),
+    ).order_by(VariableFetch.id.desc()).limit(1)).first()
     last_done = db.scalars(select(VariableFetch).where(
-        VariableFetch.star_id == star_id, VariableFetch.finished_at.is_not(None),
+        VariableFetch.star_id == star_id, relevant, VariableFetch.finished_at.is_not(None),
     ).order_by(VariableFetch.id.desc()).limit(1)).first()
     rows = _history_rows(db, star_id, lo, hi)
     ranges, _ = _plan(db, star_id, lo, hi, now, incremental=window is None)
