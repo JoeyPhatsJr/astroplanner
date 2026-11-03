@@ -24,18 +24,37 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 
 ## How each phase is run
 
-Every phase follows the same ten steps. Implementation never starts before step 6.
+Every phase is split into three activities, **Design → Build → Validate**, with a git
+recovery point between each. Implementation never starts before the Design gate.
 
+**0. Use it first.** Before designing a phase, the developer uses the app for a real night
+with the Seestar S30 and notes what felt missing or confusing. Those notes are the first
+input to Design.
+
+**Design:** explore ideas, decide features, prototype interfaces.
 1. **Review** the existing codebase and completed functionality.
 2. **Brainstorm and refine** features and user experience together.
-3. **Propose** the technical implementation and dependencies.
-4. **Identify risks:** scientific, technical and architectural problems.
-5. **Present** a clear implementation plan with acceptance criteria.
-6. **Wait for approval** from the developer. ⛔ Gate.
-7. **Build incrementally** in small, testable milestones.
-8. **Test** all features and **verify scientific calculations** against independent references.
-9. **Update documentation** (`README.md`, `docs/`, `PROGRESS.md`, this roadmap).
-10. **Preserve** working functionality from previous phases (all earlier test suites stay green).
+3. **Show usable screen designs early.** Mockups or clickable prototypes of every new screen,
+   in the app's real theme (and night vision), are reviewed *before* the implementation plan.
+   The visual presentation is part of the product, not a finishing step.
+4. **Propose** the technical implementation and dependencies, and **identify risks**
+   (scientific, technical, architectural, licensing).
+5. **Present** the written spec and implementation plan with acceptance criteria.
+6. **Wait for approval** from the developer. ⛔ Gate. The approved spec, plan and mockups
+   are committed (recovery point: "design approved").
+
+**Build:** implement approved features in manageable increments.
+7. **Build incrementally** in small milestones. Each milestone ends with working code, its
+   automated tests passing, and a commit, so any later problem can be rolled back to it.
+   UI milestones come early enough that the developer can try real screens mid-phase.
+
+**Validate:** test calculations, functionality, UI and regressions.
+8. **Test** all features and **verify scientific calculations** against independent references;
+   run every suite (backend, unit, end-to-end) and check the UI in the browser on desktop,
+   mobile and night vision.
+9. **Preserve** earlier phases: all previous test suites stay green.
+10. **Update documentation** (`README.md`, `docs/`, `PROGRESS.md`, this roadmap), then developer
+    review, merge, and a `phase-N` git tag as the phase's recovery point.
 
 Standing rules for every phase (from `CLAUDE.md`): no fabricated data or results,
 uncertainty and heuristic labels on scores, source attribution and license compliance,
@@ -161,4 +180,5 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-02 | Observer name, country, comment, charts and code are never stored; the code is kept only as a salted hash to count distinct observers | Privacy of third-party observers; tested with sentinel values |
 | 2026-11-02 | No predictions in Variable Hunter (no eruption dates, countdowns, "expected" text); alerts need independent observers and show data freshness | Predicted T CrB dates have lapsed; stale data must never read as "no change" |
 | 2026-11-02 | S30 brightness limits (7 to 12.5) are an estimate, labelled "estimate, not yet measured" | Only one S50 owner data point exists |
-| 2026-11-02 | **Phase 3 complete pending developer review** on branch `phase-3-variable-hunter` | Suites green (295 backend, 101 unit, 24 e2e); local live check passed |
+| 2026-11-02 | **Phase 3 complete pending developer review** on branch `phase-3-variable-hunter` | Suites green (303 backend, 117 unit, 24 e2e); local live check passed |
+| 2026-11-03 | **Phases run as Design → Build → Validate**, with a commit at every milestone, usable screen designs shown before the implementation plan, and a real night with the S30 before each phase's design | Developer direction (from outside advice): recovery points between milestones, and the UI is part of the product |

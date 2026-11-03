@@ -8,9 +8,11 @@ Branch `phase-3-variable-hunter` (not merged). Spec: `docs/superpowers/specs/202
 
 ## Exact next step
 
-Developer review of the branch (and of the G1 decision below), then merge and tag `phase-3`; then ask whether to
-start Phase 4 (scientific image analysis) or deployment prep. Before any public deployment, resolve the Variable Hunter items under
-the Deployment section of ROADMAP.md (AAVSO permission first).
+Developer review of the branch (and of the G1 decision below), then merge and tag `phase-3`. Phase 4 (scientific image
+analysis) brainstorming may start in parallel, but **only its Design activity**. Per ROADMAP.md "How each phase is run":
+start from the developer's notes from a real S30 night, show usable screen designs before the plan, and build nothing before
+approval. Phase 4 work branches from `main` after Phase 3 is merged, or from `phase-3-variable-hunter` if it is still open.
+Before any public deployment, resolve the Variable Hunter items under the Deployment section of ROADMAP.md (AAVSO permission first).
 
 ## Phase 3, Variable Hunter: ✅ complete pending developer review
 

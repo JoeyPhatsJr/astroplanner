@@ -131,8 +131,8 @@ Optional environment variables:
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q        # 295 passed, 7 skipped (astronomy references, scoring, weather, API, AstroLog, Variable Hunter, migrations)
-cd frontend && npm run typecheck && npm test       # 101 tests: time formatting, header slicing, import merge, light curve, sky alerts, components
+cd backend && .venv/bin/python -m pytest -q        # 303 passed, 7 skipped (astronomy references, scoring, weather, API, AstroLog, Variable Hunter, migrations)
+cd frontend && npm run typecheck && npm test       # 117 tests: time formatting, header slicing, import merge, light curve, sky alerts, components
 cd frontend && npm run build
 cd frontend && npx playwright install chromium && npm run test:e2e   # 24 end-to-end tests (Phase 1 smoke, AstroLog import, Variable Hunter), desktop + mobile
 ```
