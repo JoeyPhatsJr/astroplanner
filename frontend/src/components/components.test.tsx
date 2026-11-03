@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { History } from "../api/astrolog";
+import { TargetCard } from "./targets/TargetCard";
+import type { Recommendation } from "../api/types";
 import { HistoryBadge } from "./astrolog/HistoryBadge";
 import type { SessionTarget, TonightScore } from "../api/types";
 import { pickSessionForNight, sessionTitleForNight } from "../state/activeSession";
@@ -112,13 +113,10 @@ vi.mock("../api/astrolog", async (orig) => ({
 
 function renderBadge(history: History | undefined, id = "ngc7635") {
   mockHistory.data = history;
-  const qc = new QueryClient();
   return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter>
-        <HistoryBadge catalogId={id} />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <MemoryRouter>
+      <HistoryBadge catalogId={id} />
+    </MemoryRouter>,
   );
 }
 
@@ -135,7 +133,34 @@ describe("HistoryBadge", () => {
   it("renders nothing for targets without history", () => {
     const { container } = renderBadge({ m31: { seconds: 60, label: "stack", library_target_id: "x" } });
     expect(container).toBeEmptyDOMElement();
+    cleanup();
     renderBadge(undefined);
+    expect(screen.queryByText(/You have/)).toBeNull();
+  });
+});
+
+describe("TargetCard history badge", () => {
+  const rec = {
+    target: { id: "ngc7635", name: "Bubble Nebula", primary_designation: "NGC 7635", kind: "nebula", constellation: "Cas" },
+    visibility: { best_window: null, status_text: "Not tonight", max_alt_dark_deg: null, can_observe: false },
+    score: { total: null, max_total: null, why: [], cautions: [] },
+    sparkline_alt_deg: [],
+  } as unknown as Recommendation;
+  const card = () =>
+    render(
+      <MemoryRouter>
+        <TargetCard rec={rec} tz="UTC" minAlt={30} onOpen={() => {}} onAdd={() => {}} inSession={false} adding={false} />
+      </MemoryRouter>,
+    );
+
+  it("shows the badge linking to the library target when history exists", () => {
+    mockHistory.data = { ngc7635: { seconds: 6540, label: "stack", library_target_id: "lt1" } };
+    card();
+    expect(screen.getByText("You have 1 h 49 m stacked").closest("a")).toHaveAttribute("href", "/astrolog/targets/lt1");
+  });
+  it("shows no badge without history", () => {
+    mockHistory.data = {};
+    card();
     expect(screen.queryByText(/You have/)).toBeNull();
   });
 });
