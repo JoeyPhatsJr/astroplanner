@@ -287,7 +287,11 @@ def patch_target(library_target_id: str, body: Any = Body(...), db: Session = De
     data = req.model_dump(exclude_unset=True)
     if data.get("kind") == "unsorted":
         # One Unsorted group: merge into it rather than relabel (never two "Unsorted" tiles).
-        dest = library.merge_into_unsorted(db, lt)
+        try:
+            dest = library.merge_into_unsorted(db, lt)
+        except library.MergeConflictError as e:
+            db.rollback()
+            raise HTTPException(409, str(e)) from e
         db.commit()
         return library.target_page(db, dest)
     if data.get("custom_name") is not None:
@@ -307,6 +311,10 @@ def link_variable(library_target_id: str, body: Any = Body(...), db: Session = D
         raise HTTPException(403, "Only custom targets can be linked to a variable star.")
     if variables.get_star(req.star_id) is None:
         raise HTTPException(422, f"Unknown variable star {req.star_id!r}")
-    dest = library.link_to_variable(db, lt, req.star_id)
+    try:
+        dest = library.link_to_variable(db, lt, req.star_id)
+    except library.MergeConflictError as e:
+        db.rollback()
+        raise HTTPException(409, str(e)) from e
     db.commit()
     return library.target_page(db, dest)

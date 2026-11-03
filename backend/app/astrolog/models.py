@@ -54,6 +54,8 @@ class CaptureFrame(Base):
     iso: Mapped[int | None] = mapped_column(Integer, nullable=True)
     f_number: Mapped[float | None] = mapped_column(Float, nullable=True)
     focal_mm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # FITS BAYERPAT (e.g. GRBG) as read from the header; null for Canon frames and older imports.
+    bayer_pattern: Mapped[str | None] = mapped_column(String(8), nullable=True)
     source_filename: Mapped[str] = mapped_column(String(512))
     dedup_key: Mapped[str] = mapped_column(String(200), unique=True)
     imported_at: Mapped[str] = mapped_column(String, default=_utcnow)
