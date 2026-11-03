@@ -36,13 +36,16 @@ every target the **time in the final stack** (or the **captured** time, labelled
 your finished picture.
 
 - **Library** (`/astrolog`): one tile per target with the final picture, headline time and number of nights.
-- **Target page:** final picture, time on target, "frames used" when the stack's frame range is known, header-derived facts
-  with the header key each came from, and the nights that contributed. Upload a final picture
+- **Target page:** final picture, time on target, "654 of 1,012 frames used" when the stack's frame range is known
+  (the denominator is the captured frames inside that stack's EXPSTART–EXPEND), header-derived facts with the header
+  key each came from (Canon: camera, lens, exposure, ISO, f-number, focal length from EXIF), and the nights that
+  contributed with their local first → last frame times and per-frame exposure. Upload a final picture
   (JPEG, PNG, TIFF or FITS, up to 150 MB) and link it to the stack it came from. Only a
   metadata-free preview (about 1600 px) and a thumbnail are kept.
 - **Import** (`/astrolog/import`): choose or drop a folder, review what was found, then commit. Re-importing a
   folder after adding frames adds only the new ones; nothing doubles. Unreadable files are listed as skipped with a reason.
-- **Nights** (`/astrolog/nights`): sessions as logs, attached to a plan you made in Tonight when one matches. Planned targets you did not shoot are shown as "not shot".
+- **Nights** (`/astrolog/nights`): sessions as logs, attached to a plan you made in Tonight when one matches. Planned targets you did not shoot are shown as "not shot". A night with imported captures can't be deleted.
+- **Unsorted:** there is one Unsorted group. "Move to Unsorted" on a custom target merges it into that group.
 - **Planner badge:** Tonight and Explore cards show "You have 1 h 49 m stacked" (or "captured") for targets already in your library.
 - **Privacy:** coordinates inside files are used only to pick a saved location and are never stored or returned.
   Unknown values stay "unknown"; nothing is estimated. Stacks are never summed.

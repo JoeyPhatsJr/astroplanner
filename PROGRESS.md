@@ -13,22 +13,34 @@ Branch `phase-2-astrolog` (not yet merged). Spec: `docs/superpowers/specs/2026-1
 | Header-based import preview and commit (nights, capture sets, dedup, plan attach) | done | `importer.py`, `tests/test_astrolog_import.py` |
 | Final-picture previews (metadata-free) | done | `previews.py`, `tests/test_astrolog_previews.py` |
 | Library, target page, history, plan vs actual | done | `library.py`, `tests/test_astrolog_library.py` |
-| Local real-data acceptance (AC 1, 2, 4, 5) | done | `tests/test_astrolog_real_data.py`, 5 passed locally |
+| Local real-data acceptance (AC 1, 2, 4, 5) | done | `tests/test_astrolog_real_data.py`, 6 passed locally |
 | Folder import UI (headers sliced in the browser) | done | `AstroLogImportPage.tsx`, `lib/headerSlice.ts` |
 | Library and target pages, nights page | done | `LibraryPage.tsx`, `TargetLogPage.tsx`, `AstroLogPage.tsx` |
 | "You have ... stacked/captured" badge on Tonight and Explore cards | done | `HistoryBadge.tsx`; e2e-verified on Explore, unit-tested on the shared card (Tonight uses the same card; not e2e-checked because Tonight shows only that night's recommendations) |
 | End-to-end import test, docs, Phase 1 regression | done | `frontend/e2e/astrolog.spec.ts`, screenshots in `docs/screenshots/` |
 
-### Commands last run (all passing, 2026-11-02)
+### Final review fixes (2026-11-02)
+
+The whole-branch review's four important findings and seven minors are fixed
+(`.superpowers/sdd/2026-11-02-astrolog/final-fixes-report.md`):
+"% used" now divides by the frames inside the linked stack's EXPSTART–EXPEND (returned as
+`frames_in_stack_range`) and is hidden when that can't be computed; Canon ISO, f-number, focal
+length and lens are stored (migration `0004_capture_exif`) and shown with their EXIF keys;
+nights show local first → last frame times and per-frame exposure, and imported sessions get
+start/end from their frames; "Move to Unsorted" merges into one Unsorted group (PATCH on it is 409).
+Minors: stack suggestion from the chosen file name, "in the latest stack" wording, "nights unknown",
+`formatIntegration` flooring, clearer night-delete 409, small UI cleanups, stronger migration tests.
+
+### Commands last run (all passing, 2026-11-02, after the final review fixes)
 
 ```
-backend:  .venv/bin/python -m pytest -q          → 179 passed, 6 skipped
+backend:  .venv/bin/python -m pytest -q          → 198 passed, 7 skipped
 frontend: npm run typecheck                       → ok
-frontend: npm test                                → 49 passed (6 files)
+frontend: npm test                                → 69 passed (7 files)
 frontend: npm run build                           → ok
 frontend: npx playwright test                     → 12 passed (10 Phase 1 smoke + 2 AstroLog import, desktop + mobile)
 local:    ASTROPLANNER_REAL_DATA=<folder> pytest tests/test_astrolog_real_data.py -v
-                                                  → 5 passed (the 5 backend skips are these; the 6th is the Postgres test)
+                                                  → 6 passed (the 6 backend skips are these; the 7th is the Postgres test)
 ```
 
 Phase 1 remains green: 66 backend tests, 23 unit tests and 10 smoke tests are all still in the totals above.
@@ -40,12 +52,12 @@ Screenshots (`astrolog-library-desktop.png`, `astrolog-target-desktop.png`) use 
 - A re-import never moves frames that are already imported. To fix a wrong set name or target, change it on the target page; to fix a wrong location you would have to delete the captures and import again.
 - A multi-batch commit (more than 300 files) is not atomic. If it stops part way, the review shows what is still new and a retry is safe because frames are de-duplicated. After such a failure the names, "Unsorted" choices and plan choices you made on the review screen are reset.
 - If you leave the Settings round-trip ("create location from file") without coming back, a later visit to Import can reopen the old folder's review.
-- Imported sessions have no start/end time recorded, and the nights list does not show clock times.
 - Final-picture upload: the file is spooled before the 150 MB check, so a huge upload uses temporary disk first. Colour profiles are not converted to sRGB, the TIFF orientation tag is ignored, and a CMYK TIFF loses its fourth plane. Only a preview is kept, never the original.
 - Two simultaneous final-picture uploads for one target on Postgres could leave two "current" pictures.
 - Deleting a session that has capture sets returns 409 by design. Under a simultaneous import the check could return 500 instead.
 - No cross-process migration lock; revisit at deployment. Deployment is still deferred.
-- Wording rough edges: "unknown captured" for stack-only targets, and a raw id may appear if a planned session was deleted.
+- Canon frames imported before migration 0004 have no ISO / f-number / focal length / lens stored; re-importing does not back-fill them (frames are never rewritten).
+- "% used" on the real Bubble Nebula data is 654 of 1,012 (65%), not the 64% in acceptance criterion 2: the last 3 of the 1,015 lights start after the stack's EXPEND, and spec §7a defines the denominator as the frames inside EXPSTART–EXPEND.
 
 ## Phase 2 exit items
 

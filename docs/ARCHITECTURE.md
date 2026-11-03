@@ -101,7 +101,8 @@ no frames, else captured time labelled "captured"); a re-import never moves alre
   `session_targets`. Phase 2 adds the AstroLog tables above plus an `app_meta` table
   (one-time seeding flags such as the Canon profile).
 - **Migrations are Alembic** (`backend/migrations/versions/`): `0001_phase1_baseline`,
-  `0002_astrolog`, `0003_library_target_coords`. The app upgrades to head at startup, and an
+  `0002_astrolog`, `0003_library_target_coords`, `0004_capture_exif` (Canon ISO / f-number /
+  focal length per frame, lens per capture set; all nullable). The app upgrades to head at startup, and an
   existing Phase 1 database (no version table) is stamped at the baseline first. Migrations are
   written for both SQLite and Postgres; a test runs them on Postgres when `TEST_POSTGRES_URL` is set.
   Revisions are hand-written (no autogenerate), and a test compares the ORM schema with the migrated one.
