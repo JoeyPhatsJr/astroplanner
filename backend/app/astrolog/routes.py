@@ -7,6 +7,7 @@ the header coordinates).
 
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import Any, Literal, TypeVar
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Request, UploadFile
@@ -167,7 +168,7 @@ async def upload_final_image(library_target_id: str, request: Request, file: Upl
         raise HTTPException(413, f"File is too large; the limit is {limit // (1024 * 1024)} MB.")
     if db.get(LibraryTarget, library_target_id) is None:
         raise HTTPException(404, "Target not found")
-    name = (file.filename or "")[:512]
+    name = PurePosixPath((file.filename or "").replace("\\", "/")).name[:512]
     if "." + previews.format_of(name) not in previews.SUPPORTED_EXT:
         raise HTTPException(415, "Unsupported file type. Use JPEG, PNG, TIFF or FITS.")
     if stack_id is not None:
@@ -176,21 +177,21 @@ async def upload_final_image(library_target_id: str, request: Request, file: Upl
             raise HTTPException(422, "stack_id does not belong to this target")
     data = await _read_limited(file, limit)
     try:
-        preview, thumb, w, h = previews.make_previews(data, name)
+        preview, thumb, w, h, fmt = previews.make_previews(data, name)
     except previews.UnsupportedImage as exc:
         raise HTTPException(415, str(exc))
     except previews.ImageTooLarge as exc:
         raise HTTPException(413, str(exc))
     storage = request.app.state.storage
     img = FinalImage(library_target_id=library_target_id, stack_id=stack_id, source_filename=name,
-                     format=previews.format_of(name), preview_key="", thumb_key="", width=w, height=h,
+                     format=fmt, preview_key="", thumb_key="", width=w, height=h,
                      is_current=True)
     db.add(img)
     db.flush()
     img.preview_key, img.thumb_key = f"{img.id}/preview.jpg", f"{img.id}/thumb.jpg"
-    storage.put(img.preview_key, preview, "image/jpeg")
-    storage.put(img.thumb_key, thumb, "image/jpeg")
     try:
+        storage.put(img.preview_key, preview, "image/jpeg")
+        storage.put(img.thumb_key, thumb, "image/jpeg")
         for old in db.scalars(select(FinalImage).where(FinalImage.library_target_id == library_target_id,
                                                        FinalImage.id != img.id, FinalImage.is_current.is_(True))):
             old.is_current = False
@@ -211,7 +212,8 @@ def _serve(request: Request, db: Session, image_id: str, which: str) -> Response
         data = request.app.state.storage.get(img.preview_key if which == "preview" else img.thumb_key)
     except KeyError:
         raise HTTPException(404, "Image file is missing")
-    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600"})
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600",
+                                                                  "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/images/{final_image_id}/preview")

@@ -25,7 +25,8 @@ from .models import Stack
 
 PREVIEW_EDGE = 1600
 THUMB_EDGE = 400
-MAX_PIXELS = 250_000_000
+MAX_PIXELS = 100_000_000
+Image.MAX_IMAGE_PIXELS = MAX_PIXELS * 2  # bounded once at import; our own guard is stricter
 
 PILLOW_EXT = {".jpg", ".jpeg", ".png"}
 TIFF_EXT = {".tif", ".tiff"}
@@ -66,8 +67,6 @@ def _to_hwc(a: np.ndarray, fits_order: bool) -> np.ndarray:
         a = a[..., None]
     elif a.ndim == 3 and a.shape[0] in (3, 4) and a.shape[-1] not in (3, 4):
         a = np.moveaxis(a, 0, -1)
-    elif a.ndim == 3 and a.shape[0] == 3 and a.shape[-1] > 4:
-        a = np.moveaxis(a, 0, -1)
     if a.ndim != 3 or a.shape[2] not in (1, 3, 4):
         raise UnsupportedImage("Unsupported image layout (expected mono or RGB).")
     if fits_order:
@@ -88,34 +87,38 @@ def _check_pixels(w: int, h: int, max_pixels: int) -> None:
         raise ImageTooLarge("Image has too many pixels to process.")
 
 
-def _decode(data: bytes, ext: str, max_pixels: int) -> np.ndarray:
-    """Return an (H,W,3) uint8 array."""
+def _decode(data: bytes, ext: str, max_pixels: int) -> tuple[np.ndarray, str]:
+    """Return ((H,W,3) uint8 array, format recognised from the content)."""
     try:
         if ext in PILLOW_EXT:
-            Image.MAX_IMAGE_PIXELS = None
-            im = Image.open(io.BytesIO(data))
+            im = Image.open(io.BytesIO(data), formats=("JPEG", "PNG"))
+            if {".jpg": "JPEG", ".jpeg": "JPEG", ".png": "PNG"}[ext] != im.format:
+                raise UnsupportedImage("File content does not match its extension.")
+            fmt = im.format.lower()
             _check_pixels(im.width, im.height, max_pixels)
             im = ImageOps.exif_transpose(im) if im.format == "JPEG" else im
             if im.mode in ("I;16", "I;16B", "I;16L", "I", "F"):
-                return _array_to_rgb8(_to_hwc(np.asarray(im), False))
-            return np.asarray(im.convert("RGB"))
+                return _array_to_rgb8(_to_hwc(np.asarray(im), False)), fmt
+            return np.asarray(im.convert("RGB")), fmt
         if ext in TIFF_EXT:
             import tifffile
             with tifffile.TiffFile(io.BytesIO(data)) as tf:
                 shape = tf.series[0].shape
                 dims = [d for d in shape if d > 4] or [1]
                 _check_pixels(int(np.prod(dims)), 1, max_pixels)
-                return _array_to_rgb8(_to_hwc(tf.series[0].asarray(), False))
+                return _array_to_rgb8(_to_hwc(tf.series[0].asarray(), False)), "tiff"
         from astropy.io import fits
         with fits.open(io.BytesIO(data), memmap=False) as hdul:
             for hdu in hdul:
                 if getattr(hdu, "is_image", False) and hdu.header.get("NAXIS", 0) >= 2:
                     dims = [d for d in hdu.shape if d > 4] or [1]
                     _check_pixels(int(np.prod(dims)), 1, max_pixels)
-                    return _array_to_rgb8(_to_hwc(np.asarray(hdu.data), True))
+                    return _array_to_rgb8(_to_hwc(np.asarray(hdu.data), True)), "fits"
         raise UnsupportedImage("No image data found in the FITS file.")
     except (UnsupportedImage, ImageTooLarge):
         raise
+    except (MemoryError, Image.DecompressionBombError) as exc:
+        raise ImageTooLarge("Image too large to preview.") from exc
     except Exception as exc:  # corrupt/truncated input of any decoder
         raise UnsupportedImage("Could not read this image; it may be corrupt.") from exc
 
@@ -128,14 +131,15 @@ def _jpeg(rgb: np.ndarray, edge: int) -> bytes:
     return buf.getvalue()
 
 
-def make_previews(data: bytes, filename: str, max_pixels: int = MAX_PIXELS) -> tuple[bytes, bytes, int, int]:
-    """(preview JPEG, thumbnail JPEG, source width, source height); no metadata in outputs."""
+def make_previews(data: bytes, filename: str, max_pixels: int = MAX_PIXELS) -> tuple[bytes, bytes, int, int, str]:
+    """(preview JPEG, thumbnail JPEG, source width, source height, format from content);
+    no metadata in outputs."""
     ext = "." + format_of(filename)
     if ext not in SUPPORTED_EXT:
         raise UnsupportedImage("Unsupported file type. Use JPEG, PNG, TIFF or FITS.")
-    rgb = _decode(data, ext, max_pixels)
+    rgb, fmt = _decode(data, ext, max_pixels)
     h, w = rgb.shape[:2]
-    return _jpeg(rgb, PREVIEW_EDGE), _jpeg(rgb, THUMB_EDGE), w, h
+    return _jpeg(rgb, PREVIEW_EDGE), _jpeg(rgb, THUMB_EDGE), w, h, fmt
 
 
 def suggest_stack_id(db: Session, library_target_id: str, final_filename: str) -> str | None:

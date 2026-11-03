@@ -47,7 +47,7 @@ def _dims(b: bytes):
 
 
 def test_tiff16_previews():
-    prev, thumb, w, h = make_previews(_tiff16(), "final.tif")
+    prev, thumb, w, h, _ = make_previews(_tiff16(), "final.tif")
     assert (w, h) == (1080, 1920)
     f, size = _dims(prev)
     assert f == "JPEG" and max(size) <= 1600 and max(size) > 1000
@@ -56,7 +56,7 @@ def test_tiff16_previews():
 
 
 def test_fits_float_rgb_preview():
-    prev, thumb, w, h = make_previews(_fits_rgb(), "m27.fit")
+    prev, thumb, w, h, _ = make_previews(_fits_rgb(), "m27.fit")
     assert (w, h) == (300, 400)
     assert _dims(prev)[0] == "JPEG"
 
@@ -64,16 +64,16 @@ def test_fits_float_rgb_preview():
 def test_mono_tiff_float_and_png_ok():
     buf = io.BytesIO()
     tifffile.imwrite(buf, np.random.rand(50, 60).astype(np.float32))
-    assert make_previews(buf.getvalue(), "a.tiff")[2:] == (60, 50)
+    assert make_previews(buf.getvalue(), "a.tiff")[2:4] == (60, 50)
     pb = io.BytesIO()
     Image.new("RGB", (40, 30)).save(pb, "PNG")
-    assert make_previews(pb.getvalue(), "a.png")[2:] == (40, 30)
+    assert make_previews(pb.getvalue(), "a.png")[2:] == (40, 30, "png")
 
 
 def test_exif_gps_stripped():
     src = _jpeg_gps()
     assert b"Exif" in src and b"SecretCam" in src
-    prev, thumb, _, _ = make_previews(src, "a.jpg")
+    prev, thumb, _, _, _ = make_previews(src, "a.jpg")
     for out in (prev, thumb):
         assert b"Exif" not in out and b"GPS" not in out and b"SecretCam" not in out
         assert not Image.open(io.BytesIO(out)).getexif()
@@ -84,6 +84,26 @@ def test_unsupported_and_corrupt():
         make_previews(b"xx", "a.CR2")
     with pytest.raises(UnsupportedImage):
         make_previews(b"not an image", "a.jpg")
+
+
+def test_fits_orientation_bottom_up():
+    arr = np.zeros((3, 40, 60), dtype=np.float32)
+    arr[:, :5, :5] = 100.0  # FITS row 0, col 0 = bottom-left of the image
+    arr[:, 10:30, 20:40] = 1.0
+    buf = io.BytesIO(); fits.PrimaryHDU(arr).writeto(buf)
+    prev = Image.open(io.BytesIO(make_previews(buf.getvalue(), "o.fit")[0])).convert("L")
+    assert prev.size == (60, 40)
+    assert prev.getpixel((2, 37)) > 150      # bottom-left bright
+    assert prev.getpixel((2, 2)) < 60        # top-left dark
+
+
+def test_content_must_match_extension():
+    eps = b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\n"
+    with pytest.raises(UnsupportedImage):
+        make_previews(eps, "x.jpg")
+    pb = io.BytesIO(); Image.new("RGB", (9, 9)).save(pb, "PNG")
+    with pytest.raises(UnsupportedImage):
+        make_previews(pb.getvalue(), "x.jpg")
 
 
 def test_decoded_pixel_cap():
@@ -149,6 +169,39 @@ def test_unsupported_415_nothing_stored(cl, target_id, tmp_path):
     assert not list((tmp_path / "previews").rglob("*.jpg"))
     with cl.app.state.db.session() as s:
         assert s.query(FinalImage).count() == 0
+
+
+def test_eps_named_jpg_415_nothing_stored(cl, target_id, tmp_path):
+    r = _post(cl, target_id, "x.jpg", b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\n")
+    assert r.status_code == 415
+    assert not list((tmp_path / "previews").rglob("*.jpg"))
+    with cl.app.state.db.session() as s:
+        assert s.query(FinalImage).count() == 0
+
+
+def test_png_format_from_content_and_basename(cl, target_id):
+    b = io.BytesIO(); Image.new("RGB", (20, 20)).save(b, "PNG")
+    j = _post(cl, target_id, "C:\\secret\\dir/pic.png", b.getvalue()).json()
+    assert j["format"] == "PNG".lower() and j["source_filename"] == "pic.png"
+    r = cl.get(f"/api/astrolog/images/{j['id']}/thumb")
+    assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_read_limited_streamed_counter():
+    import asyncio
+    from fastapi import HTTPException
+    from app.astrolog.routes import _read_limited
+
+    class F:
+        def __init__(self): self.n = 0
+        async def read(self, size):
+            self.n += 1
+            return b"x" * size if self.n < 10 else b""
+
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(_read_limited(F(), 3 * 1024 * 1024 + 5))
+    assert e.value.status_code == 413
+    assert len(asyncio.run(_read_limited(F(), 20 * 1024 * 1024))) == 9 * 1024 * 1024
 
 
 def test_oversize_413_nothing_stored(cl, target_id, tmp_path):
