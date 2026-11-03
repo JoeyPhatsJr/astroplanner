@@ -1,6 +1,6 @@
 # PROGRESS
 
-_Last updated: 2026-11-02 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
+_Last updated: 2026-11-03 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
 ## Current phase: Phase 3, Variable Hunter: complete, pending developer review
 
@@ -38,12 +38,30 @@ SS Cyg 365-day history filled in 13 chunks: 26,918 observations cached, 0 errors
 recon (about 12 to 8.5-9 V). Sky alerts showed SS Cyg and T CrB as "no change" with current magnitudes. Night vision recolours the chart.
 This is not a CI test: it used the live service once, for personal non-commercial use.
 
-### Commands last run (all passing, 2026-11-02)
+### Final review fixes (2026-11-03)
+
+- Tests are sealed off from the AAVSO switches: an autouse fixture clears `ASTROPLANNER_AAVSO_ENABLED` /
+  `ASTROPLANNER_AAVSO_FIXTURE_DIR`, and both e2e backends blank them in their start commands.
+- Fixture mode is labelled: curve and alerts payloads carry `mode`; with `fixture` the light curve, Sky alerts card, star
+  page and list say "Synthetic test data — not AAVSO observations" instead of the AAVSO observations attribution.
+  README screenshots retaken with the notice.
+- A failed save after a good VSX response now closes the fetch row as failed, so the 30-minute back-off applies
+  (before, the row stayed open and every 5 s poll re-requested the chunk).
+- The 6-hourly incremental refresh starts at most 3 days back, even after a long observing gap.
+- Alert-path requests use a 15 s timeout (history keeps 60 s).
+- Star page status chip (In outburst / No change / Stale / No AAVSO data yet) from the existing alerts query; the unused
+  `alert: null` list field is gone. Mission notes (e.g. "(UT dates)") are shown. The normal level reads as a
+  "curated reference level".
+- Smaller fixes: flat light curves get a one-magnitude axis; the tooltip ignores line-break rows; `"variable"` added to
+  the frontend kind/category unions; clearer "This is …" confirm text; "Seestar fit · <equipment>" heading; a
+  `frontend/dist` without `assets/` no longer crashes backend startup; README no longer claims a T CrB line the app lacks.
+
+### Commands last run (all passing, 2026-11-03, after the final review fixes)
 
 ```
-backend:  .venv/bin/python -m pytest -q          → 295 passed, 7 skipped
+backend:  .venv/bin/python -m pytest -q          → 303 passed, 7 skipped (also with ASTROPLANNER_AAVSO_ENABLED=1 exported)
 frontend: npm run typecheck                       → ok
-frontend: npm test                                → 101 passed (10 files)
+frontend: npm test                                → 117 passed (10 files)
 frontend: npm run build                           → ok
 frontend: npx playwright test                     → 24 passed (desktop, mobile, fixture-desktop, fixture-mobile)
 ```
@@ -63,6 +81,10 @@ Phase 1 and 2 suites are unchanged and inside those totals. No test contacts AAV
 - The e2e "add to tonight's plan" check returns early (still asserting the stated reason) if SS Cyg is not observable that night.
 - Only V and visual observations are used; other bands and fainter-than limits are cached but never plotted or counted.
 - No predictions of any kind (eruption dates, eclipse timetables) by design.
+- "Your night" markers on the light curve sit at UT midnight after the local night date: right for western observers,
+  up to a day off east of UTC.
+- When the alert has no daily-mean run reaching into the 48 h window, its episode is the span of the bright reports
+  inside that window, so it slides with the window: a dismissed borderline alert can come back.
 
 ### Phase 3 exit items
 

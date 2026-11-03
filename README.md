@@ -64,7 +64,7 @@ A short, curated list of variable stars a Seestar can follow: **SS Cygni, U Gemi
 - **Sky alerts** on Tonight (and a dot on the menu item): a star is called out only when at least 2 independent observers
   (3 for T CrB) report it brighter than its threshold within 48 hours. Every row says how fresh its data is; a
   failed or old fetch reads "Stale" or "No AAVSO data yet", never "no change". There are **no predictions**: no
-  eruption dates, countdowns or "expected" text. T CrB has not erupted; the page says so.
+  eruption dates, countdowns or "expected" text.
 - **Missions** (outburst, weekly watch, follow the cycle) are counted from your own AstroLog nights.
 - **Seestar fit** uses an **estimated** S30 brightness range of 7 to 12.5, labelled "estimate, not yet measured".
 
