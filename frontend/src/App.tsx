@@ -13,6 +13,7 @@ const AstroLogPage = lazy(() => import("./pages/AstroLogPage").then((m) => ({ de
 const LibraryPage = lazy(() => import("./pages/LibraryPage").then((m) => ({ default: m.LibraryPage })));
 const TargetLogPage = lazy(() => import("./pages/TargetLogPage").then((m) => ({ default: m.TargetLogPage })));
 const AstroLogImportPage = lazy(() => import("./pages/AstroLogImportPage").then((m) => ({ default: m.AstroLogImportPage })));
+const ProcessingCoachPage = lazy(() => import("./pages/ProcessingCoachPage").then((m) => ({ default: m.ProcessingCoachPage })));
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 function NightRedirect() {
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="/astrolog/import" element={<AstroLogImportPage />} />
             <Route path="/astrolog/nights" element={<AstroLogPage />} />
             <Route path="/astrolog/nights/:sessionId" element={<AstroLogPage />} />
+            <Route path="/astrolog/process/:captureSetId" element={<ProcessingCoachPage />} />
             <Route path="/astrolog/:sessionId" element={<NightRedirect />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route

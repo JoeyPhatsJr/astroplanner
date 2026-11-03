@@ -10,6 +10,7 @@ export const qk = {
   equipment: ["equipment"] as const,
   sessions: ["sessions"] as const,
   about: ["about"] as const,
+  processingRun: (id: string) => ["processing-run", id] as const,
 };
 
 export function useLocations() {

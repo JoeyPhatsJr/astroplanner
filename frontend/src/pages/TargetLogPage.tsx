@@ -138,7 +138,7 @@ function TargetBody({ data }: { data: TargetPage }) {
             ) : (
               <ul className="mt-1 flex flex-col gap-2">
                 {data.nights.map((n) => (
-                  <li key={`${n.session_id}-${n.device}`}>
+                  <li key={`${n.session_id}-${n.device}`} className="flex flex-col gap-1.5">
                     <Link to={`/astrolog/nights/${n.session_id}`} className="panel flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 hover:border-ice/40">
                       <span className="flex-1 font-medium text-ink">Night of {formatCalendarDate(n.night_date, true)}</span>
                       <span className="badge">{n.device}</span>
@@ -147,6 +147,11 @@ function TargetBody({ data }: { data: TargetPage }) {
                         {formatExposures(n.frames, n.exptimes_s)} · {formatIntegration(n.captured_s)} captured{n.planned ? " · matched a plan" : ""}
                       </span>
                     </Link>
+                    {n.device.trim().toLowerCase() === "seestar s30" && (
+                      <Link to={`/astrolog/process/${n.capture_set_id}`} className="btn self-start" aria-label={`Process this night: ${formatCalendarDate(n.night_date, true)}`}>
+                        Process this night
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>
