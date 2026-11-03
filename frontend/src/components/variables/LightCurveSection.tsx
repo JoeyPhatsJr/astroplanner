@@ -76,7 +76,7 @@ function CurveBody({ slug, window, nights }: { slug: string; window: string; nig
         AAVSO International Database via VSX · {counts.cached} observations cached · {shown} · {checked}
       </p>
       <p className="text-xs text-muted">
-        Bands shown: {bands} <span>{d.excluded_note}</span>
+        Bands shown: {bands} {d.excluded_note}
       </p>
       <div className="flex flex-col gap-0.5 text-xs text-muted">
         {d.attribution.map((a) => (
