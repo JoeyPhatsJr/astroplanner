@@ -140,7 +140,8 @@ def history(db: Session) -> dict[str, dict[str, Any]]:
             continue
         h = _headline(c["captured_s"] if c else None, stacks.get(lt.id), latest.get(lt.id))
         if h["seconds"] is not None:
-            out[lt.catalog_target_id] = {"seconds": h["seconds"], "label": h["label"]}
+            out[lt.catalog_target_id] = {"seconds": h["seconds"], "label": h["label"],
+                                            "library_target_id": lt.id}
     return out
 
 

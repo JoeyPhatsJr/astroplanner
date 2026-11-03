@@ -190,7 +190,7 @@ export interface TargetPage {
   stack_suggestion_id: string | null;
 }
 
-export type History = Record<string, { seconds: number; label: "stack" | "captured" }>;
+export type History = Record<string, { seconds: number; label: "stack" | "captured"; library_target_id: string }>;
 
 export interface TargetPatch {
   custom_name?: string;

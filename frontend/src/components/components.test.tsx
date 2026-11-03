@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
+import type { History } from "../api/astrolog";
+import { HistoryBadge } from "./astrolog/HistoryBadge";
 import type { SessionTarget, TonightScore } from "../api/types";
 import { pickSessionForNight, sessionTitleForNight } from "../state/activeSession";
 import { moveId, SessionTargetList } from "./session/SessionTargetList";
@@ -97,5 +101,41 @@ describe("active session selection", () => {
   });
   it("names new sessions after the night", () => {
     expect(sessionTitleForNight("2026-11-02")).toBe("Night of 2 Nov 2026");
+  });
+});
+
+const mockHistory = vi.hoisted(() => ({ data: undefined as unknown }));
+vi.mock("../api/astrolog", async (orig) => ({
+  ...(await orig<typeof import("../api/astrolog")>()),
+  useAstroLogHistory: () => ({ data: mockHistory.data }),
+}));
+
+function renderBadge(history: History | undefined, id = "ngc7635") {
+  mockHistory.data = history;
+  const qc = new QueryClient();
+  return render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>
+        <HistoryBadge catalogId={id} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+describe("HistoryBadge", () => {
+  it("shows stacked time and links to the target page", () => {
+    renderBadge({ ngc7635: { seconds: 6540, label: "stack", library_target_id: "lt1" } });
+    const el = screen.getByText("You have 1 h 49 m stacked");
+    expect(el.closest("a")).toHaveAttribute("href", "/astrolog/targets/lt1");
+  });
+  it("says captured when there is no stack", () => {
+    renderBadge({ ngc7635: { seconds: 6540, label: "captured", library_target_id: "lt1" } });
+    expect(screen.getByText("You have 1 h 49 m captured")).toBeInTheDocument();
+  });
+  it("renders nothing for targets without history", () => {
+    const { container } = renderBadge({ m31: { seconds: 60, label: "stack", library_target_id: "x" } });
+    expect(container).toBeEmptyDOMElement();
+    renderBadge(undefined);
+    expect(screen.queryByText(/You have/)).toBeNull();
   });
 });

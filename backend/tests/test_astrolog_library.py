@@ -147,7 +147,7 @@ def test_headline_fallbacks_without_livetime(api):
 
 def test_history_and_library(api):
     tid = seeded(api)
-    assert api.get("/api/astrolog/history").json()["ngc7635"] == {"seconds": 6540.0, "label": "stack"}
+    assert api.get("/api/astrolog/history").json()["ngc7635"] == {"seconds": 6540.0, "label": "stack", "library_target_id": tid}
     row = api.get(LIB).json()[0]
     assert row["id"] == tid and row["display_name"] == "Bubble Nebula" and row["kind"] == "catalog"
     assert row["category"] == "nebula" and row["thumb_url"].endswith("/thumb")
@@ -234,14 +234,14 @@ def test_stack_only_target_listed_with_unknown_captured(api):
     t = api.get(f"/api/astrolog/targets/{tid}").json()
     assert t["captured_s"] is None and t["frames_total"] == 0 and t["percent_used"] is None
     assert t["headline"]["label"] == "stack" and t["headline"]["seconds"] == 6540.0
-    assert api.get("/api/astrolog/history").json()["ngc7635"] == {"seconds": 6540.0, "label": "stack"}
+    assert api.get("/api/astrolog/history").json()["ngc7635"] == {"seconds": 6540.0, "label": "stack", "library_target_id": tid}
 
 
 def test_frames_plus_unlinked_stack_keeps_captured_headline(api):
     tid = seeded(api, link=False)
     row = next(r for r in api.get(LIB).json() if r["id"] == tid)
     assert row["headline"]["label"] == "captured" and row["headline"]["seconds"] == 10150.0
-    assert api.get("/api/astrolog/history").json()["ngc7635"] == {"seconds": 10150.0, "label": "captured"}
+    assert api.get("/api/astrolog/history").json()["ngc7635"] == {"seconds": 10150.0, "label": "captured", "library_target_id": tid}
 
 
 def test_linked_stack_without_integration_falls_back_to_captured(api):
