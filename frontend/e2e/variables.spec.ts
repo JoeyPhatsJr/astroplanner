@@ -1,7 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-// Fallback tests run against the default backend (AAVSO off). Tests tagged @fixture run against a
-// second backend that reads SYNTHETIC AAVSO CSV fixtures (see make-aavso-fixtures.mjs): no network.
+// AstroPlanner downloads no AAVSO observations: star pages show VSX catalog facts and link to AAVSO.
 
 function trackErrors(page: Page) {
   const errors: string[] = [];
@@ -10,9 +9,9 @@ function trackErrors(page: Page) {
   return errors;
 }
 
-async function navLink(page: Page, projectName: string, withDot = false) {
+async function navLink(page: Page, projectName: string) {
   const mobile = projectName.endsWith("mobile");
-  const name = withDot ? "Variable Hunter, new sky alert" : mobile ? "Variables" : "Variable Hunter";
+  const name = mobile ? "Variables" : "Variable Hunter";
   return page.getByRole("link", { name, exact: true });
 }
 
@@ -24,7 +23,7 @@ test("nav reaches Variable Hunter; /research redirects there", async ({ page }, 
   await expect(page.getByRole("heading", { name: "Variable Hunter", level: 1 })).toBeVisible();
   await expect(page.getByRole("link", { name: /SS Cyg/ }).first()).toBeVisible();
   await expect(page.getByText("Catalog data: International Variable Star Index (VSX), operated at AAVSO, Cambridge, Massachusetts, USA.")).toBeVisible();
-  // AAVSO is off: the observation attribution must not appear
+  // No AAVSO observations are shown, so their attribution must not appear
   await expect(page.getByText(/Observations from the AAVSO International Database/)).toHaveCount(0);
 
   await page.goto("/research");
@@ -32,7 +31,7 @@ test("nav reaches Variable Hunter; /research redirects there", async ({ page }, 
   expect(errors).toEqual([]);
 });
 
-test("SS Cyg page without AAVSO: VSX link, no chart, plan add survives reload", async ({ page, request }) => {
+test("SS Cyg page: VSX link, no chart, plan add survives reload", async ({ page, request }) => {
   // The e2e database is shared by every project and spec: start and finish without SS Cyg planned.
   const unplan = async () => {
     const sessions = await (await request.get("/api/sessions")).json();
@@ -51,7 +50,7 @@ test("SS Cyg page without AAVSO: VSX link, no chart, plan add survives reload", 
 async function checkSsCygPage(page: Page) {
   await page.goto("/variables/ss-cyg");
   await expect(page.getByRole("heading", { name: "SS Cyg", level: 1 })).toBeVisible();
-  await expect(page.getByText("Light curve: not shown. AAVSO data is switched off in this app until its terms are confirmed.")).toBeVisible();
+  await expect(page.getByText(/AstroPlanner doesn.t download AAVSO observations, so it draws no light curve/)).toBeVisible();
   const vsx = page.getByRole("link", { name: /View SS Cyg on AAVSO VSX/ });
   await expect(vsx).toHaveAttribute("href", /vsx\.aavso\.org/);
   await expect(page.locator("svg[role='img'], canvas")).toHaveCount(0);
@@ -69,52 +68,3 @@ async function checkSsCygPage(page: Page) {
   await page.reload();
   await expect(page.getByRole("button", { name: "In tonight's plan" })).toBeVisible();
 }
-
-test("Tonight has no Sky alerts card when AAVSO is off", async ({ page }) => {
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Tonight", level: 1 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Sky alerts" })).toHaveCount(0);
-});
-
-test("@fixture Sky alerts: SS Cyg outburst evidence, nav dot, honest unavailable row", async ({ page }, testInfo) => {
-  const errors = trackErrors(page);
-  await page.goto("/");
-  const card = page.getByRole("region", { name: "Sky alerts" });
-  await expect(card).toBeVisible();
-  const ss = card.getByRole("listitem").filter({ hasText: "SS Cygni" });
-  await expect(ss).toContainText("in outburst");
-  await expect(ss).toContainText(/\d+ observers reported it brighter than 10 in the last 48 h · synthetic data, checked/);
-  await expect(card.getByRole("listitem").filter({ hasText: "T Coronae Borealis" })).toContainText("no change");
-  // U Gem has no fixture file: stated as missing data, never as "no change"
-  const gem = card.getByRole("listitem").filter({ hasText: "U Geminorum" });
-  await expect(gem).toContainText("No AAVSO data yet");
-  await expect(gem).not.toContainText("no change");
-  // Fixture data is synthetic: the card says so in place of the AAVSO observations attribution
-  await expect(card.getByText("Synthetic test data — not AAVSO observations.")).toBeVisible();
-  await expect(card.getByText(/Observations from the AAVSO International Database/)).toHaveCount(0);
-  await expect(await navLink(page, testInfo.project.name, true)).toBeVisible();
-  // Observer identity never reaches the page
-  await expect(page.locator("body")).not.toContainText(/ZZ_SENTINEL|ZZOB|ZZSEN/);
-  expect(errors).toEqual([]);
-});
-
-test("@fixture SS Cyg page shows the light curve and its source line", async ({ page }) => {
-  const errors = trackErrors(page);
-  await page.goto("/variables/ss-cyg");
-  await expect(page.getByRole("heading", { name: "Light curve", level: 2 })).toBeVisible();
-  await expect(page.getByText(/Synthetic fixture data · \d+ observations cached/)).toBeVisible();
-  await expect(page.getByText(/Bands shown: .*Vis/)).toBeVisible();
-  await expect(page.getByText(/Magnitude \(V\)/).first()).toBeVisible();
-  await expect(page.getByText(/Brighter ↑/).first()).toBeVisible();
-  await expect(page.getByText("Synthetic test data — not AAVSO observations.").first()).toBeVisible();
-  await expect(page.getByText(/Observations from the AAVSO International Database/)).toHaveCount(0);
-  await expect(page.locator("body")).not.toContainText(/ZZ_SENTINEL|ZZOB|ZZSEN/);
-  expect(errors).toEqual([]);
-});
-
-test("@fixture U Gem page reports missing AAVSO data instead of an empty chart", async ({ page }) => {
-  await page.goto("/variables/u-gem");
-  await expect(page.getByRole("heading", { name: "U Gem", level: 1 })).toBeVisible();
-  await expect(page.getByText(/AAVSO unreachable \(.*\)\./)).toBeVisible();
-  await expect(page.getByText("No successful check yet.")).toBeVisible();
-});

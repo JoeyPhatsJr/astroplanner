@@ -1,5 +1,11 @@
 # Variable Hunter (Phase 3) Implementation Plan
 
+> **Update 2026-11-03 (gate G1 outcome):** the live AAVSO observation layer described below (light curves,
+> sky alerts, the outburst mission, the observation cache and migration `0005_variable_hunter`) was built and then
+> removed before merge, because no AAVSO document covers a third-party app downloading and showing AID observations.
+> It is preserved on branch `aavso-live-layer`. What shipped is the §8 fallback: catalog facts, visibility, missions
+> from the developer's nights and a link to AAVSO VSX. See PROGRESS.md and the ROADMAP.md decision log.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A Variable Hunter section with four curated variable stars, each with a star page (visibility, plans, the developer's AstroLog nights, missions) and, when the AAVSO data layer is switched on, a real AAVSO light curve and "Sky alerts" on Tonight.

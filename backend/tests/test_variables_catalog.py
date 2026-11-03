@@ -20,18 +20,13 @@ def test_four_curated_stars_with_provenance():
         assert s["source"] == "AAVSO VSX"
 
 
-def test_alert_rules_match_spec():
-    def rule(i):
-        a = vcat.get_star(i)["alert"]
-        return None if a is None else (a["brighter_than"], a["min_observers"])
-
-    assert rule("var:ss-cyg") == (10.0, 2)
-    assert rule("var:u-gem") == (11.0, 2)
-    assert rule("var:t-crb") == (8.0, 3)
-    assert rule("var:r-leo") is None
-    assert vcat.get_star("var:ss-cyg")["alert"]["normal_text"] == "quiet near 12 V"
-    assert vcat.get_star("var:u-gem")["alert"]["normal_text"] == "quiet near 14.5 V"
-    assert vcat.get_star("var:t-crb")["alert"]["normal_text"] == "quiet near 10 V"
+def test_curated_missions_need_only_the_developers_own_nights():
+    """AstroPlanner downloads no AAVSO observations, so no star carries an alert rule or an outburst mission."""
+    missions = {s["id"]: s["missions"] for s in vcat.all_stars()}
+    assert missions == {"var:ss-cyg": ["weekly"], "var:u-gem": ["weekly"],
+                        "var:r-leo": ["cycle", "weekly"], "var:t-crb": ["weekly"]}
+    for s in vcat.all_stars():
+        assert "alert" not in s and "history_windows" not in s
 
 
 def test_lookup_resolves_both_kinds():
@@ -76,4 +71,3 @@ def test_t_crb_coordinates_match_vsx():
     assert s["vsx"]["oid"] == 10602
     assert s["vsx"]["variability_type"] == "NR+ELL"
     assert (s["vsx"]["max_mag"], s["vsx"]["min_mag"]) == (2.0, 10.8)
-    assert s["history_windows"][0]["key"] == "1946"

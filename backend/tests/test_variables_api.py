@@ -1,10 +1,8 @@
-"""Phase 3 Task 4: star list/detail API in fallback mode, missions, Seestar fit, AAVSO switch."""
+"""Phase 3: star list/detail API, missions, Seestar fit; no AAVSO observation endpoints."""
 
 from __future__ import annotations
 
 import pytest
-
-from app.main import select_aavso_mode
 
 from .test_astrolog_import import commit, make_location, sub
 
@@ -17,18 +15,9 @@ def api(make_client, clear_provider):
         yield c
 
 
-def test_select_aavso_mode():
-    assert select_aavso_mode({}) == "off"
-    assert select_aavso_mode({"ASTROPLANNER_AAVSO_ENABLED": "1"}) == "live"
-    assert select_aavso_mode({"ASTROPLANNER_AAVSO_ENABLED": "0"}) == "off"
-    assert select_aavso_mode({"ASTROPLANNER_AAVSO_FIXTURE_DIR": "/x"}) == "fixture"
-    assert select_aavso_mode({"ASTROPLANNER_AAVSO_FIXTURE_DIR": ""}) == "off"
-    assert select_aavso_mode({"ASTROPLANNER_AAVSO_ENABLED": "1", "ASTROPLANNER_AAVSO_FIXTURE_DIR": "/x"}) == "fixture"
-
-
-def test_list_in_fallback_mode(api):
+def test_list(api):
     j = api.get("/api/variables").json()
-    assert j["aavso"] == {"enabled": False, "mode": "off"}
+    assert "aavso" not in j
     assert len(j["stars"]) == 4
     r_leo = next(s for s in j["stars"] if s["slug"] == "r-leo")
     assert r_leo["nights_count"] == 0 and "alert" not in r_leo and r_leo["type_label"]
@@ -52,31 +41,27 @@ def test_seestar_fit_for_preset_only(api):
     assert "too faint" in ss["text"] and "too bright" not in ss["text"]
 
 
-def test_attribution_and_aavso_block_in_fallback(api):
+def test_attribution_is_the_vsx_catalog_line_only(api):
     j = api.get("/api/variables/r-leo").json()
     assert j["attribution"] == [VSX_SENTENCE]
-    assert j["aavso"] == {"enabled": False, "mode": "off", "fallback_link": j["source_url"]}
+    assert "aavso" not in j
+    assert j["source_url"].startswith("https://vsx.aavso.org/index.php?view=detail.top&oid=")
     assert j["retrieved"] and j["vsx"]["name"]
 
 
-def test_missions_outburst_unavailable_when_off(api):
-    ms = {m["key"]: m for m in api.get("/api/variables/ss-cyg").json()["missions"]}
-    assert set(ms) == {"outburst", "weekly"}
-    assert ms["outburst"]["available"] is False and ms["outburst"]["reason"] == "Needs AAVSO data (off)"
-    assert ms["outburst"]["progress"] == 0 and ms["outburst"]["goal"] == 3
-    assert ms["weekly"]["title"] == "Weekly watch" and ms["weekly"]["unit"] == "week streak"
+def test_missions(api):
+    ms = api.get("/api/variables/ss-cyg").json()["missions"]
+    assert [m["key"] for m in ms] == ["weekly"]
+    assert ms[0]["title"] == "Weekly watch" and ms[0]["unit"] == "week streak" and ms[0]["progress"] == 0
     cyc = {m["key"]: m for m in api.get("/api/variables/r-leo").json()["missions"]}["cycle"]
     assert (cyc["title"], cyc["goal"], cyc["unit"]) == ("Follow the cycle", 6, "months")
 
 
-def test_injected_aavso_enables_and_adds_observation_attribution(make_client, clear_provider):
-    with make_client(clear_provider, aavso=object()) as c:
-        j = c.get("/api/variables/ss-cyg").json()
-        assert j["aavso"]["enabled"] is True and j["aavso"]["mode"] == "injected"
-        assert len(j["attribution"]) == 2 and j["attribution"][0] == VSX_SENTENCE
-        out = {m["key"]: m for m in j["missions"]}["outburst"]
-        assert out["available"] is True and out["progress"] == 0 and "reason" not in out  # Task 7 (ruling R6)
-        assert c.get("/api/variables").json()["aavso"]["enabled"] is True
+def test_no_aavso_observation_endpoints(api):
+    """The live AAVSO layer was removed (kept on branch aavso-live-layer): only catalog/visibility routes remain."""
+    paths = {p for p in api.get("/openapi.json").json()["paths"] if p.startswith("/api/variables")}
+    assert paths == {"/api/variables", "/api/variables/{slug}", "/api/variables/{slug}/visibility"}
+    assert api.get("/api/variables/alerts").status_code == 404  # now just an unknown star slug
 
 
 def test_nights_reflect_imported_ss_cyg_set(api):
@@ -87,17 +72,3 @@ def test_nights_reflect_imported_ss_cyg_set(api):
     assert j["nights"] == ["2026-09-11"]
     assert next(s for s in api.get("/api/variables").json()["stars"] if s["slug"] == "ss-cyg")["nights_count"] == 1
     assert api.get("/api/variables/r-leo").json()["nights"] == []
-
-
-def test_aavso_switches_from_the_outer_environment_never_reach_a_test():
-    """I1: conftest clears them, so an exported ASTROPLANNER_AAVSO_ENABLED=1 cannot make a test call VSX."""
-    import os
-
-    assert os.environ.get("ASTROPLANNER_AAVSO_ENABLED") is None
-    assert os.environ.get("ASTROPLANNER_AAVSO_FIXTURE_DIR") is None
-
-
-def test_a_test_can_still_turn_the_aavso_switch_on_itself(monkeypatch, make_client, clear_provider):
-    monkeypatch.setenv("ASTROPLANNER_AAVSO_ENABLED", "1")
-    with make_client(clear_provider) as c:
-        assert c.app.state.aavso_mode == "live"  # provider built, no request made

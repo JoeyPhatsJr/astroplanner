@@ -5,97 +5,72 @@ _Last updated: 2026-11-03 · Phase plan and process: see [ROADMAP.md](ROADMAP.md
 ## Current phase: Phase 3, Variable Hunter: complete, pending developer review
 
 Branch `phase-3-variable-hunter` (not merged). Spec: `docs/superpowers/specs/2026-11-02-variable-hunter-design.md`.
+The live AAVSO observation layer was removed on 2026-11-03 (gate G1 outcome below); it is preserved on branch
+`aavso-live-layer` (commit c505789).
 
 ## Exact next step
 
-Developer review of the branch (and of the G1 decision below), then merge and tag `phase-3`. Phase 4 (scientific image
-analysis) brainstorming may start in parallel, but **only its Design activity**. Per ROADMAP.md "How each phase is run":
-start from the developer's notes from a real S30 night, show usable screen designs before the plan, and build nothing before
-approval. Phase 4 work branches from `main` after Phase 3 is merged, or from `phase-3-variable-hunter` if it is still open.
-Before any public deployment, resolve the Variable Hunter items under the Deployment section of ROADMAP.md (AAVSO permission first).
+Developer review of the branch, then merge and tag `phase-3`. Phase 4 (scientific image analysis) starts with its
+**Design activity only**. Per ROADMAP.md "How each phase is run": start from the developer's notes from a real S30
+night, show usable screen designs before the plan, and build nothing before approval. Phase 4 work branches from `main`
+after Phase 3 is merged.
 
 ## Phase 3, Variable Hunter: ✅ complete pending developer review
 
 | Area | Status | Evidence |
 |---|---|---|
-| Curated catalog of 4 stars (SS Cyg, U Gem, T CrB, R Leo) with VSX facts and provenance | done | `app/data/variables.json`, `app/variables/catalog.py` |
-| AAVSO providers (live VSX, synthetic fixture), spacing, parsing that drops private columns | done | `aavso.py`, `tests/test_variables_aavso.py` |
-| Observation cache, resumable 365-day history fill, de-duplication, failure back-off | done | `cache.py`, `curve.py`, `tests/test_variables_curve.py` |
-| Sky alerts with explicit stale/unavailable states, episodes and dismissal | done | `alerts.py`, `tests/test_variables_alerts.py` |
-| Missions from AstroLog nights, plan links (`var:` ids), S30 fit estimate | done | `missions.py`, `fit.py`, API tests |
-| Variable Hunter list, star page, light curve (brighter up), Tonight card, menu dot, `/research` redirect | done | `pages/VariableHunterPage.tsx`, `StarPage.tsx`, `components/variables/`, unit tests |
-| End-to-end: fallback mode (AAVSO off) and fixture-backed alerts and curve, desktop + mobile | done | `frontend/e2e/variables.spec.ts`, `make-aavso-fixtures.mjs`, second backend 8101 / Vite 5181 |
-| Docs and synthetic-data screenshots | done | README, `docs/ARCHITECTURE.md`, `docs/screenshots/variable-hunter-*.png` |
+| Curated catalog of 4 stars (SS Cyg, U Gem, T CrB, R Leo) with VSX facts and provenance | done | `app/data/variables.json`, `app/variables/catalog.py`, `scripts/build_variables.py` |
+| Tonight's window per star (shared visibility engine; no score) | done | `routes.py`, `tests/test_variables_visibility.py` |
+| Missions from AstroLog nights (weekly watch, follow the cycle), plan links (`var:` ids), S30 fit estimate | done | `missions.py`, `fit.py`, API tests |
+| AstroLog import and "This is …" linking for variable stars | done | `tests/test_variables_plans_astrolog.py` |
+| Variable Hunter list, star page with AAVSO VSX link, `/research` redirect | done | `pages/VariableHunterPage.tsx`, `StarPage.tsx`, `components/variables/`, unit tests |
+| End-to-end: nav, redirect, star page, plan add survives reload, desktop + mobile | done | `frontend/e2e/variables.spec.ts` |
+| Docs and screenshots | done | README, `docs/ARCHITECTURE.md`, `docs/screenshots/variable-hunter-*.png` |
+| Live AAVSO observations (light curves, sky alerts, outburst mission) | **removed** | kept on branch `aavso-live-layer`; see G1 |
 | Photometry and AAVSO submission | not in Phase 3 | page shows a labelled "Coming in Phase 4" slot |
 
-### Gate G1 (AAVSO terms): status
+### Gate G1 (AAVSO terms): closed by removing the live layer
 
 - Read: VSX's own copyright page (2026-11-02): "personal, non-commercial use only", and no mirroring on another server without permission.
 - Read: AAVSO "Search and Download Data" page (pasted by the developer, 2026-11-03): AAVSO data are "free for your own personal use and for use in publications provided you follow our Data Usage Guidelines". It says nothing about third-party apps or automated access, so G1 stays open.
 - Read: AAVSO Data Usage Guidelines, 2026-07-16 revision (PDF supplied by the developer, 2026-11-03, not committed). They cover acknowledgement in *publications*: observer acknowledgement, the AID acknowledgement sentence ("We gratefully acknowledge the contributions of the AAVSO observer community, whose [photometric, ...] data and metadata resources were used in this study and made available through the AAVSO's scientific archives."), the VSX citation (Watson, Henden & Price 2006, SAS vol. 25, p. 47), facility keywords, and notifying aavso@aavso.org of publications. They say **nothing** about third-party apps, displaying data to others, or automated/programmatic access: no permission, no prohibition.
 - Read: AAVSO forum thread on programming interfaces (pasted by the developer, 2026-11-03). A post dated 2020-05-24 documents `api.object` and `api.list` and says "The VSX API is not 'official' yet"; AAVSO-affiliated members help third-party app authors use these endpoints; a 2021-01-21 post says AAVSO is "having problems with internet robots pounding on these interfaces". The thread does **not** mention `api.delim` (the observations endpoint the live layer uses) or displaying AID observations in third-party apps. Reading: programmatic `api.object` catalog lookups (build script, run once) are tolerated in practice; the live observation layer has no documented permission.
-- **Still no official document:** the official VSX API documentation on `www.aavso.org` (Cloudflare blocks automated readers; the app never tries to get past it).
-- Consequence: the AAVSO layer ships **off by default** (`ASTROPLANNER_AAVSO_ENABLED=1` switches it on); local personal use is the developer's decision; **public deployment needs AAVSO's written permission**.
+- Outcome (developer decision, 2026-11-03): no document covers a third-party app downloading and showing AID
+  observations, so the live layer (VSX `api.delim` provider, observation cache, light curves, sky alerts, outburst
+  mission, migration `0005_variable_hunter`) was removed rather than emailing AAVSO. Phase 4's own measurements make it
+  unnecessary. The app makes no AAVSO requests at runtime; only the build script calls `api.object`, once per star.
+- The developer's local database was backed up and downgraded from `0005_variable_hunter` to `0004_capture_exif`
+  (the three variable tables were empty) before the migration file was deleted.
 
-### Local live check (controller, 2026-11-02; AAVSO on, scratch database)
-
-SS Cyg 365-day history filled in 13 chunks: 26,918 observations cached, 0 errors. The curve shows the outbursts seen in
-recon (about 12 to 8.5-9 V). Sky alerts showed SS Cyg and T CrB as "no change" with current magnitudes. Night vision recolours the chart.
-This is not a CI test: it used the live service once, for personal non-commercial use.
-
-### Final review fixes (2026-11-03)
-
-- Tests are sealed off from the AAVSO switches: an autouse fixture clears `ASTROPLANNER_AAVSO_ENABLED` /
-  `ASTROPLANNER_AAVSO_FIXTURE_DIR`, and both e2e backends blank them in their start commands.
-- Fixture mode is labelled: curve and alerts payloads carry `mode`; with `fixture` the light curve, Sky alerts card, star
-  page and list say "Synthetic test data — not AAVSO observations" instead of the AAVSO observations attribution.
-  README screenshots retaken with the notice.
-- A failed save after a good VSX response now closes the fetch row as failed, so the 30-minute back-off applies
-  (before, the row stayed open and every 5 s poll re-requested the chunk).
-- The 6-hourly incremental refresh starts at most 3 days back, even after a long observing gap.
-- Alert-path requests use a 15 s timeout (history keeps 60 s).
-- Star page status chip (In outburst / No change / Stale / No AAVSO data yet) from the existing alerts query; the unused
-  `alert: null` list field is gone. Mission notes (e.g. "(UT dates)") are shown. The normal level reads as a
-  "curated reference level".
-- Smaller fixes: flat light curves get a one-magnitude axis; the tooltip ignores line-break rows; `"variable"` added to
-  the frontend kind/category unions; clearer "This is …" confirm text; "Seestar fit · <equipment>" heading; a
-  `frontend/dist` without `assets/` no longer crashes backend startup; README no longer claims a T CrB line the app lacks.
-
-### Commands last run (all passing, 2026-11-03, after the final review fixes)
+### Commands last run (all passing, 2026-11-03, after removing the live layer)
 
 ```
-backend:  .venv/bin/python -m pytest -q          → 303 passed, 7 skipped (also with ASTROPLANNER_AAVSO_ENABLED=1 exported)
+backend:  .venv/bin/python -m pytest -q          → 232 passed, 7 skipped
 frontend: npm run typecheck                       → ok
-frontend: npm test                                → 117 passed (10 files)
+frontend: npm test                                → 83 passed (8 files)
 frontend: npm run build                           → ok
-frontend: npx playwright test                     → 24 passed (desktop, mobile, fixture-desktop, fixture-mobile)
+frontend: npx playwright test                     → 16 passed (desktop + mobile)
 ```
 
-Phase 1 and 2 suites are unchanged and inside those totals. No test contacts AAVSO; fixtures and screenshots are synthetic.
+Phase 1 and 2 suites are unchanged and inside those totals. No test contacts AAVSO.
 (The 7 backend skips are the same 6 local real-data checks and 1 Postgres test as in Phase 2.)
 
 ### Known limitations (Phase 3)
 
-- Outburst windows use UT dates, not local night dates, so an edge night can be off by one.
-- A gap in the data ends an outburst window but not an alert episode.
+- No light curves or outburst alerts: AstroPlanner shows no AAVSO observations (see G1). Star pages link to AAVSO VSX.
+- VSX catalog facts are used under "personal, non-commercial use only"; a public deployment needs AAVSO's permission
+  for them (ROADMAP.md, Deployment).
 - Converting a custom target with "This is ..." does not back-fill earlier plan links.
-- AAVSO request spacing and history-fill locks are per process; multi-process hosting would need shared locking.
-- The observer hash is a salted pseudonym (salt stored in the database), not anonymisation.
 - S30 brightness limits (7 to 12.5) are an unmeasured estimate, shown as one.
-- The T CrB "1946 eruption" tab is keyed on the slug in the frontend (backend `history_windows` is the real source).
 - The e2e "add to tonight's plan" check returns early (still asserting the stated reason) if SS Cyg is not observable that night.
-- Only V and visual observations are used; other bands and fainter-than limits are cached but never plotted or counted.
 - No predictions of any kind (eruption dates, eclipse timetables) by design.
-- "Your night" markers on the light curve sit at UT midnight after the local night date: right for western observers,
-  up to a day off east of UTC.
-- When the alert has no daily-mean run reaching into the 48 h window, its episode is the span of the bright reports
-  inside that window, so it slides with the window: a dismissed borderline alert can come back.
 
 ### Phase 3 exit items
 
 - [x] All implementation tasks complete with review
-- [x] Full suites run (above); local live AAVSO check done
-- [ ] Developer review, G1 decision, merge and tag `phase-3`
+- [x] Full suites run (above)
+- [x] G1 decided: live AAVSO layer removed, preserved on `aavso-live-layer`
+- [ ] Developer review, merge and tag `phase-3`
 
 ## Phase 2, AstroLog: ✅ complete (signed off 2026-11-02, merged in PR #1, tag `phase-2`)
 

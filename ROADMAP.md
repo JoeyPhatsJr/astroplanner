@@ -14,7 +14,7 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 |---|---|---|---|
 | 1 | Core planning dashboard | Location, equipment, real forecast, Sun/Moon/target visibility, transparent scores, catalog, charts, saved session plans | ✅ **Complete**: signed off 2026-11-02 (git tag `phase-1`) |
 | 2 | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | ✅ **Complete**: signed off 2026-11-02 (PR #1, git tag `phase-2`; spec `docs/superpowers/specs/2026-11-02-astrolog-design.md`) |
-| **3** | Variable Hunter | Historical light curves, variable-star research, AstroMissions | **Complete pending developer review** (branch `phase-3-variable-hunter`; spec `docs/superpowers/specs/2026-11-02-variable-hunter-design.md`) |
+| **3** | Variable Hunter | Curated variable stars, visibility, AstroMissions (no AAVSO observations) | **Complete pending developer review** (branch `phase-3-variable-hunter`; spec `docs/superpowers/specs/2026-11-02-variable-hunter-design.md`) |
 | 4 | Scientific image analysis | FITS processing, photometry, user-generated light curves | Not started |
 | 5 | Advanced features | Personalization, collaboration, 3D visualization, telescope integrations | Not started |
 
@@ -99,10 +99,8 @@ for later phases' needs (e.g. image storage in Phase 2, FITS processing in Phase
 - Current target: Vercel (frontend + Python function) + Supabase (Postgres, Auth, Storage).
 - Prerequisites before going public: `owner_id` on user-owned rows, Supabase Auth JWT
   verification in FastAPI (owner-only writes), production CORS, secrets in environment variables.
-- Variable Hunter prerequisites before going public: **AAVSO's written permission** (VSX allows personal,
-  non-commercial use only and forbids mirroring; the Data Usage Guidelines and API docs are still unread, gate G1);
-  replace the salted observer-code hash with an HMAC keyed by a secret held outside the database; add
-  multi-process locking for the AAVSO request spacing and history-fill locks.
+- Variable Hunter prerequisite before going public: the four stars' VSX catalog facts are used under VSX's
+  "personal, non-commercial use only" terms, so a public site needs AAVSO's permission for them (or drop them).
 - To re-check at that time: Vercel Python function size/cold start with Astropy, whether
   Phase 4 processing needs a different compute target, Open-Meteo terms for the use case.
 - Meanwhile every phase must keep the `DATABASE_URL` seam working (no SQLite-only SQL).
@@ -137,7 +135,7 @@ are where later phases attach; each "later" item is a note, not code.
 | Seam (exists now) | Where | How later phases use it |
 |---|---|---|
 | Sessions with `status` (`planned/completed/cancelled`) and per-target rows with `actual_integration_seconds`, `notes` | `backend/app/db.py` | Phase 2 extends sessions into logs instead of creating a parallel model |
-| Pluggable data providers injected via `app.state` (weather today) | `backend/app/main.py`, `weather.py` | Phase 3 adds an AAVSO/VSX provider behind the same pattern, stubbed in tests |
+| Pluggable data providers injected via `app.state` (weather today) | `backend/app/main.py`, `weather.py` | A Phase 3 AAVSO provider used this pattern (removed before merge; see branch `aavso-live-layer`) |
 | Visibility engine is target-agnostic (RA/Dec in → windows, statuses out) | `astronomy.py`, `visibility.py` | Phase 3 variable stars reuse it; *later:* `sky_context` takes an explicit coordinate set instead of the global catalog |
 | Scores are lists of `{key, points, max, basis, detail}` components | `scoring.py` | New factors (e.g. horizon obstruction, personal history) are added as components; normalization tests guard them |
 | Catalog with per-target provenance (`source`, `source_id`, `source_url`) | `app/data/targets.json` | Additional curated catalogs (variable stars) follow the same provenance rule |
@@ -181,4 +179,5 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-02 | No predictions in Variable Hunter (no eruption dates, countdowns, "expected" text); alerts need independent observers and show data freshness | Predicted T CrB dates have lapsed; stale data must never read as "no change" |
 | 2026-11-02 | S30 brightness limits (7 to 12.5) are an estimate, labelled "estimate, not yet measured" | Only one S50 owner data point exists |
 | 2026-11-02 | **Phase 3 complete pending developer review** on branch `phase-3-variable-hunter` | Suites green (303 backend, 117 unit, 24 e2e); local live check passed |
+| 2026-11-03 | **Live AAVSO observation layer removed from Phase 3** (light curves, sky alerts, outburst mission, observation cache, migration 0005); preserved on branch `aavso-live-layer`. Star pages link to AAVSO VSX instead | Gate G1 outcome: VSX copyright, the Data Usage Guidelines (2026-07-16) and AAVSO's forum API notes were read; none covers a third-party app downloading and showing AID observations (`api.delim` is undocumented). Developer chose removal over emailing AAVSO; Phase 4's own measurements make it unnecessary |
 | 2026-11-03 | **Phases run as Design → Build → Validate**, with a commit at every milestone, usable screen designs shown before the implementation plan, and a real night with the S30 before each phase's design | Developer direction (from outside advice): recovery points between milestones, and the UI is part of the product |

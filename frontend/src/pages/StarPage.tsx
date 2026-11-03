@@ -1,11 +1,9 @@
 import { ArrowLeft, Check, ExternalLink, Plus } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useCurrentEquipment, useObserver } from "../api/hooks";
-import { FIXTURE_NOTICE, isFixtureMode, shownAttribution, useStar, useStarVisibility, type StarResponse } from "../api/variables";
+import { useStar, useStarVisibility, type StarResponse } from "../api/variables";
 import { MissionCard } from "../components/variables/MissionCard";
-import { LightCurveSection } from "../components/variables/LightCurveSection";
 import { StarExplainer } from "../components/variables/StarExplainer";
-import { StatusChip } from "../components/variables/StatusChip";
 import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { useActiveSession } from "../state/activeSession";
@@ -83,10 +81,7 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
       </Link>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <h1 className="font-semibold tracking-tight text-3xl md:text-[2.4rem]">{star.name}</h1>
-            {data.aavso.enabled && <StatusChip starId={star.id} />}
-          </div>
+          <h1 className="font-semibold tracking-tight text-3xl md:text-[2.4rem]">{star.name}</h1>
           <p className="mt-1 text-sm text-ink-2">
             {data.type_label} · {star.constellation} · {vsxRange(data.vsx)}
           </p>
@@ -108,32 +103,29 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
         </div>
       </dl>
 
-      {data.aavso.enabled && <LightCurveSection slug={slug} nights={data.nights} />}
+      <section className="panel flex flex-col gap-2 p-4" aria-labelledby="vh-curve">
+        <h2 id="vh-curve" className="label">
+          Light curve
+        </h2>
+        <p className="text-sm text-ink-2">
+          AstroPlanner doesn&apos;t download AAVSO observations, so it draws no light curve. AAVSO&apos;s own pages have this star&apos;s
+          record.
+        </p>
+        <a href={data.source_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 self-start text-sm text-ice hover:underline">
+          View {star.primary_designation} on AAVSO VSX <span aria-hidden>→</span>
+          <ExternalLink className="size-3.5" aria-hidden />
+        </a>
+      </section>
 
-      {!data.aavso.enabled && (
-        <section className="panel flex flex-col gap-2 p-4" aria-labelledby="vh-fallback">
-          <h2 id="vh-fallback" className="label">
-            Light curve
-          </h2>
-          <p className="text-sm text-ink-2">Light curve: not shown. AAVSO data is switched off in this app until its terms are confirmed.</p>
-          <a href={data.aavso.fallback_link} target="_blank" rel="noopener" className="inline-flex items-center gap-1 self-start text-sm text-ice hover:underline">
-            View {star.primary_designation} on AAVSO VSX <span aria-hidden>→</span>
-            <ExternalLink className="size-3.5" aria-hidden />
-          </a>
-        </section>
-      )}
-
-      {data.missions.some((m) => m.available) && (
+      {data.missions.length > 0 && (
         <section className="flex flex-col gap-2" aria-labelledby="vh-missions">
           <h2 id="vh-missions" className="font-semibold tracking-tight text-lg">
             Missions
           </h2>
           <div className="grid gap-3 md:grid-cols-2">
-            {data.missions
-              .filter((m) => m.available)
-              .map((m) => (
-                <MissionCard key={m.key} mission={m} />
-              ))}
+            {data.missions.map((m) => (
+              <MissionCard key={m.key} mission={m} />
+            ))}
           </div>
         </section>
       )}
@@ -157,8 +149,7 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
       </section>
 
       <div className="flex flex-col gap-0.5 text-xs text-muted">
-        {isFixtureMode(data.aavso.mode) && <p className="font-semibold text-warn">{FIXTURE_NOTICE}.</p>}
-        {shownAttribution(data.attribution, data.aavso.mode).map((a) => (
+        {data.attribution.map((a) => (
           <p key={a}>{a}</p>
         ))}
         <p>Facts retrieved {data.retrieved}.</p>

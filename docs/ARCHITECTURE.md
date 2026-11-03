@@ -101,33 +101,15 @@ Package `backend/app/variables/`:
 
 | Module | Role |
 |---|---|
-| `catalog.py` + `app/data/variables.json` | The four curated stars (VSX facts, alert rule, missions, history windows). Stars never enter the DSO catalog, so Phase 1 recommendations and scores are unchanged |
-| `aavso.py` | Providers behind one protocol: `VsxProvider` (`vsx.aavso.org` `api.delim` only, sequential, >= 2 s apart process-wide, honest user agent, no redirects) and `FixtureProvider` (synthetic CSV files, for e2e) |
-| `cache.py` | Observation cache and the two fetch paths (3-day alert window; 365-day history in 30-day chunks, oldest first, resumable); de-duplicates on `(star_id, obsID)`; logs every request in `variable_fetches`; failure back-off |
-| `curve.py` | Which observations count (positive V and visual detections only), daily means, thinning, outburst windows, the background history fill |
-| `alerts.py` | Alert rule and episodes: freshness first (`unavailable` / `stale`), then `alert` or `no_change`; dismissal stores the episode start |
+| `catalog.py` + `app/data/variables.json` | The four curated stars (VSX catalog facts, missions, period notes). Stars never enter the DSO catalog, so Phase 1 recommendations and scores are unchanged |
 | `missions.py`, `fit.py` | Mission progress from AstroLog nights; S30 fit text from an estimated magnitude range |
-| `models.py`, `routes.py` | Tables `variable_observations`, `variable_fetches`, `variable_alert_dismissals` (migration `0005_variable_hunter`); routes under `/api/variables` |
+| `routes.py` | `GET /api/variables` (list), `/api/variables/{slug}` (detail), `/api/variables/{slug}/visibility`; no database tables of its own |
 
-Flow (AAVSO on):
-
-```
-Tonight / menu dot ─► GET /api/variables/alerts ─► refresh 3-day window per star (provider, then cache)
-                                                    ─► alerts.current(cache only) ─► state + evidence + freshness
-Star page          ─► GET /api/variables/{slug}/curve ─► answer from the cache at once;
-                                                    background task fills missing history chunks;
-                                                    the page polls and shows "Loading history: n/365 days"
-```
-
-The provider is chosen at startup: `ASTROPLANNER_AAVSO_FIXTURE_DIR` (fixture) beats `ASTROPLANNER_AAVSO_ENABLED=1`
-(live); with neither, `app.state.aavso` is `None` and the API reports `aavso.enabled = false` (fallback: the page
-shows a VSX link, Tonight shows no alerts card, `/curve` answers 409). Tests inject stub providers and never use the network.
-
-**Privacy rule.** The AAVSO CSV carries each observer's full name, country, comments and chart IDs. Parsing keeps
-only `obsID, JD, mag, uncert, band, fainterThan, obsType, val` and turns the observer code into a salted hash
-immediately; names, countries, comments, charts and codes are never stored, returned or logged. The hash exists only
-to count *distinct* observers and is never returned. It is pseudonymisation, not anonymity (a keyed hash is a
-pre-deployment item). Tests plant sentinel values in the fixtures and search every response, database row and log line.
+The catalog facts come from VSX's `api.object`, fetched once by `backend/scripts/build_variables.py` (sequential,
+at least 2 s apart, identifying user agent) and committed as `variables.json`. At runtime the app makes **no AAVSO
+requests**. A live observation layer (VSX `api.delim` provider, observation cache, light curves, sky alerts) was
+built and removed before merge because no AAVSO terms cover a third-party app downloading and showing AID
+observations; it is preserved on the `aavso-live-layer` branch (including its migration `0005_variable_hunter`).
 
 ## Persistence
 
@@ -136,7 +118,7 @@ pre-deployment item). Tests plant sentinel values in the fixtures and search eve
   (one-time seeding flags such as the Canon profile).
 - **Migrations are Alembic** (`backend/migrations/versions/`): `0001_phase1_baseline`,
   `0002_astrolog`, `0003_library_target_coords`, `0004_capture_exif` (Canon ISO / f-number /
-  focal length per frame, lens per capture set; all nullable), `0005_variable_hunter` (observation cache, fetch log, alert dismissals). The app upgrades to head at startup, and an
+  focal length per frame, lens per capture set; all nullable). The app upgrades to head at startup, and an
   existing Phase 1 database (no version table) is stamped at the baseline first. Migrations are
   written for both SQLite and Postgres; a test runs them on Postgres when `TEST_POSTGRES_URL` is set.
   Revisions are hand-written (no autogenerate), and a test compares the ORM schema with the migrated one.

@@ -7,7 +7,6 @@ export function MissionCard({ mission }: { mission: Mission }) {
     <article className="panel flex flex-col gap-2 p-4" aria-label={`Mission: ${mission.title}`}>
       <h3 className="font-semibold tracking-tight text-ink">{mission.title}</h3>
       <p className="text-sm text-ink-2">{mission.description}</p>
-      {mission.note && <p className="text-xs text-muted">{mission.note}</p>}
       {pct !== null && (
         <div
           className="h-2 overflow-hidden rounded-full bg-line"

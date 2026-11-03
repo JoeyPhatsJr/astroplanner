@@ -1,5 +1,11 @@
 # Phase 3 design: Variable Hunter
 
+> **Update 2026-11-03 (gate G1 outcome):** the live AAVSO observation layer described below (light curves,
+> sky alerts, the outburst mission, the observation cache and migration `0005_variable_hunter`) was built and then
+> removed before merge, because no AAVSO document covers a third-party app downloading and showing AID observations.
+> It is preserved on branch `aavso-live-layer`. What shipped is the §8 fallback: catalog facts, visibility, missions
+> from the developer's nights and a link to AAVSO VSX. See PROGRESS.md and the ROADMAP.md decision log.
+
 _Status: builder-checked, awaiting developer review · 2026-11-02 · follows ROADMAP.md steps 1–5_
 _Brainstormed with the developer. The developer decided the purpose, the light curve as the centrepiece,
 the alert style (option B) and approved the star-page mockup; they handed the star list, mission rules and

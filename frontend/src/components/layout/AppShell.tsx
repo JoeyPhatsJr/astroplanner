@@ -1,7 +1,6 @@
 import { BookOpen, ChevronsLeft, ChevronsRight, Moon, Settings, Sparkles, Telescope } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
-import { useVariableAlerts } from "../../api/variables";
 import { HeaderControls } from "./HeaderControls";
 
 const NAV = [
@@ -20,13 +19,7 @@ function readCollapsed() {
   }
 }
 
-function NavDot() {
-  return <span aria-hidden className="absolute -right-1 -top-0.5 size-2 rounded-full bg-warn" />;
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
-  const alertDot = useVariableAlerts().data?.dot === true;
-  const dotLabel = (label: string) => (label === "Variable Hunter" && alertDot ? "Variable Hunter, new sky alert" : undefined);
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const toggle = () => {
     setCollapsed((c) => {
@@ -64,7 +57,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               to={to}
               end={end}
               title={collapsed ? label : undefined}
-              aria-label={dotLabel(label)}
               className={({ isActive }) =>
                 `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   collapsed ? "justify-center px-0" : ""
@@ -73,10 +65,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {({ isActive }) => (
                 <>
-                  <span className="relative inline-flex">
-                    <Icon className={`size-[18px] shrink-0 ${isActive ? "text-ice" : ""}`} aria-hidden />
-                    {label === "Variable Hunter" && alertDot && <NavDot />}
-                  </span>
+                  <Icon className={`size-[18px] shrink-0 ${isActive ? "text-ice" : ""}`} aria-hidden />
                   <span className={collapsed ? "sr-only" : ""}>{label}</span>
                 </>
               )}
@@ -129,17 +118,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             key={to}
             to={to}
             end={end}
-            aria-label={dotLabel(label)}
             className={({ isActive }) =>
               `flex flex-col items-center gap-1 py-2.5 text-[0.68rem] font-medium ${isActive ? "text-ink" : "text-muted"}`
             }
           >
             {({ isActive }) => (
               <>
-                <span className="relative inline-flex">
-                  <Icon className={`size-5 ${isActive ? "text-ice" : ""}`} aria-hidden />
-                  {label === "Variable Hunter" && alertDot && <NavDot />}
-                </span>
+                <Icon className={`size-5 ${isActive ? "text-ice" : ""}`} aria-hidden />
                 <span>{label === "Variable Hunter" ? "Variables" : label}</span>
               </>
             )}

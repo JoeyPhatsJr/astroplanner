@@ -33,13 +33,12 @@ const NAMES = ["R Leonis", "SS Cygni", "T Coronae Borealis", "U Geminorum"];
 const SLUGS = ["r-leo", "ss-cyg", "t-crb", "u-gem"];
 const vsx = { max_mag: 7.7, min_mag: 12.4, band: "V", raw_range: ["7.7 V", "12.4 V"] };
 const listBody = {
-  aavso: { enabled: false, mode: "off" },
   stars: NAMES.map((name, i) => ({
     id: `var:${SLUGS[i]}`, slug: SLUGS[i], name, primary_designation: name, category: "variable", kind: "variable",
     constellation: "Cygnus", ra_deg: 1, dec_deg: 2, type_label: "Dwarf nova", vsx, nights_count: i,
   })),
 };
-const mission = (key: string, title: string, available: boolean) => ({ key, title, description: `${title} desc`, progress: 1, goal: 3, unit: "nights", available });
+const mission = (key: string, title: string) => ({ key, title, description: `${title} desc`, progress: 1, goal: null, unit: "week streak" });
 function starBody(over: Record<string, unknown> = {}) {
   return {
     star: { id: "var:ss-cyg", name: "SS Cygni", primary_designation: "SS Cyg", category: "variable", kind: "variable", constellation: "Cygnus", ra_deg: 1, dec_deg: 2 },
@@ -47,9 +46,8 @@ function starBody(over: Record<string, unknown> = {}) {
     source_url: "https://vsx.aavso.org/index.php?view=detail.top&oid=1", retrieved: "2026-11-02",
     attribution: ["Catalog data: International Variable Star Index (VSX), operated at AAVSO, Cambridge, Massachusetts, USA."],
     nights: ["2026-10-01"],
-    missions: [mission("outburst", "Catch an outburst", false), mission("weekly", "Weekly watch", true)],
+    missions: [mission("weekly", "Weekly watch")],
     seestar_fit: null,
-    aavso: { enabled: false, mode: "off", fallback_link: "https://vsx.aavso.org/index.php?view=detail.top&oid=1" },
     ...over,
   };
 }
@@ -131,28 +129,28 @@ describe("Variable Hunter list: edge states", () => {
     }
   });
 
-  it("keeps the VSX attribution when AAVSO is enabled, and adds the observations line", async () => {
-    routes["GET /api/variables"] = () => ({ ...listBody, aavso: { enabled: true, mode: "live" } });
+  it("shows the VSX catalog attribution and no AAVSO observations line", async () => {
+    routes["GET /api/variables"] = () => listBody;
     routes["GET /api/variables/ss-cyg/visibility"] = () => visBody();
     routes["GET /api/variables/r-leo/visibility"] = () => visBody();
     routes["GET /api/variables/t-crb/visibility"] = () => visBody();
     routes["GET /api/variables/u-gem/visibility"] = () => visBody();
     renderAt("/variables", <VariableHunterPage />, "/variables");
     expect(await screen.findByText(/Catalog data: International Variable Star Index \(VSX\)/)).toBeInTheDocument();
-    expect(screen.getByText(/Observations from the AAVSO International Database/)).toBeInTheDocument();
+    expect(screen.queryByText(/Observations from the AAVSO International Database/)).toBeNull();
   });
 });
 
-describe("Star page, AAVSO off", () => {
+describe("Star page", () => {
   beforeEach(() => {
     routes["GET /api/variables/ss-cyg"] = () => starBody();
     routes["GET /api/variables/ss-cyg/visibility"] = () => visBody();
   });
   const open = () => renderAt("/variables/ss-cyg", <StarPage />, "/variables/:slug");
 
-  it("shows the fallback panel with the VSX link and no chart", async () => {
+  it("explains there is no light curve and links to the star on AAVSO VSX", async () => {
     const { container } = open();
-    expect(await screen.findByText(/Light curve: not shown\. AAVSO data is switched off/)).toBeInTheDocument();
+    expect(await screen.findByText(/AstroPlanner doesn.t download AAVSO observations, so it draws no light curve/)).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /View SS Cyg on AAVSO VSX/ });
     expect(link).toHaveAttribute("href", "https://vsx.aavso.org/index.php?view=detail.top&oid=1");
     expect(link).toHaveAttribute("target", "_blank");
@@ -162,10 +160,10 @@ describe("Star page, AAVSO off", () => {
     expect(screen.getByText(/International Variable Star Index/)).toBeInTheDocument();
   });
 
-  it("omits the unavailable outburst mission and shows the available one", async () => {
+  it("shows the star's missions and requests no AAVSO observations", async () => {
     open();
     expect(await screen.findByRole("article", { name: "Mission: Weekly watch" })).toBeInTheDocument();
-    expect(screen.queryByText("Catch an outburst")).toBeNull();
+    expect(calls.some((c) => /\/api\/variables\/(alerts|[^/?]+\/curve)/.test(c.url))).toBe(false);
   });
 
   it("renders the Seestar estimate label when present", async () => {
@@ -259,75 +257,7 @@ describe("routing", () => {
   });
 });
 
-describe("Star page: final review fixes", () => {
-  const OBS = "Observations from the AAVSO International Database, contributed by observers worldwide. © AAVSO.";
-  const VSX = "Catalog data: International Variable Star Index (VSX), operated at AAVSO, Cambridge, Massachusetts, USA.";
-  const alertRow = (slug: string, state: string) => ({
-    star_id: `var:${slug}`, slug, name: slug, state, evidence: { observers: 0, threshold: 10, window_hours: 48, brightest: null },
-    current_mag: null, normal_text: "quiet near 12 V", checked_utc: null, last_error: null, visibility: null,
-  });
-  const curveBody = (mode: string) => ({
-    mode, window: { key: "recent", label: "Last 365 days", from_date: null, to_date: null }, points: [], daily: [],
-    counts: { cached: 0, plotted_points: 0, every_nth: 1, included: 0 }, bands_included: ["V", "Vis."], excluded_note: "",
-    status: { last_ok_utc: null, last_error: null, coverage_days: 0, target_days: 365, loading: false }, attribution: [VSX, OBS],
-  });
-  function enabled(slug: string, mode = "live", alerts: unknown[] = []) {
-    routes[`GET /api/variables/${slug}`] = () =>
-      starBody({
-        star: { ...starBody().star, id: `var:${slug}` },
-        aavso: { enabled: true, mode, fallback_link: "https://vsx.aavso.org/x" },
-        attribution: [VSX, OBS],
-      });
-    routes[`GET /api/variables/${slug}/visibility`] = () => visBody();
-    routes[`GET /api/variables/${slug}/curve`] = () => curveBody(mode);
-    routes["GET /api/variables/alerts"] = () => ({ enabled: true, mode, alerts, dot: false, attribution: [VSX, OBS] });
-    return renderAt(`/variables/${slug}`, <StarPage />, "/variables/:slug");
-  }
-
-  it.each([
-    ["alert", "In outburst"],
-    ["no_change", "No change"],
-    ["stale", "Stale"],
-    ["unavailable", "No AAVSO data yet"],
-  ])("shows the status chip for alert state %s from the alerts query", async (state, label) => {
-    enabled("ss-cyg", "live", [alertRow("ss-cyg", state), alertRow("t-crb", "alert")]);
-    expect(await screen.findByLabelText(`AAVSO status: ${label}`)).toHaveTextContent(label);
-    expect(calls.filter((c) => c.url.startsWith("/api/variables/alerts"))).toHaveLength(1);
-  });
-
-  it("shows no chip for a star without an alert rule (R Leo)", async () => {
-    enabled("r-leo", "live", [alertRow("ss-cyg", "alert")]);
-    await screen.findByRole("heading", { name: "SS Cygni", level: 1 });
-    await waitFor(() => expect(calls.some((c) => c.url.startsWith("/api/variables/alerts"))).toBe(true));
-    await new Promise((r) => setTimeout(r, 20));
-    expect(screen.queryByLabelText(/^AAVSO status:/)).toBeNull();
-  });
-
-  it("shows no chip and requests no alerts when AAVSO is off", async () => {
-    routes["GET /api/variables/ss-cyg"] = () => starBody();
-    routes["GET /api/variables/ss-cyg/visibility"] = () => visBody();
-    renderAt("/variables/ss-cyg", <StarPage />, "/variables/:slug");
-    await screen.findByText(/Light curve: not shown/);
-    expect(screen.queryByLabelText(/^AAVSO status:/)).toBeNull();
-    expect(calls.some((c) => c.url.startsWith("/api/variables/alerts"))).toBe(false);
-  });
-
-  it("in fixture mode replaces the observations attribution with the synthetic-data notice", async () => {
-    enabled("ss-cyg", "fixture", [alertRow("ss-cyg", "no_change")]);
-    expect((await screen.findAllByText(/Synthetic test data — not AAVSO observations/)).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(VSX).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/Observations from the AAVSO International Database/)).toBeNull();
-  });
-
-  it("renders a mission note under its description", async () => {
-    routes["GET /api/variables/ss-cyg"] = () =>
-      starBody({ missions: [{ ...mission("outburst", "Catch an outburst", true), note: "Outburst days: cached AAVSO daily means brighter than 10 V (UT dates)." }] });
-    routes["GET /api/variables/ss-cyg/visibility"] = () => visBody();
-    renderAt("/variables/ss-cyg", <StarPage />, "/variables/:slug");
-    const card = await screen.findByRole("article", { name: "Mission: Catch an outburst" });
-    expect(within(card).getByText(/\(UT dates\)\.$/)).toBeInTheDocument();
-  });
-
+describe("Star page: Seestar note", () => {
   it("titles the Seestar note without nested parentheses", async () => {
     mocks.equipment = { id: "seestar-s30", name: "Seestar S30 (original)" };
     try {

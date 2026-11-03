@@ -7,7 +7,7 @@ Makes one request per curated star to
 ``https://vsx.aavso.org/index.php?view=api.object&ident=<name>&format=json``
 (sequential, at least 2 s apart, identifying user agent, vsx.aavso.org only).
 Catalog facts (coordinates, type, range, period, epoch, OID) come verbatim from
-VSX; the alert thresholds, missions, labels and history windows are AstroPlanner
+VSX; the missions, labels and period notes are AstroPlanner
 curation. Catalog data: International Variable Star Index (VSX), operated at
 AAVSO, Cambridge, Massachusetts, USA. See app/data/ATTRIBUTION.md.
 """
@@ -40,43 +40,25 @@ CURATED: list[dict[str, Any]] = [
         "slug": "ss-cyg", "name": "SS Cygni", "primary_designation": "SS Cyg",
         "aliases": ["SS Cyg", "SS Cygni"],
         "type_label": "Dwarf nova (U Gem type)",
-        "alert": {
-            "brighter_than": 10.0, "min_observers": 2, "normal_text": "quiet near 12 V",
-            "why": "Outbursts reach about 8.5 V; 10.0 is well clear of quiescent scatter.",
-        },
-        "missions": ["outburst", "weekly"], "history_windows": [], "period_note": ORBITAL_NOTE,
+        "missions": ["weekly"], "period_note": ORBITAL_NOTE,
     },
     {
         "slug": "u-gem", "name": "U Geminorum", "primary_designation": "U Gem",
         "aliases": ["U Gem", "U Geminorum"],
         "type_label": "Dwarf nova (U Gem type)",
-        "alert": {
-            "brighter_than": 11.0, "min_observers": 2, "normal_text": "quiet near 14.5 V",
-            "why": "VSX lists a maximum near 8.2 V; 11.0 is well clear of quiescent scatter.",
-        },
-        "missions": ["outburst", "weekly"], "history_windows": [], "period_note": ORBITAL_NOTE,
+        "missions": ["weekly"], "period_note": ORBITAL_NOTE,
     },
     {
         "slug": "r-leo", "name": "R Leonis", "primary_designation": "R Leo",
         "aliases": ["R Leo", "R Leonis"],
         "type_label": "Mira variable",
-        "alert": None,
-        "missions": ["cycle", "weekly"], "history_windows": [],
+        "missions": ["cycle", "weekly"],
     },
     {
         "slug": "t-crb", "name": "T Coronae Borealis", "primary_designation": "T CrB",
         "aliases": ["T CrB", "T Coronae Borealis", "Blaze Star"],
         "type_label": "Recurrent nova",
-        "alert": {
-            "brighter_than": 8.0, "min_observers": 3, "normal_text": "quiet near 10 V",
-            "why": "VSX lists a maximum of 2.0 V; 8.0 is far above quiescent scatter, and 3 independent observers are required.",
-        },
         "missions": ["weekly"],
-        "history_windows": [{
-            "key": "1946", "label": "1946 eruption",
-            "from_date": "1946-01-01", "to_date": "1946-06-30",
-            "source": "Eruption discovered 1946 February 9; ADS 1946PASP...58..196H",
-        }],
         "period_note": ORBITAL_NOTE,
     },
 ]

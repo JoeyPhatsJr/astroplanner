@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from app.variables.missions import monthly_count, outburst_nights, weekly_streak
+from app.variables.missions import monthly_count, weekly_streak
 
 D = date.fromisoformat
 # 2026-11-02 is a Monday: ISO week 45 is Nov 2-8, week 44 Oct 26-Nov 1, week 43 Oct 19-25.
@@ -41,8 +41,3 @@ def test_monthly_count():
     assert monthly_count([D("2026-04-30")], today=D("2026-11-20")) == 0  # older than six months
     assert monthly_count([D("2026-06-01")], today=D("2026-11-20")) == 1  # oldest included month
 
-
-def test_outburst_nights():
-    w = [(D("2026-10-01"), D("2026-10-10"))]
-    assert outburst_nights([D("2026-10-02"), D("2026-10-05"), D("2026-10-20")], w) == 2
-    assert outburst_nights([D("2026-10-02")], []) == 0
