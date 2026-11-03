@@ -12,9 +12,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
 from . import catalog, geo
+from .astrolog.library import session_capture_info
 from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
 from .db import Database, EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
@@ -514,7 +515,8 @@ def _session_target_out(st: SessionTarget) -> dict[str, Any]:
 
 def _session_out(s: ObservingSession, with_targets: bool = True) -> dict[str, Any]:
     out = {c: getattr(s, c) for c in ("id", "title", "location_id", "equipment_id", "local_night_date", "start_utc",
-                                      "end_utc", "status", "notes", "created_at", "updated_at")}
+                                      "end_utc", "status", "notes", "source", "created_at", "updated_at")}
+    out["capture_sets"], out["not_shot"] = session_capture_info(object_session(s), s)
     out["target_count"] = len(s.targets)
     if with_targets:
         out["targets"] = [_session_target_out(st) for st in sorted(s.targets, key=lambda x: x.sort_order)]

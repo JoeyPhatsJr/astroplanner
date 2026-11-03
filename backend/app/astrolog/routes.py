@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.api import get_db
 from app.db import ObservingLocation
 
-from . import importer, previews
+from . import importer, library, previews
 from .models import CaptureFrame, FinalImage, LibraryTarget, Stack
 
 router = APIRouter(prefix="/api/astrolog", tags=["astrolog"])
@@ -239,3 +239,47 @@ def stack_link(library_target_id: str, body: Any = Body(...), db: Session = Depe
     img.stack_id = req.stack_id
     db.commit()
     return _image_out(img)
+
+
+# ---- library, target page, history ----------------------------------------------------------
+
+class TargetPatch(BaseModel):
+    custom_name: str | None = Field(None, min_length=1, max_length=160)
+    kind: Literal["custom", "unsorted"] | None = None
+
+
+@router.get("/library")
+def get_library(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
+    return library.library(db)
+
+
+@router.get("/history")
+def get_history(db: Session = Depends(get_db)) -> dict[str, dict[str, Any]]:
+    return library.history(db)
+
+
+def _library_target(db: Session, library_target_id: str) -> LibraryTarget:
+    lt = db.get(LibraryTarget, library_target_id)
+    if lt is None:
+        raise HTTPException(404, "Target not found")
+    return lt
+
+
+@router.get("/targets/{library_target_id}")
+def get_target_page(library_target_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+    return library.target_page(db, _library_target(db, library_target_id))
+
+
+@router.patch("/targets/{library_target_id}")
+def patch_target(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
+    req = _validate(TargetPatch, body)
+    lt = _library_target(db, library_target_id)
+    if lt.kind == "catalog":
+        raise HTTPException(403, "Catalog targets cannot be renamed or moved.")
+    data = req.model_dump(exclude_unset=True)
+    if data.get("custom_name") is not None:
+        lt.custom_name = data["custom_name"].strip() or lt.custom_name
+    if data.get("kind") is not None:
+        lt.kind = data["kind"]
+    db.commit()
+    return library.target_page(db, lt)
