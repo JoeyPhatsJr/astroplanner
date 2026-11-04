@@ -16,8 +16,9 @@ _COPY: dict[str, tuple[str, str, str | None, str | None]] = {
     "report": (
         "Reads your light frames once and writes down facts about the night (how many frames, how sharp and round "
         "the stars are, where the background sits) so the later choices can be based on your data.",
-        "Nothing to do in Siril's windows for this step. You run the first script the coach gives you, then point "
-        "the coach at the folder it wrote.",
+        "Nothing to do in Siril's windows for this step. Choose the night folder (the one containing lights/) with "
+        "a Siril run inside, whether it is one you already made or one from the coach's first script, and the "
+        "coach reads it. Choose it again any time to re-read it.",
         None, None),
     "convert": (
         "Gathers your light frames into one numbered sequence Siril can work through, and turns the single-channel "
@@ -93,7 +94,8 @@ class StepView:
 
 def _blocked(step: str, facts: Facts) -> str | None:
     if step == "report" and facts.report is None:
-        return "Run the first script to produce the night report; its output is what this step reads."
+        return ("No night report yet. Choose a night folder that already holds a Siril run, or run the coach's first "
+                "script and then choose the folder it wrote.")
     if step == "select" and facts.report is None:
         return "Needs the night report from the first script, which measures each frame."
     if step == "compare" and (facts.siril_stack is None or facts.seestar_stack is None):

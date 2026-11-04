@@ -11,6 +11,7 @@ export function FolderPicker({ runId, hasReport }: { runId: string; hasReport: b
   const [reading, setReading] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [pending, setPending] = useState<NightFolder | null>(null);
+  const [skipped, setSkipped] = useState<string[]>([]);
   const [choice, setChoice] = useState<string>("");
 
   const send = (run: FolderRun, calibrationDirs: string[]) => {
@@ -27,13 +28,17 @@ export function FolderPicker({ runId, hasReport }: { runId: string; hasReport: b
     if (files.length === 0) return;
     setProblem(null);
     setPending(null);
+    setSkipped([]);
     upload.reset();
     setReading(true);
     try {
       const folder = await readNightFolder(files);
+      setSkipped(folder.skipped);
       if (folder.runs.length === 0) {
         setProblem(
-          "No Siril sequence (.seq) was found in a subfolder of that folder. Pick the night folder that contains lights/ and the folder Siril wrote its working files to.",
+          folder.skipped.length > 0
+            ? "No Siril sequence (.seq) could be read: the file(s) listed below are over 5 MB, so they were not opened."
+            : "No Siril sequence (.seq) was found in a subfolder of that folder. Pick the night folder that contains lights/ and the folder Siril wrote its working files to.",
         );
       } else if (folder.runs.length === 1) {
         send(folder.runs[0], folder.calibrationDirs);
@@ -54,18 +59,18 @@ export function FolderPicker({ runId, hasReport }: { runId: string; hasReport: b
 
   return (
     <div className="flex flex-col gap-3">
-      <input
-        ref={inputRef}
-        id="coach-folder"
-        type="file"
-        className="sr-only"
-        multiple
-        // Non-standard but supported by every current browser.
-        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
-        disabled={busy}
-        onChange={(e) => void onPick(e.target.files)}
-      />
       <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={inputRef}
+          id="coach-folder"
+          type="file"
+          className="peer sr-only"
+          multiple
+          // Non-standard but supported by every current browser.
+          {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+          disabled={busy}
+          onChange={(e) => void onPick(e.target.files)}
+        />
         {hasReport ? (
           <>
             <label htmlFor="coach-folder" className="sr-only">
@@ -76,7 +81,7 @@ export function FolderPicker({ runId, hasReport }: { runId: string; hasReport: b
             </button>
           </>
         ) : (
-          <label htmlFor="coach-folder" className={`btn btn-primary ${busy ? "pointer-events-none opacity-50" : "cursor-pointer"}`}>
+          <label htmlFor="coach-folder" className={`btn btn-primary peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ice ${busy ? "pointer-events-none opacity-50" : "cursor-pointer"}`}>
             <FolderOpen className="size-4" aria-hidden /> {LABEL}
           </label>
         )}
@@ -109,9 +114,9 @@ export function FolderPicker({ runId, hasReport }: { runId: string; hasReport: b
               Read this folder
             </button>
           </div>
-          {pending.skipped.length > 0 && <p className="text-xs text-muted">Skipped (over 5 MB): {pending.skipped.join(", ")}</p>}
         </fieldset>
       )}
+      {skipped.length > 0 && <p className="text-xs text-muted">Skipped (over 5 MB): {skipped.join(", ")}</p>}
       {error && (
         <div role="alert" className="rounded-lg border border-warn/40 bg-warn/5 px-3.5 py-2.5 text-sm leading-relaxed text-ink-2">
           {error}

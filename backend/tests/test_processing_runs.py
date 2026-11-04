@@ -77,7 +77,9 @@ def test_run_steps_in_mockup_order(api):
     assert [s["id"] for s in run["steps"]] == list(STEP_ORDER)
     assert [s["n"] for s in run["steps"]] == list(range(1, 11))
     assert run["steps"][0]["title"] == "Night report"
-    assert "first script" in run["steps"][0]["blocked"]
+    # Phase 4 Task 6 reworded this: step 1 now offers both an existing Siril run and the coach's first script.
+    blocked = run["steps"][0]["blocked"]
+    assert "already holds a Siril run" in blocked and "first script" in blocked
     for s in run["steps"]:
         assert s["does"] and s["gui"] and s["state"] == "todo"
 

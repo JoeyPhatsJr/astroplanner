@@ -277,3 +277,28 @@ describe("night report step", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/no Siril/i);
   });
 });
+
+describe("skipped oversize files", () => {
+  const bigFile = (rel: string) => {
+    const f = textFile(rel, "x");
+    Object.defineProperty(f, "size", { value: 8 * 1024 * 1024 });
+    return f;
+  };
+  const LABEL = "Choose the night folder (the one containing lights/)";
+
+  it("says the only .seq was too big instead of claiming none was found", async () => {
+    renderPage();
+    fireEvent.change(await screen.findByLabelText(LABEL), { target: { files: [bigFile("Night/process/pp_light_.seq")] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(/over 5 MB/);
+    expect(screen.getByRole("alert")).not.toHaveTextContent(/was found/);
+    expect(screen.getByText(/Skipped \(over 5 MB\): process\/pp_light_\.seq/)).toBeInTheDocument();
+  });
+
+  it("lists skipped files even when a single run is read", async () => {
+    renderPage();
+    fireEvent.change(await screen.findByLabelText(LABEL), {
+      target: { files: [textFile("Night/process/light_.seq", "A"), bigFile("Night/process/big_conversion.txt")] },
+    });
+    expect(await screen.findByText(/Skipped \(over 5 MB\): process\/big_conversion\.txt/)).toBeInTheDocument();
+  });
+});
