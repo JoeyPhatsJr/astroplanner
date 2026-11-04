@@ -366,3 +366,78 @@ describe("choose frames step", () => {
     expect(screen.queryByRole("radio")).toBeNull();
   });
 });
+
+describe("script downloads", () => {
+  const SCRIPTS = { prepare_bytes: 25_259_371_200, stack_bytes: null, stack_blocked: "Choose which frames to keep first." };
+  let clicked: { download: string; href: string }[];
+
+  beforeEach(() => {
+    clicked = [];
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:script"), revokeObjectURL: vi.fn() }));
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      clicked.push({ download: this.download, href: this.href });
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  const serveScript = (res: () => Response) => {
+    const runFetch = globalThis.fetch;
+    const calls: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.includes("/scripts/")) {
+          calls.push(url);
+          return res();
+        }
+        return runFetch(url, init);
+      }),
+    );
+    return calls;
+  };
+
+  it("shows the disk estimate on the convert step and downloads with the server's file name", async () => {
+    run = { ...mkRun({ report: { state: "done" } }), scripts: SCRIPTS } as RunOut;
+    const calls = serveScript(
+      () =>
+        new Response("requires 1.4.5\n", {
+          status: 200,
+          headers: { "Content-Type": "text/plain; charset=utf-8", "Content-Disposition": 'attachment; filename="astroplanner-prepare.ssf"' },
+        }),
+    );
+    renderPage();
+    await screen.findByText("Step 2 of 10");
+    expect(screen.getByText(/about 25\.3 GB/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Download script 1 (prepare)" }));
+    await waitFor(() => expect(clicked).toEqual([{ download: "astroplanner-prepare.ssf", href: "blob:script" }]));
+    expect(calls).toEqual(["/api/processing/runs/r1/scripts/prepare"]);
+    expect(await screen.findByRole("status")).toHaveTextContent("astroplanner-prepare.ssf");
+  });
+
+  it("keeps the stack script disabled with the reason visible until frames are chosen", async () => {
+    run = { ...mkRun(Object.fromEntries(IDS.slice(0, 4).map((id) => [id, { state: "done" as const }]))), scripts: SCRIPTS } as RunOut;
+    const calls = serveScript(() => new Response("", { status: 500 }));
+    renderPage();
+    await screen.findByText("Step 5 of 10");
+    const btn = screen.getByRole("button", { name: "Download script 2 (stack)" });
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAccessibleDescription("Choose which frames to keep first.");
+    expect(screen.getByText("Choose which frames to keep first.")).toBeVisible();
+    fireEvent.click(btn);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("shows the stack estimate once frames are chosen and the server's message when a download fails", async () => {
+    run = {
+      ...mkRun(Object.fromEntries(IDS.slice(0, 4).map((id) => [id, { state: "done" as const }]))),
+      scripts: { ...SCRIPTS, stack_bytes: 16_275_496_320, stack_blocked: null },
+    } as RunOut;
+    serveScript(() => new Response(JSON.stringify({ detail: "Choose which frames to keep first." }), { status: 409 }));
+    renderPage();
+    await screen.findByText("Step 5 of 10");
+    expect(screen.getByText(/about 16\.3 GB more/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Download script 2 (stack)" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Choose which frames to keep first.");
+    expect(clicked).toHaveLength(0);
+  });
+});

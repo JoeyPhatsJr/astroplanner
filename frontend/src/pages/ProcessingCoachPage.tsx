@@ -5,6 +5,7 @@ import { usePatchRun, useRun, useStartRun, type RunOut } from "../api/processing
 import { CoachRail } from "../components/processing/CoachRail";
 import { FolderPicker } from "../components/processing/FolderPicker";
 import { NightReport } from "../components/processing/NightReport";
+import { ScriptBlock } from "../components/processing/ScriptButton";
 import { SelectionStep } from "../components/processing/SelectionStep";
 import { StepPanel } from "../components/processing/StepPanel";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
@@ -92,6 +93,29 @@ function Coach({ run, loadError }: { run: RunOut; loadError: unknown }) {
         <StepPanel
           step={step}
           total={run.steps.length}
+          script={
+            run.scripts && (step.id === "convert" || (step.id === "report" && !run.report)) ? (
+              <ScriptBlock
+                runId={run.id}
+                which="prepare"
+                frames={run.frames}
+                bytes={run.scripts.prepare_bytes}
+                disabledReason={null}
+                commandBelow={!!step.command}
+                lead={step.id === "report" ? "No Siril run yet? Let the coach's script make one." : "Or let the coach's script do steps 2 and 3."}
+              />
+            ) : run.scripts && step.id === "stack" ? (
+              <ScriptBlock
+                runId={run.id}
+                which="stack"
+                frames={run.frames}
+                bytes={run.scripts.stack_bytes}
+                disabledReason={run.scripts.stack_blocked}
+                commandBelow={!!step.command}
+                lead="Or let the coach's script do it."
+              />
+            ) : undefined
+          }
           body={
             step.id === "report" ? (
               <div className="flex flex-col gap-4">

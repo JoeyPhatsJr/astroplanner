@@ -7,11 +7,13 @@ from typing import Literal
 
 from .models import STEP_ORDER, STEP_TITLES, StepId
 from .rules import Advice, Facts, advice_for
+from .scripts import SCRIPT_NAMES
 
 __all__ = ["STEP_ORDER", "StepId", "StepView", "build_steps"]
 
-# (does, gui, command, expect). `command` stays None until a later task generates the script text;
-# `expect` is only written where the Task 1 probe observed the result.
+# (does, gui, command, expect). `command` is the terminal line that runs the coach's script for the step (scripts.py;
+# the UI offers the script itself as a download); `expect` is only written where the Task 1 probe observed the result.
+_RUN = 'siril-cli -d "<night folder>" -s {}'  # -d makes the night folder Siril's working folder
 _COPY: dict[str, tuple[str, str, str | None, str | None]] = {
     "report": (
         "Reads your light frames once and writes down facts about the night (how many frames, how sharp and round "
@@ -24,7 +26,7 @@ _COPY: dict[str, tuple[str, str, str | None, str | None]] = {
         "Gathers your light frames into one numbered sequence Siril can work through, and turns the single-channel "
         "colour-mosaic data into a full colour image (debayering).",
         "In the Conversion tab, add your light frames, tick debayering, name the sequence and press Convert.",
-        None,
+        _RUN.format(SCRIPT_NAMES["prepare"]),
         "A working folder holding one numbered file per light frame, plus a sequence file for them, and a text "
         "file listing which source file became which numbered frame."),
     "align": (
@@ -46,7 +48,7 @@ _COPY: dict[str, tuple[str, str, str | None, str | None]] = {
         "like satellite trails and hot pixels.",
         "In the Stacking tab choose the aligned sequence, pick a rejection method, set normalisation and press "
         "Start stacking.",
-        None,
+        _RUN.format(SCRIPT_NAMES["stack"]),
         "A single stacked FITS file whose header records how many frames went into it and the total exposure "
         "time."),
     "background": (

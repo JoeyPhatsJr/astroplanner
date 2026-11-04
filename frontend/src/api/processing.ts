@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { request } from "./client";
+import { ApiError, BASE, detailMessage, request } from "./client";
 import { qk } from "./hooks";
 
 // Mirrors backend/app/processing (routes.run_out, steps.StepView, rules.Advice).
@@ -115,6 +115,14 @@ export interface LastChoice {
   kept: number;
 }
 
+export type ScriptKind = "prepare" | "stack";
+
+export interface ScriptsInfo {
+  prepare_bytes: number; // disk the prepare script writes (debayered copy of every frame)
+  stack_bytes: number | null; // extra disk the stack script writes; null until frames are chosen
+  stack_blocked: string | null; // why the stack script can't be downloaded yet
+}
+
 export interface RunOut {
   id: string;
   capture_set_id: string;
@@ -131,6 +139,7 @@ export interface RunOut {
   selection_cleared?: boolean; // only on a folder-upload response
   comparison: Record<string, unknown>;
   siril_target: string;
+  scripts?: ScriptsInfo;
 }
 
 export interface RunPatch {
@@ -178,4 +187,26 @@ export function useUploadFolder(runId: string | undefined) {
     mutationFn: (body: SirilFolderBody) => processingApi.uploadFolder(runId as string, body),
     onSuccess: (run) => qc.setQueryData(qk.processingRun(run.id), run),
   });
+}
+
+/** Fetch one generated Siril script; the file name is the one the server sends in Content-Disposition. */
+export async function fetchScript(runId: string, which: ScriptKind): Promise<{ filename: string; blob: Blob }> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api/processing/runs/${encodeURIComponent(runId)}/scripts/${which}`);
+  } catch {
+    throw new ApiError(0, "Cannot reach the AstroPlanner API. Is the backend running on port 8000?");
+  }
+  if (!res.ok) {
+    let body: unknown = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+    throw new ApiError(res.status, detailMessage(body, res.status));
+  }
+  const m = /filename="([^"]+)"/.exec(res.headers.get("Content-Disposition") ?? "");
+  if (!m) throw new ApiError(res.status, "The server sent the script without a file name.");
+  return { filename: m[1], blob: await res.blob() };
 }

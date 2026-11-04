@@ -1,0 +1,21 @@
+requires 1.4.5
+# The line above stops Siril unless it is version 1.4.5 or newer; without it Siril skips every line.
+# AstroPlanner Processing Coach, script 2 of 2 (stack): apply your frame choice and stack.
+# Run it after script 1, with the same night folder as Siril's working folder, e.g.
+#   siril-cli -d "<night folder>" -s astroplanner-stack.ssf
+# or, in Siril, set the working folder to the night folder and run this file from the Scripts menu.
+# Your choice: Siril's 80 % roundness filter. The coach expects it to keep 812 frames (2 h 15 min).
+# It writes only into process-coach/: about 20.2 GB more for the 812 aligned frames, plus the stack.
+# Move into process-coach/, where script 1 left the aligned sequence.
+cd process-coach
+# Write an aligned copy (r_pp_light_) of each frame that passes your choice; frames Siril could
+# not align are always left out. Siril counts this percentage over all the frames, including any
+# it could not align, so it can keep more than 80 % of the aligned ones.
+seqapplyreg pp_light -filter-round=80%
+# Average the kept frames into result_coach.fit. Winsorized sigma clipping (3 and 3) drops values
+# that show up in only a few frames, such as satellite trails and hot pixels; additive
+# normalisation with scaling evens out changes in sky level; the result is scaled to 0 to 1 and
+# the three colour channels are balanced.
+stack r_pp_light rej w 3 3 -norm=addscale -output_norm -rgb_equal -out=result_coach
+# Release the sequence. result_coach.fit in process-coach/ is your stack for the next steps.
+close

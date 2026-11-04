@@ -43,7 +43,9 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     app.state.max_upload_bytes = max_upload_bytes
 
     origins = [o.strip() for o in os.environ.get("ASTROPLANNER_CORS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
-    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"])
+    # Content-Disposition is exposed so a cross-origin frontend can read the Siril script's file name.
+    app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"],
+                       expose_headers=["Content-Disposition"])
     app.include_router(router)
     app.include_router(astrolog_router)
     app.include_router(variables_router)

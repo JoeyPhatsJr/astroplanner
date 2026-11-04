@@ -1,0 +1,23 @@
+requires 1.4.5
+# The line above stops Siril unless it is version 1.4.5 or newer; without it Siril skips every line.
+# AstroPlanner Processing Coach, script 1 of 2 (prepare): convert, debayer and align all 1015 frames.
+# It keeps every frame. Choose which frames to stack in the coach afterwards, then run script 2.
+# How to run: make the night folder (the one that holds lights/) Siril's working folder, e.g.
+#   siril-cli -d "<night folder>" -s astroplanner-prepare.ssf
+# or, in Siril, set the working folder to the night folder and run this file from the Scripts menu.
+# It writes only into process-coach/ next to lights/: about 25.3 GB for 1015 frames.
+# Move into the folder with the light frames so the next line can find them.
+cd lights
+# Gather the frames into one numbered sequence in process-coach/ (Siril links to the FITS files
+# rather than copying them) and record which file became which number in light_conversion.txt.
+convert light -out=../process-coach
+# Work inside process-coach/ from here on, so everything below is written there.
+cd ../process-coach
+# Rebuild full colour from the sensor's colour mosaic using the Bayer pattern in each frame's
+# header (GRBG on this night). No darks or flats are used. This writes the pp_light_ frames.
+calibrate light -debayer
+# Find the stars in every frame and work out how each one lines up with a reference frame picked
+# from the whole night. This stores the measurements in pp_light_.seq and writes no new images.
+register pp_light -2pass
+# Release the sequence. Next, choose the night folder in the coach so it can read process-coach/.
+close

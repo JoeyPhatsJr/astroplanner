@@ -129,3 +129,27 @@ the same filter and the same kept count are listed once. The `percent` (not the 
 the stack script passes to Siril. Choosing an option stores its id in `choices.selection`; the API rejects unknown
 choice keys and ids not offered for the run (422), and re-reading the Siril folder clears the choice because the
 counts may have changed.
+
+## Generated Siril scripts (Phase 4 Task 8)
+
+_`backend/app/processing/scripts.py`; served by `GET /api/processing/runs/{id}/scripts/{prepare|stack}` as
+`astroplanner-<which>.ssf` (`text/plain; charset=utf-8`, attachment). Golden copies: `backend/tests/golden/`._
+Both scripts start with `requires 1.4.5` (without it Siril 1.4.5 runs no line and still reports success), assume
+Siril's working folder is the night folder (`siril-cli -d "<night folder>" -s <file>`, or the Scripts menu after
+setting the working folder), use relative names only, and write only into `process-coach/` beside `lights/`.
+Every command line is preceded by a comment giving the reason.
+
+| script | commands |
+| --- | --- |
+| prepare | `cd lights`, `convert light -out=../process-coach`, `cd ../process-coach`, `calibrate light -debayer`, `register pp_light -2pass`, `close`; no filter, no `seqapplyreg` |
+| stack | `cd process-coach`, `seqapplyreg pp_light <filter>`, `stack r_pp_light rej w 3 3 -norm=addscale -output_norm -rgb_equal -out=result_coach`, `close` |
+
+`<filter>` is empty for `all`, `-filter-round=<value>` for `previous` (literal, Siril compares `>=`) and
+`-filter-round=80%` / `-filter-wfwhm=80%` for the percentage options. The stack script is refused (409 "Choose
+which frames to keep first.") until a selection is saved. The lights folder name is `Facts.lights_dir`
+(default `lights`; a single folder name, quoted when it has a space).
+
+**Disk estimate** (probe, spec 2a): each debayered or aligned frame is `width x height x 3 x 4 + 2880` bytes
+(1080 x 1920 for the S30, so 24,886,080 bytes); `convert`'s links are about 140 bytes and are ignored. The
+prepare script writes `frame_count` such frames (shown on the convert step); the stack script adds `kept` more
+(shown on the stack step once frames are chosen), plus the stack itself.

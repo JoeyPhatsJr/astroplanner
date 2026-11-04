@@ -43,6 +43,7 @@ class Facts:
     # Filled by later tasks; typed loosely until their dataclasses exist.
     siril_stack: Any | None = None  # StackMeasurement
     seestar_stack: Any | None = None  # StackMeasurement
+    lights_dir: str = "lights"  # the night-folder subfolder holding the light FITS frames (used by scripts.py)
 
 
 @dataclass(frozen=True)

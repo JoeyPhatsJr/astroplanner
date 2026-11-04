@@ -23,7 +23,19 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-export function StepPanel({ step, total, actions, body }: { step: StepView; total: number; actions: ReactNode; body?: ReactNode }) {
+export function StepPanel({
+  step,
+  total,
+  actions,
+  body,
+  script,
+}: {
+  step: StepView;
+  total: number;
+  actions: ReactNode;
+  body?: ReactNode;
+  script?: ReactNode; // the coach's downloadable Siril script for this step, shown before its terminal command
+}) {
   return (
     <section aria-labelledby="coach-step-title" className="panel flex min-w-0 flex-1 flex-col gap-4 p-4 md:p-5">
       <div>
@@ -56,6 +68,8 @@ export function StepPanel({ step, total, actions, body }: { step: StepView; tota
           </p>
         )}
       </div>
+
+      {script}
 
       {step.command && (
         <div className="flex flex-col gap-2">

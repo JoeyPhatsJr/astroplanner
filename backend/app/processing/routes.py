@@ -7,6 +7,7 @@ from dataclasses import asdict
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -21,13 +22,15 @@ from app.db import ObservingLocation, ObservingSession, _utcnow
 from .models import ProcessingRun, StepId
 from .report import AltitudeFn, FolderError, FolderResult, Report, UploadedText, build_folder, night_report
 from .rules import Facts
+from .scripts import SCRIPT_NAMES, SIRIL_REQUIRES, disk_estimate_bytes, prepare_script, stack_script
 from .selection import LastChoice, SelectionOption, selection_options
 from .seq import SeqParseError
 from .steps import build_steps
 
 router = APIRouter(prefix="/api/processing", tags=["processing"])
 
-SIRIL_TARGET = "1.4.5"
+SIRIL_TARGET = SIRIL_REQUIRES  # "1.4.5": the version the scripts are written and tested for
+NO_SELECTION = "Choose which frames to keep first."
 SEESTAR_ONLY = "The coach supports Seestar S30 FITS nights only."
 
 
@@ -109,6 +112,18 @@ def _options(run: ProcessingRun, frames: list[CaptureFrame], report: Report | No
     return selection_options(stats, _modal_exptime(frames), cut, None)
 
 
+def _chosen(run: ProcessingRun, options: list[SelectionOption]) -> SelectionOption | None:
+    chosen = (run.choices or {}).get("selection")
+    return next((o for o in options if o.id == chosen), None)
+
+
+def _scripts(facts: Facts, chosen: SelectionOption | None) -> dict[str, Any]:
+    """Disk each script will write, shown before the download; the stack one only once frames are chosen."""
+    return {"prepare_bytes": disk_estimate_bytes(facts.frame_count),
+            "stack_bytes": disk_estimate_bytes(chosen.kept) if chosen else None,
+            "stack_blocked": None if chosen else NO_SELECTION}
+
+
 def _last_time(db: Session, run: ProcessingRun, cs: CaptureSet) -> LastChoice | None:
     """The most recent other run on the same device whose frame choice was saved. A note only, never a default."""
     rows = db.execute(
@@ -134,6 +149,7 @@ def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
     frames = _frames(db, cs)
     report = _report(run, frames, lt, loc)
     facts = _facts(frames, report)
+    options = _options(run, frames, report)
     return {
         "id": run.id,
         "capture_set_id": run.capture_set_id,
@@ -144,11 +160,12 @@ def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
         "steps": [asdict(s) for s in build_steps(facts, run.step_states or {})],
         "folder": run.folder,
         "report": asdict(report) if report is not None else None,
-        "selection": [asdict(o) for o in _options(run, frames, report)],
+        "selection": [asdict(o) for o in options],
         "selection_last_time": asdict(last) if (last := _last_time(db, run, cs)) else None,
         "choices": {k: v for k, v in (run.choices or {}).items() if k in CHOICE_KEYS},
         "comparison": run.comparison or {},
         "siril_target": SIRIL_TARGET,
+        "scripts": _scripts(facts, _chosen(run, options)),
     }
 
 
@@ -228,3 +245,27 @@ def upload_siril_folder(run_id: str, body: SirilFolderIn, db: Session = Depends(
     db.commit()
     # Only this response says so, so the UI can tell the user their frame choice was dropped.
     return {**run_out(db, run), "selection_cleared": had_selection}
+
+
+@router.get("/runs/{run_id}/scripts/{which}", response_class=PlainTextResponse)
+def get_script(run_id: str, which: str, db: Session = Depends(get_db)) -> PlainTextResponse:
+    """One of the two generated Siril scripts (``prepare`` or ``stack``), as a download named
+    astroplanner-<which>.ssf."""
+    if which not in SCRIPT_NAMES:
+        raise HTTPException(404, "No such script")
+    run = _get_run(db, run_id)
+    cs = db.get(CaptureSet, run.capture_set_id)
+    sess = db.get(ObservingSession, cs.session_id)
+    loc = db.get(ObservingLocation, sess.location_id) if sess.location_id else None
+    frames = _frames(db, cs)
+    report = _report(run, frames, db.get(LibraryTarget, cs.library_target_id), loc)
+    facts = _facts(frames, report)
+    if which == "prepare":
+        text = prepare_script(facts)
+    else:
+        chosen = _chosen(run, _options(run, frames, report))
+        if chosen is None:
+            raise HTTPException(409, NO_SELECTION)
+        text = stack_script(chosen, facts)
+    return PlainTextResponse(text, media_type="text/plain; charset=utf-8", headers={
+        "Content-Disposition": f'attachment; filename="{SCRIPT_NAMES[which]}"'})
