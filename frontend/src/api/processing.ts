@@ -119,6 +119,7 @@ export type ScriptKind = "prepare" | "stack";
 
 export interface ScriptsInfo {
   prepare_bytes: number; // disk the prepare script writes (debayered copy of every frame)
+  stack_max_bytes: number; // the most the stack script can add: an aligned copy of every frame
   stack_bytes: number | null; // extra disk the stack script writes; null until frames are chosen
   stack_blocked: string | null; // why the stack script can't be downloaded yet
 }

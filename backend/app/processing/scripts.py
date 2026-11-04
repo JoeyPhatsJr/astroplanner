@@ -13,7 +13,7 @@ reports success. Every other command line is preceded by a ``# `` comment giving
 
 from __future__ import annotations
 
-from .rules import Facts
+from .rules import MIN_FRAMES_FOR_REJECTION, REJECTION, Facts, stack_rejection
 from .selection import SelectionOption
 
 __all__ = ["COACH_DIR", "SCRIPT_NAMES", "SIRIL_REQUIRES", "disk_estimate_bytes", "frame_bytes", "prepare_script",
@@ -67,12 +67,18 @@ def _header(n: int, title: str, purpose: str) -> list[str]:
 
 
 def _run_lines(file: str, after_first: bool, lights_dir: str) -> list[str]:
-    first = ("# Run it after script 1, with the same night folder as Siril's working folder, e.g." if after_first else
-             f"# How to run: make the night folder (the one that holds {lights_dir}/) Siril's working folder, e.g.")
+    # Probe (siril-cli 1.4.5): a bare file name after -s is looked up in the -d folder, not the shell's
+    # current folder ("File [...] does not exist (from CWD, use absolute path?)"), so the script's full path is asked for.
+    first = ("# Run it after script 1, with the same night folder as Siril's working folder and this file's"
+             if after_first else
+             f"# How to run: make the night folder (the one that holds {lights_dir}/) Siril's working folder and")
     return [
         first,
-        f'#   siril-cli -d "<night folder>" -s {file}',
-        "# or, in Siril, set the working folder to the night folder and run this file from the Scripts menu.",
+        "# full path after -s, e.g." if after_first else "# give this file's full path after -s, e.g.",
+        f'#   siril-cli -d "<night folder>" -s "<folder you saved it in>/{file}"',
+        "# A bare file name after -s is looked up in the night folder, not in the terminal's current folder.",
+        "# In Siril itself: set the working folder to the night folder, add the folder holding this file",
+        "# to the script folders in Preferences (Scripts), then choose the script from the Scripts menu.",
     ]
 
 
@@ -85,8 +91,11 @@ def prepare_script(facts: Facts) -> str:
         *_header(1, "prepare", f"convert, debayer and align all {n} frames."),
         "# It keeps every frame. Choose which frames to stack in the coach afterwards, then run script 2.",
         *_run_lines(SCRIPT_NAMES["prepare"], after_first=False, lights_dir=facts.lights_dir),
-        f"# It writes only into {COACH_DIR}/ next to {facts.lights_dir}/: about {_gb(disk_estimate_bytes(n))} for {n} "
-        "frames.",
+        f"# Disk: about {_gb(disk_estimate_bytes(n))} in {COACH_DIR}/ next to {facts.lights_dir}/ for the {n} frames. "
+        "Script 2 adds up to",
+        f"# about {_gb(disk_estimate_bytes(n))} more (an aligned copy of each frame you keep, at most all {n}), so allow "
+        "about",
+        f"# {_gb(2 * disk_estimate_bytes(n))} in all. Nothing is written into {facts.lights_dir}/ or any other folder.",
         "# Move into the folder with the light frames so the next line can find them. Siril converts every",
         "# image it finds there, so it should hold only this night's light frames.",
         f"cd {lights}",
@@ -131,6 +140,24 @@ def _filter(option: SelectionOption) -> tuple[str, str, list[str]]:
     raise ValueError(f"Selection option {option.id!r} has no filter the stack script can write.")
 
 
+def _stack_lines(kept: int) -> list[str]:
+    """The ``stack`` line and its reason. Rejection follows ``rules.stack_rejection``, the same rule the stack
+    step's advice states, applied to the chosen option's kept count."""
+    rej = stack_rejection(kept)
+    common = ["# Additive normalisation with scaling evens out changes in sky level; the result is scaled to",
+              "# 0 to 1 and the three colour channels are balanced."]
+    if rej == REJECTION:
+        why = [f"# Average the kept frames into result_coach.fit. With {kept} frames (the coach's rule of thumb",
+               f"# for sigma clipping is {MIN_FRAMES_FOR_REJECTION} or more), winsorized clipping at 3 and 3 drops "
+               "values that",
+               "# show up in only a few frames, such as satellite trails and hot pixels."]
+    else:
+        why = [f"# Average the kept frames into result_coach.fit without pixel rejection: {kept} frames is under",
+               f"# the coach's rule-of-thumb {MIN_FRAMES_FOR_REJECTION} for sigma clipping, so satellite trails "
+               "and hot pixels can remain."]
+    return [*why, *common, f"stack r_pp_light {rej} -norm=addscale -output_norm -rgb_equal -out=result_coach"]
+
+
 def stack_script(option: SelectionOption, facts: Facts) -> str:
     opts, what, why = _filter(option)
     k = option.kept
@@ -145,11 +172,7 @@ def stack_script(option: SelectionOption, facts: Facts) -> str:
         "# Write an aligned copy (r_pp_light_) of each frame that passes your choice; frames Siril could",
         *why,
         f"seqapplyreg pp_light{opts}",
-        "# Average the kept frames into result_coach.fit. Winsorized sigma clipping (3 and 3) drops values",
-        "# that show up in only a few frames, such as satellite trails and hot pixels; additive",
-        "# normalisation with scaling evens out changes in sky level; the result is scaled to 0 to 1 and",
-        "# the three colour channels are balanced.",
-        "stack r_pp_light rej w 3 3 -norm=addscale -output_norm -rgb_equal -out=result_coach",
+        *_stack_lines(k),
         f"# Release the sequence. result_coach.fit in {COACH_DIR}/ is your stack for the next steps.",
         "close",
     ]

@@ -13,7 +13,8 @@ __all__ = ["STEP_ORDER", "StepId", "StepView", "build_steps"]
 
 # (does, gui, command, expect). `command` is the terminal line that runs the coach's script for the step (scripts.py;
 # the UI offers the script itself as a download); `expect` is only written where the Task 1 probe observed the result.
-_RUN = 'siril-cli -d "<night folder>" -s {}'  # -d makes the night folder Siril's working folder
+# -d makes the night folder Siril's working folder; a bare name after -s is looked up there (probe), so a full path.
+_RUN = 'siril-cli -d "<night folder>" -s "<folder you saved it in>/{}"'
 _COPY: dict[str, tuple[str, str, str | None, str | None]] = {
     "report": (
         "Reads your light frames once and writes down facts about the night (how many frames, how sharp and round "

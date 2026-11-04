@@ -380,7 +380,10 @@ def test_report_rules():
     assert f"median of {rep.medians['stars']:g} stars" in align[0].why
     assert "always" in align[0].why and "nothing to change" in align[0].why.lower()
     stack = advice_for("stack", facts)
-    assert stack == []  # 26 kept frames: under the 30-frame rule
+    # 26 kept frames: under the 30-frame rule. Since Task 8 fix round 1 the stack script then averages without
+    # rejection, and the advice says so (it used to show no advice while the script still clipped).
+    assert [a.rule_id for a in stack] == ["stack.rejection"] and "rej n" in stack[0].setting
+    assert stack[0].heuristic is True and "26 kept frames" in stack[0].why
 
     _, rep = make_report(files=night_files(80, unaligned=(), dropped=(), stars=lambda i: 80),
                          times=even_times(80))

@@ -14,6 +14,7 @@ Ties at the threshold are kept; a frame whose value is zero never passes.
 
 from __future__ import annotations
 
+import struct
 from dataclasses import dataclass
 from typing import Literal, Sequence
 
@@ -45,6 +46,12 @@ class LastChoice:
     target_name: str
     option_label: str
     kept: int
+
+
+def as_float32(x: float) -> float:
+    """``x`` as Siril holds it: registration statistics are single-precision floats, compared against the
+    double-precision limit given on the command line."""
+    return struct.unpack("f", struct.pack("f", x))[0]
 
 
 def _roundness(f: FrameStat) -> float:
@@ -89,7 +96,9 @@ def selection_options(
         f"All {n} frames Siril aligned: the most signal, with the softest and least round stars included."))
 
     if previous_round_cut is not None:
-        kept = [f for f in aligned if _roundness(f) > 0 and _roundness(f) >= previous_round_cut]
+        # Siril keeps a frame when float32(roundness) >= the literal limit, so a frame exactly at the limit can
+        # fall just below it (float32(0.743) = 0.74299997); count the way Siril compares.
+        kept = [f for f in aligned if _roundness(f) > 0 and as_float32(_roundness(f)) >= previous_round_cut]
         opts.append(SelectionOption(
             "previous", f"Same as your last run: roundness ≥ {previous_round_cut:g}", "round",
             previous_round_cut, None, len(kept), seconds(kept), "measured", False,

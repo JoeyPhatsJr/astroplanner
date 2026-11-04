@@ -7,9 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from app.processing.rules import Facts
+from app.processing.report import separating_cut
+from app.processing.rules import MIN_FRAMES_FOR_REJECTION, Facts, advice_for
 from app.processing.scripts import COACH_DIR, disk_estimate_bytes, prepare_script, stack_script
-from app.processing.selection import SelectionOption
+from app.processing.report import FrameStat
+from app.processing.selection import SelectionOption, as_float32, selection_options
 
 from .test_processing_report import RUNS, api, import_night, night_files, upload  # noqa: F401
 
@@ -140,19 +142,89 @@ def test_stack_download_needs_a_selection(api):  # noqa: F811
     assert r.headers["content-disposition"] == 'attachment; filename="astroplanner-stack.ssf"'
     assert f"-filter-round={prev['value']:g}" in r.text and f"keep {prev['kept']} frames" in r.text
     assert body["scripts"] == {
-        "prepare_bytes": disk_estimate_bytes(40), "stack_bytes": disk_estimate_bytes(prev["kept"]),
-        "stack_blocked": None}
+        "prepare_bytes": disk_estimate_bytes(40), "stack_max_bytes": disk_estimate_bytes(40),
+        "stack_bytes": disk_estimate_bytes(prev["kept"]), "stack_blocked": None}
 
 
 def test_run_carries_the_prepare_estimate_before_any_folder(api):  # noqa: F811
     run_id = import_night(api)
     s = api.get(f"{RUNS}/{run_id}").json()["scripts"]
-    assert s == {"prepare_bytes": disk_estimate_bytes(40), "stack_bytes": None,
-                 "stack_blocked": "Choose which frames to keep first."}
+    assert s == {"prepare_bytes": disk_estimate_bytes(40), "stack_max_bytes": disk_estimate_bytes(40),
+                 "stack_bytes": None, "stack_blocked": "Choose which frames to keep first."}
 
 
 def test_convert_and_stack_steps_say_how_to_run_their_script(api):  # noqa: F811
     run_id = import_night(api)
     steps = {s["id"]: s for s in api.get(f"{RUNS}/{run_id}").json()["steps"]}
-    assert steps["convert"]["command"] == 'siril-cli -d "<night folder>" -s astroplanner-prepare.ssf'
-    assert steps["stack"]["command"] == 'siril-cli -d "<night folder>" -s astroplanner-stack.ssf'
+    assert steps["convert"]["command"] == 'siril-cli -d "<night folder>" -s "<folder you saved it in>/astroplanner-prepare.ssf"'
+    assert steps["stack"]["command"] == 'siril-cli -d "<night folder>" -s "<folder you saved it in>/astroplanner-stack.ssf"'
+
+
+# ---- Task 8 fix round 1 -------------------------------------------------------------------------
+
+def stack_command(script: str) -> str:
+    return next(c for c in commands(script) if c.startswith("stack "))
+
+
+@pytest.mark.parametrize("kept, rej", [(MIN_FRAMES_FOR_REJECTION - 1, "rej n"), (MIN_FRAMES_FOR_REJECTION, "rej w 3 3")])
+def test_stack_rejection_and_the_advice_read_the_same_kept_count(kept, rej):
+    assert MIN_FRAMES_FOR_REJECTION == 30
+    s = stack_script(option(kept=kept), FACTS)
+    assert stack_command(s) == f"stack r_pp_light {rej} -norm=addscale -output_norm -rgb_equal -out=result_coach"
+    advice = advice_for("stack", Facts("GRBG", 1015, 10.0, selection_kept=kept))
+    assert [a.rule_id for a in advice] == ["stack.rejection"] and f"stack ... {rej})" in advice[0].setting
+    assert f"{kept} chosen frames" in advice[0].why and advice[0].basis == "siril-docs" and advice[0].heuristic
+    lines = s.splitlines()
+    i = lines.index(stack_command(s))
+    j = i
+    while lines[j - 1].startswith("# "):
+        j -= 1
+    reason = "\n".join(lines[j:i])  # every comment line straight before the stack command
+    assert ("without pixel rejection" in reason) is (rej == "rej n") and f"{kept} frames" in reason
+
+
+def test_chosen_kept_wins_over_the_folder_count(api):  # noqa: F811
+    run_id = import_night(api)
+    body = upload(api, run_id, night_files()).json()
+    kept = {o["id"]: o["kept"] for o in body["selection"]}
+    assert kept["previous"] < 30 <= kept["all"]  # 26 and 34 on the 40-frame fixture
+    for choice, rej in (("previous", "rej n"), ("all", "rej w 3 3")):
+        run = api.patch(f"{RUNS}/{run_id}", json={"choices": {"selection": choice}}).json()
+        stack_step = next(s for s in run["steps"] if s["id"] == "stack")
+        assert [a["setting"] for a in stack_step["advice"]][0].endswith(f"(stack ... {rej})")
+        assert f"{kept[choice]} chosen frames" in stack_step["advice"][0]["why"]
+        assert f"stack r_pp_light {rej} " in api.get(f"{RUNS}/{run_id}/scripts/stack").text
+
+
+def fs(n, roundness):
+    return FrameStat(n=n, basename=None, utc=None, aligned=True, kept=None, fwhm=2.0, wfwhm=3.0,
+                     roundness=roundness, background=0.01, stars=40, exptime_s=10.0)
+
+
+def test_previous_counts_like_siril_float32_compare_at_the_cut():
+    assert as_float32(0.743) < 0.743  # 0.74299997...
+    frames = [fs(1, 0.742), fs(2, 0.743), fs(3, 0.744), fs(4, 0.75)]
+    prev = next(o for o in selection_options(frames, 10.0, 0.743, None) if o.id == "previous")
+    assert prev.kept == 2  # the frame exactly at 0.743 is dropped by Siril's float32 >= 0.743
+
+
+def test_separating_cut_is_strictly_below_the_lowest_kept_frame():
+    assert separating_cut(0.742286, 0.744081) == 0.743  # the real night's cut is unchanged
+    for hi, lo in ((0.7449, 0.745), (0.742286, 0.742287), (0.70, 0.78), (0.5, 0.5000001)):
+        v = separating_cut(hi, lo)
+        assert hi < v < lo and as_float32(lo) >= v, (hi, lo, v)
+
+
+def test_prepare_states_both_scripts_disk_and_the_total():
+    s = prepare_script(FACTS)
+    one = disk_estimate_bytes(1015)
+    assert f"about {one / 1e9:.1f} GB in process-coach/" in s
+    assert "Script 2 adds up to\n# about 25.3 GB more" in s and "at most all 1015" in s
+    assert f"# {2 * one / 1e9:.1f} GB in all." in s and "50.5 GB in all" in s
+
+
+@pytest.mark.parametrize("i", range(5))
+def test_scripts_say_where_siril_cli_looks_for_the_file(i):
+    s = scripts()[i]
+    assert "full path after -s" in s and "looked up in the night folder, not in the terminal's current folder" in s
+    assert "Preferences (Scripts)" in s and "Scripts menu" in s

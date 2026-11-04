@@ -368,7 +368,12 @@ describe("choose frames step", () => {
 });
 
 describe("script downloads", () => {
-  const SCRIPTS = { prepare_bytes: 25_259_371_200, stack_bytes: null, stack_blocked: "Choose which frames to keep first." };
+  const SCRIPTS = {
+    prepare_bytes: 25_259_371_200,
+    stack_max_bytes: 25_259_371_200,
+    stack_bytes: null,
+    stack_blocked: "Choose which frames to keep first.",
+  };
   let clicked: { download: string; href: string }[];
 
   beforeEach(() => {
@@ -397,7 +402,10 @@ describe("script downloads", () => {
   };
 
   it("shows the disk estimate on the convert step and downloads with the server's file name", async () => {
-    run = { ...mkRun({ report: { state: "done" } }), scripts: SCRIPTS } as RunOut;
+    run = {
+      ...mkRun({ report: { state: "done" }, convert: { command: 'siril-cli -d "<night folder>" -s "<folder you saved it in>/astroplanner-prepare.ssf"' } }),
+      scripts: SCRIPTS,
+    } as RunOut;
     const calls = serveScript(
       () =>
         new Response("requires 1.4.5\n", {
@@ -407,7 +415,15 @@ describe("script downloads", () => {
     );
     renderPage();
     await screen.findByText("Step 2 of 10");
-    expect(screen.getByText(/about 25\.3 GB/)).toBeInTheDocument();
+    // Spec R1: both scripts' disk use is stated before the first download, as an upper bound for script 2.
+    expect(screen.getByText(/It writes about 25\.3 GB into process-coach\//)).toHaveTextContent(
+      "script 2 will add up to about 25.3 GB more (an aligned copy of each frame you keep, at most all 100), so allow about 50.5 GB in all",
+    );
+    // siril-cli looks a bare -s name up in the -d folder (probe), so the step asks for the full path.
+    expect(screen.getByText(/give the script.s full path/)).toHaveTextContent(
+      "a bare file name is looked up in the night folder, not in the folder your terminal is in (command below)",
+    );
+    expect(screen.getByText(/give the script.s full path/)).toHaveTextContent("Preferences (Scripts)");
     fireEvent.click(screen.getByRole("button", { name: "Download script 1 (prepare)" }));
     await waitFor(() => expect(clicked).toEqual([{ download: "astroplanner-prepare.ssf", href: "blob:script" }]));
     expect(calls).toEqual(["/api/processing/runs/r1/scripts/prepare"]);

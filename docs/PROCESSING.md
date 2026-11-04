@@ -61,7 +61,7 @@ debayered 32-bit float ones, so they are only compared within one sequence.
 | --- | --- | --- |
 | `unmatched` | some of the registration sequence's frames have no imported frame with the same basename ("N of this folder's M frames don't match this night's imported frames"). They stay in the totals (they may be this night's frames that were never imported) but not in the time chart; `totals.matched` / `totals.unmatched` give the counts | measured / no |
 | `not_aligned` | some frames have no registration data ("N frames couldn't be aligned"; the files do not say why) | measured / no |
-| `round_cut` | kept frames are known and every aligned-but-dropped frame's roundness is below every kept frame's. The value is the midpoint at 2 decimals, or at the fewest further decimals that still lies above every dropped frame and at or below every kept one, so both "the dropped frames were below v" and Siril's `>= v` comparison hold | measured / no |
+| `round_cut` | kept frames are known and every aligned-but-dropped frame's roundness is below every kept frame's. The value is the midpoint at 2 decimals, or at the fewest further decimals (up to 9) that lies above every dropped frame and strictly below every kept one, so both "the dropped frames were below v" and Siril's `>= v` comparison hold. Strictly below because Siril holds roundness as a 32-bit float (`float32(0.743) = 0.74299997`), so a limit equal to a kept frame's value would drop that frame | measured / no |
 | `time_split` | kept frames are known and a half-hour boundary splits the timed frames into a part keeping at most `SPLIT_LOW` and a part keeping at least `SPLIT_HIGH` of its frames. Among such boundaries the one with the largest between-part variance `n1*n2/(n1+n2)*(p1-p2)^2` is used (earliest on ties) | measured / yes |
 | `low_stars` | median stars per aligned frame below `LOW_STARS` | measured / yes |
 | `calibration` | the night folder has dark/flat/bias folders; the coach says it does not use them yet and how they would change the steps | measured / no |
@@ -91,13 +91,16 @@ with no registered sequence are refused with their own messages.
 | `SPLIT_HIGH` | 0.85 | a "good" part of the night keeps at least this share of its frames |
 | `SPLIT_LOW` | 0.60 | a "poor" part of the night keeps at most this share |
 | `LOW_ALT_DEG` | 30 | altitude (degrees) below which low altitude is offered as a possible cause |
-| `MIN_FRAMES_FOR_REJECTION` (`rules.py`) | 30 | frames to stack (kept, else aligned) from which `stack.rejection` suggests winsorized sigma clipping 3/3 |
+| `MIN_FRAMES_FOR_REJECTION` (`rules.py`) | 30 | frames to stack (the saved frame choice's `kept`; before a choice, the folder's kept, else aligned) from which `stack.rejection` and the stack script use winsorized sigma clipping 3/3; below it both use no rejection (`rej n`) |
 
 **Advice from the report.** `align.two_pass` (basis measured, heuristic): the coach's script always registers in
 two passes; when the median star count is below `LOW_STARS`, this advice explains why that matters on this night
 (it is not offered as a choice, since there is nothing to change). `stack.rejection` (basis siril-docs, heuristic, source: the Siril
-command reference): with at least `MIN_FRAMES_FOR_REJECTION` frames to stack, suggest `rej w 3 3`; 3 and 3 are
-common starting limits, not tuned to the night.
+command reference): with at least `MIN_FRAMES_FOR_REJECTION` frames to stack, `rej w 3 3` (3 and 3 are common starting limits, not
+tuned to the night); below it, `rej n`, a plain average with no pixel rejection, with the warning that satellite
+trails and hot pixels can stay. The advice and the stack script both call `rules.stack_rejection(n)` on the same
+count (the chosen option's `kept`), so the step never says one thing while the script does another. The 30 is a
+heuristic; with few frames the per-pixel spread is too poorly known for the coach to recommend clipping.
 
 **Real-night check (local only).** `tests/test_processing_real_data.py` runs when `ASTROPLANNER_REAL_NIGHT_DIR`
 points at a night folder; it reads the `.seq`/conversion text and the lights' FITS headers (for `DATE-OBS`) only.
@@ -135,24 +138,28 @@ counts may have changed.
 _`backend/app/processing/scripts.py`; served by `GET /api/processing/runs/{id}/scripts/{prepare|stack}` as
 `astroplanner-<which>.ssf` (`text/plain; charset=utf-8`, attachment). Golden copies: `backend/tests/golden/`._
 Both scripts start with `requires 1.4.5` (without it Siril 1.4.5 runs no line and still reports success), assume
-Siril's working folder is the night folder (`siril-cli -d "<night folder>" -s <file>`, or the Scripts menu after
-setting the working folder), use relative names only, and write only into `process-coach/` beside `lights/`.
-Every command line is preceded by a comment giving the reason.
+Siril's working folder is the night folder (`siril-cli -d "<night folder>" -s "<folder you saved it in>/<file>"`,
+or the Scripts menu after setting the working folder and adding the script's folder in Preferences, Scripts), use relative names only, and write only into `process-coach/` beside `lights/`.
+Every command line is preceded by a comment giving the reason. **Probe (siril-cli 1.4.5):** a bare file name after
+`-s` is looked up in the `-d` folder, not the shell's current folder (`File [b.ssf] does not exist (from CWD, use
+absolute path?)`, exit 1), so the scripts, the step command and the step text all ask for the script's full path.
 
 | script | commands |
 | --- | --- |
 | prepare | `cd lights`, `convert light -out=../process-coach`, `cd ../process-coach`, `calibrate light -debayer`, `register pp_light -2pass`, `close`; no filter, no `seqapplyreg` |
-| stack | `cd process-coach`, `seqapplyreg pp_light <filter>`, `stack r_pp_light rej w 3 3 -norm=addscale -output_norm -rgb_equal -out=result_coach`, `close` |
+| stack | `cd process-coach`, `seqapplyreg pp_light <filter>`, `stack r_pp_light <rej> -norm=addscale -output_norm -rgb_equal -out=result_coach` (`<rej>` = `rej w 3 3` from 30 kept frames, else `rej n`; `rej n` checked by probe on 12 frames: "Not using rejection for stacking"), `close` |
 
 `<filter>` is empty for `all`, `-filter-round=<value>` for `previous` (literal, Siril compares `>=`) and
-`-filter-round=80%` / `-filter-wfwhm=80%` for the percentage options. The stack script is refused (409 "Choose
+`-filter-round=80%` / `-filter-wfwhm=80%` for the percentage options. The `previous` count compares
+`float32(roundness) >= value`, as Siril does. The stack script is refused (409 "Choose
 which frames to keep first.") until a selection is saved. The lights folder name is `Facts.lights_dir`
 (default `lights`; a single folder name, quoted when it has a space).
 
 **Disk estimate** (probe, spec 2a): each debayered or aligned frame is `width x height x 3 x 4 + 2880` bytes
 (1080 x 1920 for the S30, so 24,886,080 bytes); `convert`'s links are about 140 bytes and are ignored. The
 prepare script writes `frame_count` such frames (shown on the convert step); the stack script adds `kept` more
-(shown on the stack step once frames are chosen), plus the stack itself. On the real 1,015-frame S30 night
+(shown on the stack step once frames are chosen), plus the stack itself. Before any download the prepare text also
+states script 2's upper bound (`stack_max_bytes`, an aligned copy of every frame) and the total of the two (spec R1). On the real 1,015-frame S30 night
 (2026-11-03) each written frame was 24,888,960 bytes (the S30 header with Siril's history needs two header blocks),
 so the estimate ran 0.01 % low per frame; `du` of the whole coach folder (1,015 + 654 frames, the stack, star lists)
 was 39 GiB against an estimate of 41.5 GB (38.7 GiB).

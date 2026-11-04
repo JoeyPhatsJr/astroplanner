@@ -245,14 +245,15 @@ def _plural(n: int, one: str, many: str) -> str:
 
 
 def separating_cut(highest_dropped: float, lowest_kept: float) -> float:
-    """The midpoint, at the fewest decimals (2 or more) that still lies above every dropped frame and at or
-    below every kept one, so "dropped frames were below v" and Siril's ``>= v`` both hold."""
+    """The midpoint, at the fewest decimals (2 or more) that lies above every dropped frame and strictly below
+    every kept one, so "dropped frames were below v" holds and Siril's ``>= v`` keeps the kept frames even after it
+    rounds their roundness to single precision (a limit equal to a kept value could drop that frame)."""
     mid = (highest_dropped + lowest_kept) / 2
-    for dp in range(2, 7):
+    for dp in range(2, 10):
         v = round(mid, dp)
-        if highest_dropped < v <= lowest_kept:
+        if highest_dropped < v < lowest_kept:
             return v
-    return lowest_kept
+    return mid
 
 
 def _bins(timed: list[tuple[float, FrameStat]], tz: str | None, minutes: int, kept_known: bool) -> list[Bin]:

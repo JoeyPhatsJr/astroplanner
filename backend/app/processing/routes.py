@@ -65,14 +65,16 @@ def _frames(db: Session, cs: CaptureSet) -> list[CaptureFrame]:
     return list(db.scalars(select(CaptureFrame).where(CaptureFrame.capture_set_id == cs.id)))
 
 
-def _facts(frames: list[CaptureFrame], report: Report | None = None) -> Facts:
+def _facts(frames: list[CaptureFrame], report: Report | None = None,
+           chosen: SelectionOption | None = None) -> Facts:
     patterns = {f.bayer_pattern for f in frames}
     exptimes = {float(f.exptime_s) for f in frames}
     return Facts(
         bayer_pattern=next(iter(patterns)) if len(patterns) == 1 and None not in patterns else None,
         frame_count=len(frames),
         exptime_s=next(iter(exptimes)) if len(exptimes) == 1 else None,
-        report=report)
+        report=report,
+        selection_kept=chosen.kept if chosen else None)
 
 
 def _modal_exptime(frames: list[CaptureFrame]) -> float:
@@ -118,8 +120,10 @@ def _chosen(run: ProcessingRun, options: list[SelectionOption]) -> SelectionOpti
 
 
 def _scripts(facts: Facts, chosen: SelectionOption | None) -> dict[str, Any]:
-    """Disk each script will write, shown before the download; the stack one only once frames are chosen."""
+    """Disk each script will write, shown before the download. Before frames are chosen the stack script's share
+    is only known as an upper bound: an aligned copy of every frame."""
     return {"prepare_bytes": disk_estimate_bytes(facts.frame_count),
+            "stack_max_bytes": disk_estimate_bytes(facts.frame_count),
             "stack_bytes": disk_estimate_bytes(chosen.kept) if chosen else None,
             "stack_blocked": None if chosen else NO_SELECTION}
 
@@ -148,8 +152,9 @@ def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
     loc = db.get(ObservingLocation, sess.location_id) if sess.location_id else None
     frames = _frames(db, cs)
     report = _report(run, frames, lt, loc)
-    facts = _facts(frames, report)
     options = _options(run, frames, report)
+    chosen = _chosen(run, options)
+    facts = _facts(frames, report, chosen)
     return {
         "id": run.id,
         "capture_set_id": run.capture_set_id,
@@ -165,7 +170,7 @@ def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
         "choices": {k: v for k, v in (run.choices or {}).items() if k in CHOICE_KEYS},
         "comparison": run.comparison or {},
         "siril_target": SIRIL_TARGET,
-        "scripts": _scripts(facts, _chosen(run, options)),
+        "scripts": _scripts(facts, chosen),
     }
 
 
@@ -259,11 +264,11 @@ def get_script(run_id: str, which: str, db: Session = Depends(get_db)) -> PlainT
     loc = db.get(ObservingLocation, sess.location_id) if sess.location_id else None
     frames = _frames(db, cs)
     report = _report(run, frames, db.get(LibraryTarget, cs.library_target_id), loc)
-    facts = _facts(frames, report)
+    chosen = _chosen(run, _options(run, frames, report))
+    facts = _facts(frames, report, chosen)
     if which == "prepare":
         text = prepare_script(facts)
     else:
-        chosen = _chosen(run, _options(run, frames, report))
         if chosen is None:
             raise HTTPException(409, NO_SELECTION)
         text = stack_script(chosen, facts)

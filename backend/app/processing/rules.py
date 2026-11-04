@@ -44,6 +44,7 @@ class Facts:
     siril_stack: Any | None = None  # StackMeasurement
     seestar_stack: Any | None = None  # StackMeasurement
     lights_dir: str = "lights"  # the night-folder subfolder holding the light FITS frames (used by scripts.py)
+    selection_kept: int | None = None  # frames the saved frame choice keeps; what the stack script will stack
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,13 @@ def _debayer_docs(f: Facts) -> Advice:
 
 # Heuristic: the kept-frame count from which the coach suggests sigma-clipping rejection (docs/PROCESSING.md).
 MIN_FRAMES_FOR_REJECTION = 30
+REJECTION = "rej w 3 3"  # winsorized sigma clipping, low and high sigma 3
+NO_REJECTION = "rej n"  # plain average, no pixel rejection (Siril's letter n; the sigmas are then omitted)
+
+
+def stack_rejection(frames: int) -> str:
+    """The rejection the stack script writes for ``frames`` stacked frames; the stack advice states the same."""
+    return REJECTION if frames >= MIN_FRAMES_FOR_REJECTION else NO_REJECTION
 
 
 def _median_stars(f: Facts) -> float | None:
@@ -84,7 +92,10 @@ def _median_stars(f: Facts) -> float | None:
 
 
 def _stack_count(f: Facts) -> tuple[int, str] | None:
-    """Frames that will be stacked: the kept count when known, else the aligned count (an upper bound)."""
+    """Frames that will be stacked: the saved frame choice's count (what the stack script uses); before a choice,
+    the kept count of the folder read, else its aligned count (an upper bound)."""
+    if f.selection_kept is not None:
+        return f.selection_kept, "chosen"
     if f.report is None:
         return None
     t = f.report.totals
@@ -108,10 +119,22 @@ def _rejection(f: Facts) -> Advice:
     n, what = _stack_count(f)
     return Advice(
         rule_id="stack.rejection",
-        setting="Winsorized sigma clipping, 3 and 3 (stack ... rej w 3 3)",
+        setting=f"Winsorized sigma clipping, 3 and 3 (stack ... {REJECTION})",
         why=f"With {n} {what} frames there are enough values per pixel for rejection to drop outliers such as "
             "satellite trails and hot pixels. Siril's stack command offers winsorized sigma clipping (letter w) "
             "with a low and a high sigma limit; 3 and 3 are common starting limits, not tuned to this night.",
+        basis="siril-docs", heuristic=True, source_url=SIRIL_COMMANDS_URL)
+
+
+def _no_rejection(f: Facts) -> Advice:
+    n, what = _stack_count(f)
+    return Advice(
+        rule_id="stack.rejection",
+        setting=f"No pixel rejection, a plain average (stack ... {NO_REJECTION})",
+        why=f"With {n} {what} frames each pixel has few values to compare, which is under the coach's rule-of-thumb "
+            f"{MIN_FRAMES_FOR_REJECTION} frames for sigma clipping, so the coach's stack script averages them without "
+            "rejection (Siril's letter n). Satellite trails and hot pixels can stay in the result; with "
+            f"{MIN_FRAMES_FOR_REJECTION} or more frames the script uses winsorized clipping at 3 and 3 instead.",
         basis="siril-docs", heuristic=True, source_url=SIRIL_COMMANDS_URL)
 
 
@@ -123,7 +146,9 @@ RULES: tuple[Rule, ...] = (
     Rule("align.two_pass", "align", "measured", True, None,
          lambda f: (m := _median_stars(f)) is not None and m < LOW_STARS, _two_pass),
     Rule("stack.rejection", "stack", "siril-docs", True, SIRIL_COMMANDS_URL,
-         lambda f: (c := _stack_count(f)) is not None and c[0] >= MIN_FRAMES_FOR_REJECTION, _rejection),
+         lambda f: (c := _stack_count(f)) is not None and stack_rejection(c[0]) == REJECTION, _rejection),
+    Rule("stack.rejection", "stack", "siril-docs", True, SIRIL_COMMANDS_URL,
+         lambda f: (c := _stack_count(f)) is not None and stack_rejection(c[0]) == NO_REJECTION, _no_rejection),
 )
 
 

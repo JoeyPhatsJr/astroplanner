@@ -68,12 +68,14 @@ export function ScriptButton({ runId, which, disabledReason }: { runId: string; 
   );
 }
 
-/** The "or let the coach's script do it" box: what the script does, the disk it will use, then the download. */
+/** The "or let the coach's script do it" box: what the script does, the disk it will use (before the download),
+ *  how to run it, then the download. */
 export function ScriptBlock({
   runId,
   which,
   frames,
   bytes,
+  laterMaxBytes = null,
   disabledReason,
   lead,
   commandBelow,
@@ -82,24 +84,43 @@ export function ScriptBlock({
   which: ScriptKind;
   frames: number;
   bytes: number | null;
+  laterMaxBytes?: number | null; // prepare only: the most script 2 can add (an aligned copy of every frame)
   disabledReason: string | null;
   lead: string;
   commandBelow: boolean; // the step shows the siril-cli line under this box
 }) {
+  const n = frames.toLocaleString();
   const what =
     which === "prepare"
-      ? `Script 1 converts, debayers and aligns all ${frames.toLocaleString()} frames and filters none of them. It writes only into process-coach/ next to lights/${
-          bytes !== null ? `, about ${formatGB(bytes)}` : ""
-        }, and never changes lights/ or an existing process/ folder.`
+      ? `Script 1 converts, debayers and aligns all ${n} frames and filters none of them.${
+          bytes !== null ? ` It writes about ${formatGB(bytes)} into process-coach/ next to lights/` : " It writes only into process-coach/ next to lights/"
+        }${
+          bytes !== null && laterMaxBytes !== null
+            ? `; script 2 will add up to about ${formatGB(laterMaxBytes)} more (an aligned copy of each frame you keep, at most all ${n}), so allow about ${formatGB(bytes + laterMaxBytes)} in all`
+            : ""
+        }. It never changes lights/ or an existing process/ folder.`
       : `Script 2 applies your frame choice from step 4 and stacks the kept frames into process-coach/result_coach.fit${
           bytes !== null ? `, writing about ${formatGB(bytes)} more for their aligned copies` : ""
         }. Run it after script 1.`;
   return (
     <div className="flex flex-col gap-2.5 rounded-lg border border-line px-3.5 py-3">
       <p className="text-sm leading-relaxed text-ink-2">
-        <b className="text-ink">{lead}</b> {what} Make the night folder (the one that holds lights/) Siril&apos;s working folder, then run the
-        file from Siril&apos;s Scripts menu or{" "}
-        {commandBelow ? "with the command below" : <code className="text-xs text-ink">siril-cli -d &quot;&lt;night folder&gt;&quot; -s {SCRIPT_FILE[which]}</code>}.
+        <b className="text-ink">{lead}</b> {what}
+      </p>
+      <p className="text-sm leading-relaxed text-ink-2">
+        To run it, make the night folder (the one that holds lights/) Siril&apos;s working folder. From a terminal, give the script&apos;s full
+        path after <code className="text-xs text-ink">-s</code>, for example the Downloads folder you saved it to: a bare file name is looked up
+        in the night folder, not in the folder your terminal is in
+        {commandBelow ? (
+          " (command below)"
+        ) : (
+          <>
+            {" "}
+            (<code className="text-xs text-ink">siril-cli -d &quot;&lt;night folder&gt;&quot; -s &quot;&lt;folder you saved it in&gt;/{SCRIPT_FILE[which]}&quot;</code>)
+          </>
+        )}
+        . In Siril itself, add the folder holding the script to the script folders in Preferences (Scripts), then choose it from the Scripts
+        menu.
       </p>
       <ScriptButton runId={runId} which={which} disabledReason={disabledReason} />
     </div>

@@ -100,6 +100,7 @@ function Coach({ run, loadError }: { run: RunOut; loadError: unknown }) {
                 which="prepare"
                 frames={run.frames}
                 bytes={run.scripts.prepare_bytes}
+                laterMaxBytes={run.scripts.stack_max_bytes}
                 disabledReason={null}
                 commandBelow={!!step.command}
                 lead={step.id === "report" ? "No Siril run yet? Let the coach's script make one." : "Or let the coach's script do steps 2 and 3."}
