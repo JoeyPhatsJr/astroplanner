@@ -102,8 +102,6 @@ def _blocked(step: str, facts: Facts) -> str | None:
                 "script and then choose the folder it wrote.")
     if step == "select" and facts.report is None:
         return "Needs the night report from the first script, which measures each frame."
-    if step == "compare" and (facts.siril_stack is None or facts.seestar_stack is None):
-        return "Needs a measured Siril stack and the Seestar's own stack to compare."
     return None
 
 

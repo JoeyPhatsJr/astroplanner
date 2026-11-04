@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import math
 import uuid
 from collections import Counter
@@ -11,6 +12,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import PlainTextResponse, Response
+from PIL import Image
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -20,7 +22,7 @@ from app import astronomy, targets
 from app.api import get_db
 from app.astrolog import library, previews
 from app.astrolog.routes import _read_limited
-from app.astrolog.models import CaptureFrame, CaptureSet, LibraryTarget
+from app.astrolog.models import CaptureFrame, CaptureSet, FinalImage, LibraryTarget
 from app.db import ObservingLocation, ObservingSession, _utcnow
 
 from .measure import METHOD, StackMeasurement, UnmeasurableStack, measure_stack
@@ -64,6 +66,7 @@ CHOICE_KEYS = ("selection", "filter")
 class RunPatch(BaseModel):
     step_states: dict[StepId, Literal["todo", "done"]] | None = None
     choices: dict[str, Any] | None = None
+    comparison: dict[str, Any] | None = None  # only {"seestar_picture": {"edited": bool | null}} is accepted
 
 
 def _frames(db: Session, cs: CaptureSet) -> list[CaptureFrame]:
@@ -168,6 +171,41 @@ def _last_time(db: Session, run: ProcessingRun, cs: CaptureSet) -> LastChoice | 
     return None
 
 
+def _image_url(run: ProcessingRun, key: str) -> str:
+    return f"/api/processing/runs/{run.id}/images/{key}"
+
+
+def comparison_out(db: Session, run: ProcessingRun, lt: LibraryTarget) -> dict[str, Any]:
+    """What the Compare step shows. Storage keys never leave the server: previews are addressed by URL.
+    ``mode_available`` says when both sides of a mode exist (the step is usable either way: a missing side
+    is shown as an empty state with its own Add button)."""
+    stored = run.comparison or {}
+    pic = stored.get("seestar_picture") if isinstance(stored.get("seestar_picture"), dict) else None
+    seestar_picture = None
+    if pic:
+        seestar_picture = {"preview_url": _image_url(run, pic["preview_key"]), "source_filename": pic["source_filename"],
+                           "width": pic["width"], "height": pic["height"],
+                           "edited": pic.get("edited"), "edited_by": pic.get("edited_by")}
+    img = db.scalars(select(FinalImage).where(FinalImage.library_target_id == lt.id, FinalImage.is_current.is_(True))).first()
+    final_picture = None
+    if img:
+        final_picture = {"id": img.id, "source_filename": img.source_filename, "format": img.format,
+                         "width": img.width, "height": img.height,
+                         "preview_url": f"/api/astrolog/images/{img.id}/preview"}
+
+    def stack(side: str) -> dict[str, Any] | None:
+        e = stored.get(side + "_stack")
+        if not isinstance(e, dict):
+            return None
+        return {"preview_url": _image_url(run, e["preview_key"]), "measurement": e["measurement"],
+                "source_filename": e["source_filename"]}
+
+    siril, seestar = stack("siril"), stack("seestar")
+    return {"mode_available": {"pictures": bool(seestar_picture and final_picture), "stacks": bool(siril and seestar)},
+            "seestar_picture": seestar_picture, "final_picture": final_picture,
+            "siril_stack": siril, "seestar_stack": seestar}
+
+
 def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
     cs = db.get(CaptureSet, run.capture_set_id)
     lt = db.get(LibraryTarget, cs.library_target_id)
@@ -192,6 +230,7 @@ def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
         "selection_last_time": asdict(last) if (last := _last_time(db, run, cs)) else None,
         "choices": {k: v for k, v in (run.choices or {}).items() if k in CHOICE_KEYS},
         "comparison": run.comparison or {},
+        "compare": comparison_out(db, run, lt),
         "siril_target": SIRIL_TARGET,
         "scripts": _scripts(facts, chosen),
     }
@@ -247,6 +286,15 @@ def patch_run(run_id: str, body: RunPatch, db: Session = Depends(get_db)) -> dic
                 raise HTTPException(422, "That frame selection isn't one of the options offered for this run")
             extra["selection_summary"] = {"option_label": offered[chosen].label, "kept": offered[chosen].kept}
         run.choices = {**(run.choices or {}), **body.choices, **extra}
+    if body.comparison is not None:
+        edit = body.comparison.get("seestar_picture")
+        if set(body.comparison) != {"seestar_picture"} or not isinstance(edit, dict) or set(edit) != {"edited"} \
+                or not (edit["edited"] is None or isinstance(edit["edited"], bool)):
+            raise HTTPException(422, 'Only {"seestar_picture": {"edited": true | false | null}} can be set')
+        pic = (run.comparison or {}).get("seestar_picture")
+        if not isinstance(pic, dict):
+            raise HTTPException(409, "Add the Seestar picture first.")
+        run.comparison = {**(run.comparison or {}), "seestar_picture": {**pic, "edited": edit["edited"]}}
     run.updated_at = _utcnow()
     db.commit()
     return run_out(db, run)
@@ -366,3 +414,68 @@ def get_stack_image(run_id: str, key: str, request: Request, db: Session = Depen
         raise HTTPException(404, "Image file is missing") from None
     return Response(body, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600",
                                                             "X-Content-Type-Options": "nosniff"})
+
+
+SOFTWARE_TAG = 305  # EXIF/TIFF "Software"
+MAX_SOFTWARE_CHARS = 200
+
+
+def _software(data: bytes) -> str | None:
+    """The editing program a picture says it was saved by (EXIF Software), else None. Read from a copy of the
+    bytes; nothing else from the metadata is looked at and none of it reaches the stored previews."""
+    try:
+        with Image.open(io.BytesIO(data)) as im:
+            value = im.getexif().get(SOFTWARE_TAG)
+    except Exception:
+        return None
+    if isinstance(value, bytes):
+        value = value.decode("utf-8", "ignore")
+    if not isinstance(value, str):
+        return None
+    value = "".join(ch for ch in value if ch.isprintable()).strip()
+    return value[:MAX_SOFTWARE_CHARS] or None
+
+
+@router.post("/runs/{run_id}/pictures/seestar")
+async def upload_seestar_picture(run_id: str, request: Request, file: UploadFile = File(...),
+                                 db: Session = Depends(get_db)) -> dict[str, Any]:
+    """The Seestar's own final picture (JPEG, PNG or TIFF). Only two metadata-free previews are kept; ``edited``
+    is True when the file names an editing program (EXIF Software), otherwise unknown (None) until the user says."""
+    run = _get_run(db, run_id)
+    limit: int = request.app.state.max_upload_bytes
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > limit + 64 * 1024:
+        raise HTTPException(413, f"File is too large; the limit is {limit // (1024 * 1024)} MB.")
+    name = PurePosixPath((file.filename or "").replace("\\", "/")).name[:512]
+    if "." + previews.format_of(name) not in previews.PILLOW_EXT | previews.TIFF_EXT:
+        raise HTTPException(422, "The Seestar picture must be a JPEG, PNG or TIFF file.")
+    data = await _read_limited(file, limit)
+    try:
+        preview, thumb, w, h, _fmt = previews.make_previews(data, name)
+    except previews.ImageTooLarge as exc:
+        raise HTTPException(413, str(exc)) from exc
+    except previews.UnsupportedImage as exc:
+        raise HTTPException(422, str(exc)) from exc
+    software = _software(data)
+    storage = request.app.state.storage
+    token = uuid.uuid4().hex[:12]
+    keys = {"preview_key": f"processing/{run.id}/picture-{token}-preview.jpg",
+            "thumb_key": f"processing/{run.id}/picture-{token}-thumb.jpg"}
+    old = (run.comparison or {}).get("seestar_picture") or {}
+    try:
+        storage.put(keys["preview_key"], preview, "image/jpeg")
+        storage.put(keys["thumb_key"], thumb, "image/jpeg")
+        run.comparison = {**(run.comparison or {}), "seestar_picture": {
+            **keys, "source_filename": name, "width": w, "height": h,
+            "edited": True if software else None, "edited_by": software}}
+        run.updated_at = _utcnow()
+        db.commit()
+    except Exception:
+        db.rollback()
+        for k in keys.values():
+            storage.delete(k)
+        raise
+    for k in ("preview_key", "thumb_key"):
+        if old.get(k):
+            storage.delete(old[k])
+    return run_out(db, run)

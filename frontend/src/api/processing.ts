@@ -50,6 +50,40 @@ export interface StackEntry {
   source_filename: string;
 }
 
+/** Everything measure.py reports for a finished stack; null = not in the file (or too few stars). */
+export interface CompareMeasurement {
+  width: number;
+  height: number;
+  bayer: string | null; // set when the stack is a raw Bayer image measured on 2x2 super-pixels
+  stack_count: number | null;
+  livetime_s: number | null;
+  star_fwhm_px: number | null;
+  stars_measured: number;
+  noise_frac: number;
+  method: string;
+}
+
+export interface ComparisonStack {
+  preview_url: string;
+  source_filename: string;
+  measurement: CompareMeasurement;
+}
+
+export interface ComparisonOut {
+  mode_available: { pictures: boolean; stacks: boolean };
+  seestar_picture: {
+    preview_url: string;
+    source_filename: string;
+    width: number;
+    height: number;
+    edited: boolean | null;
+    edited_by: string | null;
+  } | null;
+  final_picture: { id: string; source_filename: string; format: string; width: number; height: number; preview_url: string } | null;
+  siril_stack: ComparisonStack | null;
+  seestar_stack: ComparisonStack | null;
+}
+
 export interface ReportBin {
   start_utc: string;
   label_local: string;
@@ -149,6 +183,7 @@ export interface RunOut {
   choices?: { selection?: string; filter?: string };
   selection_cleared?: boolean; // only on a folder-upload response
   comparison: Record<string, unknown>;
+  compare?: ComparisonOut; // what the Compare step shows (previews by URL, no storage keys)
   siril_target: string;
   scripts?: ScriptsInfo;
 }
@@ -156,6 +191,7 @@ export interface RunOut {
 export interface RunPatch {
   step_states?: Partial<Record<StepId, "todo" | "done">>;
   choices?: Record<string, unknown>;
+  comparison?: { seestar_picture: { edited: boolean | null } };
 }
 
 export const processingApi = {
@@ -163,6 +199,11 @@ export const processingApi = {
     const fd = new FormData();
     fd.append("file", file);
     return request<RunOut>(`/api/processing/runs/${encodeURIComponent(id)}/stacks/${side}`, { method: "POST", body: fd });
+  },
+  uploadPicture: (id: string, file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return request<RunOut>(`/api/processing/runs/${encodeURIComponent(id)}/pictures/seestar`, { method: "POST", body: fd });
   },
   uploadFolder: (id: string, body: SirilFolderBody) =>
     request<RunOut>(`/api/processing/runs/${encodeURIComponent(id)}/siril-folder`, { method: "POST", body: JSON.stringify(body) }),
@@ -209,6 +250,14 @@ export function useUploadStack(runId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { side: StackSide; file: File }) => processingApi.uploadStack(runId as string, v.side, v.file),
+    onSuccess: (run) => qc.setQueryData(qk.processingRun(run.id), run),
+  });
+}
+
+export function useUploadPicture(runId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => processingApi.uploadPicture(runId as string, file),
     onSuccess: (run) => qc.setQueryData(qk.processingRun(run.id), run),
   });
 }
