@@ -66,9 +66,9 @@ def _header(n: int, title: str, purpose: str) -> list[str]:
     ]
 
 
-def _run_lines(file: str, after_first: bool) -> list[str]:
+def _run_lines(file: str, after_first: bool, lights_dir: str) -> list[str]:
     first = ("# Run it after script 1, with the same night folder as Siril's working folder, e.g." if after_first else
-             "# How to run: make the night folder (the one that holds lights/) Siril's working folder, e.g.")
+             f"# How to run: make the night folder (the one that holds {lights_dir}/) Siril's working folder, e.g.")
     return [
         first,
         f'#   siril-cli -d "<night folder>" -s {file}',
@@ -84,9 +84,11 @@ def prepare_script(facts: Facts) -> str:
     lines = [
         *_header(1, "prepare", f"convert, debayer and align all {n} frames."),
         "# It keeps every frame. Choose which frames to stack in the coach afterwards, then run script 2.",
-        *_run_lines(SCRIPT_NAMES["prepare"], after_first=False),
-        f"# It writes only into {COACH_DIR}/ next to lights/: about {_gb(disk_estimate_bytes(n))} for {n} frames.",
-        "# Move into the folder with the light frames so the next line can find them.",
+        *_run_lines(SCRIPT_NAMES["prepare"], after_first=False, lights_dir=facts.lights_dir),
+        f"# It writes only into {COACH_DIR}/ next to {facts.lights_dir}/: about {_gb(disk_estimate_bytes(n))} for {n} "
+        "frames.",
+        "# Move into the folder with the light frames so the next line can find them. Siril converts every",
+        "# image it finds there, so it should hold only this night's light frames.",
         f"cd {lights}",
         f"# Gather the frames into one numbered sequence in {COACH_DIR}/ (Siril links to the FITS files",
         "# rather than copying them) and record which file became which number in light_conversion.txt.",
@@ -134,7 +136,7 @@ def stack_script(option: SelectionOption, facts: Facts) -> str:
     k = option.kept
     lines = [
         *_header(2, "stack", "apply your frame choice and stack."),
-        *_run_lines(SCRIPT_NAMES["stack"], after_first=True),
+        *_run_lines(SCRIPT_NAMES["stack"], after_first=True, lights_dir=facts.lights_dir),
         f"# Your choice: {what}. The coach expects it to keep {k} frames ({_duration(option.seconds)}).",
         f"# It writes only into {COACH_DIR}/: about {_gb(disk_estimate_bytes(k))} more for the {k} aligned frames, "
         "plus the stack.",

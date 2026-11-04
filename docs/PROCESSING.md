@@ -152,4 +152,7 @@ which frames to keep first.") until a selection is saved. The lights folder name
 **Disk estimate** (probe, spec 2a): each debayered or aligned frame is `width x height x 3 x 4 + 2880` bytes
 (1080 x 1920 for the S30, so 24,886,080 bytes); `convert`'s links are about 140 bytes and are ignored. The
 prepare script writes `frame_count` such frames (shown on the convert step); the stack script adds `kept` more
-(shown on the stack step once frames are chosen), plus the stack itself.
+(shown on the stack step once frames are chosen), plus the stack itself. On the real 1,015-frame S30 night
+(2026-11-03) each written frame was 24,888,960 bytes (the S30 header with Siril's history needs two header blocks),
+so the estimate ran 0.01 % low per frame; `du` of the whole coach folder (1,015 + 654 frames, the stack, star lists)
+was 39 GiB against an estimate of 41.5 GB (38.7 GiB).

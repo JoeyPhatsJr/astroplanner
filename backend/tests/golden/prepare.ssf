@@ -6,7 +6,8 @@ requires 1.4.5
 #   siril-cli -d "<night folder>" -s astroplanner-prepare.ssf
 # or, in Siril, set the working folder to the night folder and run this file from the Scripts menu.
 # It writes only into process-coach/ next to lights/: about 25.3 GB for 1015 frames.
-# Move into the folder with the light frames so the next line can find them.
+# Move into the folder with the light frames so the next line can find them. Siril converts every
+# image it finds there, so it should hold only this night's light frames.
 cd lights
 # Gather the frames into one numbered sequence in process-coach/ (Siril links to the FITS files
 # rather than copying them) and record which file became which number in light_conversion.txt.
