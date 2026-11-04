@@ -5,6 +5,7 @@ import { usePatchRun, useRun, useStartRun, type RunOut } from "../api/processing
 import { CoachRail } from "../components/processing/CoachRail";
 import { FolderPicker } from "../components/processing/FolderPicker";
 import { NightReport } from "../components/processing/NightReport";
+import { SelectionStep } from "../components/processing/SelectionStep";
 import { StepPanel } from "../components/processing/StepPanel";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate } from "../lib/time";
@@ -94,6 +95,14 @@ function Coach({ run, loadError }: { run: RunOut; loadError: unknown }) {
                 {run.report && <NightReport report={run.report} folder={run.folder} />}
                 <FolderPicker runId={run.id} hasReport={!!run.report} />
               </div>
+            ) : step.id === "select" && !step.blocked ? (
+              <SelectionStep
+                options={run.selection}
+                lastTime={run.selection_last_time ?? null}
+                chosen={run.choices?.selection ?? null}
+                pending={patch.isPending}
+                onChoose={(id) => patch.mutate({ choices: { selection: id } })}
+              />
             ) : undefined
           }
           actions={

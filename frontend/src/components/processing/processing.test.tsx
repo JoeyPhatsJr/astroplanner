@@ -49,6 +49,7 @@ beforeEach(() => {
       if (method === "PATCH") {
         const body = JSON.parse(String(init?.body));
         patches.push(body);
+        if (body.choices) run = { ...run, choices: { ...run.choices, ...body.choices } };
         for (const [id, st] of Object.entries(body.step_states ?? {})) {
           run = { ...run, steps: run.steps.map((s) => (s.id === id ? { ...s, state: st as "done" | "todo" } : s)) };
         }
@@ -300,5 +301,43 @@ describe("skipped oversize files", () => {
       target: { files: [textFile("Night/process/light_.seq", "A"), bigFile("Night/process/big_conversion.txt")] },
     });
     expect(await screen.findByText(/Skipped \(over 5 MB\): process\/big_conversion\.txt/)).toBeInTheDocument();
+  });
+});
+
+const OPTIONS = [
+  { id: "all", label: "Keep every aligned frame", filter: "none", value: null, percent: null, kept: 851, seconds: 8510, basis: "measured", heuristic: false, note: "All 851 frames Siril aligned." },
+  { id: "previous", label: "Same as your last run: roundness \u2265 0.743", filter: "round", value: 0.743, percent: null, kept: 654, seconds: 6540, basis: "measured", heuristic: false, note: "The limit from your folder." },
+  { id: "round80", label: "Roundness filter, 80 %", filter: "round", value: 0.7, percent: 80, kept: 700, seconds: 7000, basis: "measured", heuristic: true, note: "Siril's percentage, counted over all 1015 frames, so it keeps more than 80 % of the 851 aligned ones." },
+];
+
+describe("choose frames step", () => {
+  const gotoSelect = async () => {
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: /Choose frames/ }));
+    await screen.findByText("Step 4 of 10");
+  };
+
+  it("shows option cards with counts and durations, selects nothing, and PATCHes the pick", async () => {
+    run = { ...mkRun(), selection: OPTIONS, selection_last_time: { night_date: "2026-09-11", target_name: "NGC 7635", option_label: "Same as your last run", kept: 654 }, choices: {} } as RunOut;
+    await gotoSelect();
+    const radios = screen.getAllByRole("radio");
+    expect(radios).toHaveLength(3);
+    expect(radios.every((r) => !(r as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getByText(/Last time \(Fri 11 Sept?, NGC 7635\)/)).toBeInTheDocument();
+    expect(screen.getByText("Sharper")).toBeInTheDocument();
+    expect(screen.getByText("Smoother")).toBeInTheDocument();
+    expect(screen.getByText(/^654 frames/)).toHaveTextContent("1 h 49 m");
+    expect(screen.getByText(/^851 frames/)).toHaveTextContent("2 h 21 m");
+    expect(screen.getAllByText("Heuristic")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("radio", { name: /Same as your last run: roundness/ }));
+    await waitFor(() => expect(patches).toContainEqual({ choices: { selection: "previous" } }));
+    await waitFor(() => expect((screen.getByRole("radio", { name: /Same as your last run: roundness/ }) as HTMLInputElement).checked).toBe(true));
+  });
+
+  it("explains when there are no options yet", async () => {
+    run = mkRun({ select: { blocked: null } });
+    await gotoSelect();
+    expect(screen.getByText(/no frame options yet/i)).toBeInTheDocument();
+    expect(screen.queryByRole("radio")).toBeNull();
   });
 });

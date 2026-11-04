@@ -104,3 +104,28 @@ points at a night folder; it reads the `.seq`/conversion text and the lights' FI
 On the tutorial night it gives 1,015 captured / 851 aligned / 654 kept, median 44 stars and FWHM 2.25 px, a
 roundness cut at 0.743 (highest dropped 0.742286, lowest kept 0.744081), and "Before 03:30, 51 % of frames
 reached the stack; from 03:30 on, 91 %", with no cause offered (the target stayed high).
+
+## Frame-selection options (Phase 4 Task 7)
+
+_`backend/app/processing/selection.py`._ Step 4 offers up to four options, each with the exact number of aligned
+frames it keeps and their integration time, computed from the stored per-frame statistics (each frame's own
+`EXPTIME` where known, else the capture set's most common exposure). Nothing is pre-selected, and the "last time"
+note (the most recent other run on the same device with a saved choice) never selects anything.
+
+| id | filter | kept frames |
+| --- | --- | --- |
+| `all` | none | every aligned frame |
+| `previous` | `round`, value = the `round_cut` finding's separating cut | aligned frames with roundness >= value (only offered when that finding exists) |
+| `round80` | `round`, `KEEP_PERCENT` % | Siril's percentage rule, see below |
+| `wfwhm80` | `wfwhm`, `KEEP_PERCENT` % | Siril's percentage rule, see below |
+
+`KEEP_PERCENT = 80` is a **heuristic** rule of thumb ("keep most, drop the worst fifth"), not a Siril default;
+those two options carry the Heuristic tag. Counts follow Siril 1.4.5's rule (spec 2a, `sequence_filtering.c`):
+with N frames in the sequence and n aligned, roundness `p%` uses `sorted_over_N[floor((100-p)(N-1)/100)]` with
+unaligned frames counted as zeros (so it keeps **more** than `p` % of the aligned frames when any are unaligned;
+the option note says "Siril's percentage, counted over all N frames"), and weighted-FWHM `p%` uses
+`sorted_over_aligned[floor(p(n-1)/100)]`. Ties at the threshold are kept; a zero value never passes. Options with
+the same filter and the same kept count are listed once. The `percent` (not the resolved threshold `value`) is what
+the stack script passes to Siril. Choosing an option stores its id in `choices.selection`; the API rejects unknown
+choice keys and ids not offered for the run (422), and re-reading the Siril folder clears the choice because the
+counts may have changed.

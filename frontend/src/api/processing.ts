@@ -95,6 +95,26 @@ export interface SirilFolderBody {
   calibration_dirs: string[];
 }
 
+export interface SelectionOption {
+  id: string;
+  label: string;
+  filter: "none" | "round" | "wfwhm";
+  value: number | null;
+  percent: number | null;
+  kept: number;
+  seconds: number;
+  basis: Basis;
+  heuristic: boolean;
+  note: string;
+}
+
+export interface LastChoice {
+  night_date: string;
+  target_name: string;
+  option_label: string;
+  kept: number;
+}
+
 export interface RunOut {
   id: string;
   capture_set_id: string;
@@ -105,7 +125,9 @@ export interface RunOut {
   steps: StepView[];
   report: NightReportData | null;
   folder?: FolderInfo | null;
-  selection: unknown[];
+  selection: SelectionOption[];
+  selection_last_time?: LastChoice | null;
+  choices?: { selection?: string; filter?: string };
   comparison: Record<string, unknown>;
   siril_target: string;
 }

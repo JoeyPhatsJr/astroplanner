@@ -21,6 +21,7 @@ from app.db import ObservingLocation, ObservingSession, _utcnow
 from .models import ProcessingRun, StepId
 from .report import AltitudeFn, FolderError, FolderResult, Report, UploadedText, build_folder, night_report
 from .rules import Facts
+from .selection import LastChoice, SelectionOption, selection_options
 from .seq import SeqParseError
 from .steps import build_steps
 
@@ -46,6 +47,10 @@ class SirilFolderIn(BaseModel):
     run_dir: str = Field(..., min_length=1, max_length=512)
     files: list[UploadedTextIn] = Field(..., min_length=1, max_length=50)
     calibration_dirs: list[str] = Field(default_factory=list, max_length=50)
+
+
+# Keys a client may write into ProcessingRun.choices. ``selection_summary`` is written by the server only.
+CHOICE_KEYS = ("selection", "filter")
 
 
 class RunPatch(BaseModel):
@@ -96,6 +101,31 @@ def _report(run: ProcessingRun, frames: list[CaptureFrame], lt: LibraryTarget,
                         altitude=_altitude_fn(lt, loc))
 
 
+def _options(run: ProcessingRun, frames: list[CaptureFrame], report: Report | None) -> list[SelectionOption]:
+    if report is None or not run.frame_stats:
+        return []
+    stats = FolderResult.from_store(run.folder or {}, run.frame_stats).frames if run.folder else []
+    cut = next((f.value for f in report.findings if f.id == "round_cut"), None)
+    return selection_options(stats, _modal_exptime(frames), cut, None)
+
+
+def _last_time(db: Session, run: ProcessingRun, cs: CaptureSet) -> LastChoice | None:
+    """The most recent other run on the same device whose frame choice was saved. A note only, never a default."""
+    rows = db.execute(
+        select(ProcessingRun, CaptureSet, LibraryTarget, ObservingSession)
+        .join(CaptureSet, CaptureSet.id == ProcessingRun.capture_set_id)
+        .join(LibraryTarget, LibraryTarget.id == CaptureSet.library_target_id)
+        .join(ObservingSession, ObservingSession.id == CaptureSet.session_id)
+        .where(ProcessingRun.id != run.id, func.lower(CaptureSet.device) == cs.device.casefold())
+        .order_by(ProcessingRun.updated_at.desc())).all()
+    for other, _cs, lt, sess in rows:
+        summary = (other.choices or {}).get("selection_summary")
+        if (other.choices or {}).get("selection") and isinstance(summary, dict):
+            return LastChoice(sess.local_night_date, library.display_name(lt),
+                              str(summary.get("option_label", "")), int(summary.get("kept", 0)))
+    return None
+
+
 def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
     cs = db.get(CaptureSet, run.capture_set_id)
     lt = db.get(LibraryTarget, cs.library_target_id)
@@ -114,7 +144,9 @@ def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
         "steps": [asdict(s) for s in build_steps(facts, run.step_states or {})],
         "folder": run.folder,
         "report": asdict(report) if report is not None else None,
-        "selection": [],  # filled by the selection task
+        "selection": [asdict(o) for o in _options(run, frames, report)],
+        "selection_last_time": asdict(last) if (last := _last_time(db, run, cs)) else None,
+        "choices": {k: v for k, v in (run.choices or {}).items() if k in CHOICE_KEYS},
         "comparison": run.comparison or {},
         "siril_target": SIRIL_TARGET,
     }
@@ -157,7 +189,19 @@ def patch_run(run_id: str, body: RunPatch, db: Session = Depends(get_db)) -> dic
     if body.step_states:
         run.step_states = {**(run.step_states or {}), **body.step_states}  # new dict: JSON columns aren't mutation-tracked
     if body.choices is not None:
-        run.choices = {**(run.choices or {}), **body.choices}
+        unknown = sorted(set(body.choices) - set(CHOICE_KEYS))
+        if unknown:
+            raise HTTPException(422, f"Unknown choice: {', '.join(unknown)}")
+        extra: dict[str, Any] = {}
+        if "selection" in body.choices:
+            chosen = body.choices["selection"]
+            cs = db.get(CaptureSet, run.capture_set_id)
+            offered = {o.id: o for o in _options(run, _frames(db, cs), _report(
+                run, _frames(db, cs), db.get(LibraryTarget, cs.library_target_id), None))}
+            if not isinstance(chosen, str) or chosen not in offered:
+                raise HTTPException(422, "That frame selection isn't one of the options offered for this run")
+            extra["selection_summary"] = {"option_label": offered[chosen].label, "kept": offered[chosen].kept}
+        run.choices = {**(run.choices or {}), **body.choices, **extra}
     run.updated_at = _utcnow()
     db.commit()
     return run_out(db, run)
@@ -177,6 +221,8 @@ def upload_siril_folder(run_id: str, body: SirilFolderIn, db: Session = Depends(
     except (SeqParseError, FolderError) as e:
         raise HTTPException(422, str(e)) from e
     run.folder, run.frame_stats = folder.to_store()
+    # The options (and their counts) come from this folder, so a choice made on the previous one no longer applies.
+    run.choices = {k: v for k, v in (run.choices or {}).items() if k not in ("selection", "selection_summary")}
     run.updated_at = _utcnow()
     db.commit()
     return run_out(db, run)
