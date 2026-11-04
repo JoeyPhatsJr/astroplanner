@@ -159,3 +159,13 @@ def test_time_split_counts_use_thousands_separators():
     ts = next(f for f in rep.findings if f.id == "time_split")
     assert ts.detail.startswith("Counted over the 1,015 frames with a known capture time:")
     assert "1015" not in ts.detail
+
+
+def test_selection_notes_use_thousands_separators():
+    from app.processing.selection import selection_options
+    frames = [FrameStat(n=i + 1, basename=None, utc=None, aligned=i % 6 != 0, kept=None, fwhm=2.0,
+                        wfwhm=3.0 + i / 1000, roundness=0.6 + i / 5000, background=0.01, stars=50)
+              for i in range(1015)]
+    notes = " ".join(o.note for o in selection_options(frames, 10.0, None, None))
+    assert "all 1,015 frames" in notes and "of the 845 aligned ones" in notes
+    assert "1015" not in notes

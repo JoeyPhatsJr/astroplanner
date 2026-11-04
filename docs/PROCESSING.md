@@ -358,5 +358,7 @@ without that folder. Recorded in `PROGRESS.md` with the commands.
 | `siril-cli` 1.4.5, coach script 1 (prepare) | 41 s; 1,015 converted, 851 registered |
 | `siril-cli` 1.4.5, coach script 2 (stack, "same as last time" selection) | 66 s; `STACKCNT` 654, `LIVETIME` 6540 |
 | the developer's `lights/` and `process/` before and after | fingerprints identical (the scripts write only into `process-coach/`) |
+| final review: the app's report on `process-coach/` vs `awk` on its `.seq` | 1,015 / 851 / 654 both ways |
+| final review: script 2 for `round80` / `wfwhm80` from the coach folder's own options | `STACKCNT` 813 / 681, equal to the options' kept counts; `previous` re-run restored `STACKCNT` 654; fingerprints identical |
 | `coach-measure-2` on the real Siril stack | FWHM 2.19 px, noise 0.0405 of the brightness range, gradient 0.156, residual 0.026, colour 0.999 : 1.000 : 1.001 with "equalized RGB" in the header |
 

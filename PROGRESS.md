@@ -31,13 +31,15 @@ methods and sources: `docs/PROCESSING.md`. Phase 3 was merged on 2026-11-03 (PR 
 | Variable Hunter slot label | changed | "Coming in Phase 4" became "Planned for a later phase" on the star page (the old text was no longer true; the only Phase 1-3 assertion changed) |
 | End-to-end on a synthetic night, desktop + mobile | done | `frontend/e2e/processing.spec.ts`, `backend/scripts/make_synthetic_night.py` |
 | Docs and screenshots | done | `README.md`, `docs/ARCHITECTURE.md`, `docs/PROCESSING.md`, `docs/screenshots/processing-*.png` |
+| Final whole-branch review fixes (12 findings) | done | counts-folder note (`selection_counts`, `scripts.counts_note`), one floored duration format, step-1 wording, 422 on garbled `.seq`, star-fit failure tolerated; `tests/test_processing_review_fixes.py`; report, night-vision and select screenshots re-shot |
 
 ### Commands last run (all passing, 2026-11-03)
 
 ```
-backend:  .venv/bin/python -m pytest -q          → 379 passed, 12 skipped
+backend:  .venv/bin/python -m pytest -q          → 403 passed, 12 skipped
+backend:  ASTROPLANNER_REAL_NIGHT_DIR=… pytest -q tests/test_processing_real_data.py → 5 passed (local only)
 frontend: npm run typecheck                       → ok
-frontend: npm test                                → 121 passed (12 files)
+frontend: npm test                                → 129 passed (12 files)
 frontend: npm run build                           → ok
 frontend: npx playwright test                     → 18 passed (16 earlier + 2 Processing Coach, desktop + mobile)
 ```
@@ -54,6 +56,23 @@ files (dummy coordinates, header-only FITS, Siril-style text).
 - `siril-cli` 1.4.5, coach script 2 (stack, selection "same as last time"): 66 s; `STACKCNT` 654, `LIVETIME` 6540.
   `lights/` and `process/` fingerprints were identical before and after both runs.
 - `process-coach/` now uses 39 GB and is left in place pending the developer's decision.
+- **Acceptance 2b (final review, 2026-11-03): the coach's own run read by the app.** `build_folder` / `night_report` on
+  `process-coach/` (`run_dir="process-coach"`, frame times from the `lights/` headers, the real-data test pattern):
+  1,015 captured / 851 aligned / 654 kept (8,510 s / 6,540 s), 1,015 matched, no kept-mapping error, round cut 0.743.
+  Independent count with `awk` on `process-coach/pp_light_.seq`: 1,015 `I` lines, 1,015 `R1` lines, 851 `R1` lines
+  not all-zero; `r_pp_light_.seq` 654 `I` lines; `light_conversion.txt` 1,015 mappings. Totals match.
+- **Acceptance 3 (final review): the counts step 4 shows are the counts Siril stacks.** Options from the coach folder's own
+  sequence (`selection_options`): `all` 851, `previous` (roundness ≥ 0.743) 654, `round80` 813 (resolves to ≥ 0.652917),
+  `wfwhm80` 681 (≤ 4.63952 px). An `awk`/`sort -g` re-computation of both percentage thresholds gave the same
+  thresholds and counts. Script 2 from `stack_script` for each, run with
+  `siril-cli -d "<night folder>" -s "<full path>/astroplanner-stack-<id>.ssf"` (Siril 1.4.5, exit 0, about 68 s each):
+  `round80` → Siril logged "roundness higher or equal than 0.652917 (813)", stack header `STACKCNT` 813, `LIVETIME` 8130;
+  `wfwhm80` → "below 4.639520", 681 processed, `STACKCNT` 681, `LIVETIME` 6810. Both equal the option's `kept`.
+  Then script 2 for `previous` again: `STACKCNT` 654, `LIVETIME` 6540, 654 `r_pp_light_` files (Siril removes the
+  previous run's `r_` files), so the folder is back in its validated state: `process-coach/` names and sizes, and
+  `pp_light_.seq`, `r_pp_light_.seq` and `light_.seq` byte for byte, are identical to before.
+- Fingerprint of `lights/` and `process/` (`find lights process | xargs stat -f '%N|%z|%m|%HT' | sort`, 4,722 entries)
+  before and after the three script-2 runs: `diff` empty, both SHA-256 `2750a05f…5e72ed`. Nothing new in the night folder.
 - Stack measurement (`coach-measure-2`) on the real Siril stack: FWHM 2.19 px, noise 0.0405 of the brightness range, gradient 0.156,
   residual 0.026, colour 0.999 : 1.000 : 1.001 with "equalized RGB" in the header.
 - UI check in a browser on desktop (1440 px), a 412 px Pixel 7 viewport (no horizontal overflow) and night vision, with this night's
@@ -71,10 +90,13 @@ files (dummy coordinates, header-only FITS, Siril-style text).
 - The background model follows only structure larger than 1/8 of the frame; nebula-sized structure stays in the residual.
 - A neutral colour reading still has the headline "No strong colour cast measured" (the explanation carries the equalized-RGB caveat).
 - The "choice was cleared" notice is not shown after a page reload.
+- Step 4's counts describe the folder that was read; when that is `process/`, script 2 (always `process-coach/`) may
+  keep a different number. The coach says so on step 4, on the stack step and in the script, but it cannot show
+  `process-coach/`'s counts until that folder is chosen.
 - On wide screens the night-report chart card stretches to the findings column's height, leaving empty space under the chart.
 - Not changed in Phase 4: AstroLog's own FITS previews flip every image regardless of `ROWORDER` and have no night-vision image filter (Phase 2).
 - The coach does not use dark, flat or bias frames (it says so).
-- Throwaway test files may remain under `/private/tmp/claude-501/coach-t*`.
+- Throwaway test files may remain under the system temp folder (`coach-t*`, `coach-fw*`: copies of the screenshot database).
 
 ### Phase 4 exit items
 

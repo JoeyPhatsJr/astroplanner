@@ -90,13 +90,13 @@ def selection_options(
     def seconds(fs: Sequence[FrameStat]) -> float:
         return float(sum(f.exptime_s if f.exptime_s is not None else exptime_s for f in fs))
 
-    over_all = f"Siril's percentage, counted over all {big_n} frames, so it keeps more than {{p}} % of the {n} aligned ones."
+    over_all = f"Siril's percentage, counted over all {big_n:,} frames, so it keeps more than {{p}} % of the {n:,} aligned ones."
     opts: list[SelectionOption] = []
 
     kept = aligned
     opts.append(SelectionOption(
         "all", "Keep every aligned frame", "none", None, None, len(kept), seconds(kept), "measured", False,
-        f"All {n} frames Siril aligned: the most signal, with the softest and least round stars included."))
+        f"All {n:,} frames Siril aligned: the most signal, with the softest and least round stars included."))
 
     if previous_round_cut is not None:
         # Siril keeps a frame when float32(roundness) >= the literal limit, so a frame exactly at the limit can
@@ -110,7 +110,7 @@ def selection_options(
     p = KEEP_PERCENT
     thr = round_threshold(frames, p)
     kept = [f for f in aligned if _roundness(f) > 0 and _roundness(f) >= thr]
-    note = over_all.format(p=p) if big_n != n else f"Siril's {p} % roundness filter over the {n} aligned frames."
+    note = over_all.format(p=p) if big_n != n else f"Siril's {p} % roundness filter over the {n:,} aligned frames."
     opts.append(SelectionOption(
         f"round{p}", f"Roundness filter, {p} %", "round", thr, p, len(kept), seconds(kept), "measured", True,
         f"{note} Resolves to roundness ≥ {thr:g}. The {p} % is a rule of thumb, not a Siril default."))
@@ -120,7 +120,7 @@ def selection_options(
     opts.append(SelectionOption(
         f"wfwhm{p}", f"Star-size filter (weighted FWHM), {p} %", "wfwhm", thr, p, len(kept), seconds(kept),
         "measured", True,
-        f"Siril's {p} % weighted-FWHM filter over the {n} aligned frames (smaller stars are better). Resolves to "
+        f"Siril's {p} % weighted-FWHM filter over the {n:,} aligned frames (smaller stars are better). Resolves to "
         f"weighted FWHM ≤ {thr:.2f} px. The {p} % is a rule of thumb, not a Siril default."))
 
     seen: set[tuple[str, int]] = set()
