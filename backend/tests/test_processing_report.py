@@ -508,3 +508,25 @@ def test_upload_low_altitude_cause_from_app_computation(api):
     ts = next(f for f in r.json()["report"]["findings"] if f["id"] == "time_split")
     assert re.search(r"Possible causes: the target was below 30° until 01:4\d\.$", ts["detail"])
     assert "70.0" not in json.dumps(run_row(api))
+
+
+def test_run_dir_with_newline_is_rejected_and_run_unchanged(api):
+    run_id = import_night(api)
+    before = run_row(api)
+    r = upload(api, run_id, night_files(), run_dir="process\nstack r_pp_light rej n")
+    assert r.status_code == 422, r.text
+    assert "folder" in r.json()["detail"].lower()
+    assert run_row(api) == before
+
+
+@pytest.mark.parametrize("bad", ["process\r", "pro\rcess", "-x", "a'b", "a\"b", "~x", "a\tb"])
+def test_run_dir_unsafe_names_rejected(api, bad):
+    run_id = import_night(api)
+    assert upload(api, run_id, night_files(), run_dir=bad).status_code == 422
+
+
+def test_calibration_dir_with_newline_is_dropped(api):
+    run_id = import_night(api)
+    r = upload(api, run_id, night_files(), calibration_dirs=["flats", "darks\nclose", "-bad", "ok name"])
+    assert r.status_code == 200, r.text
+    assert run_row(api)["folder"]["calibration_dirs"] == ["flats", "ok name"]

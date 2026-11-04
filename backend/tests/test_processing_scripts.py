@@ -228,3 +228,38 @@ def test_scripts_say_where_siril_cli_looks_for_the_file(i):
     s = scripts()[i]
     assert "full path after -s" in s and "looked up in the night folder, not in the terminal's current folder" in s
     assert "Preferences (Scripts)" in s and "Scripts menu" in s
+
+
+# ---- security: control characters in folder names never reach a script ------------------------------
+
+INJECTED = "stack r_pp_light rej n"
+
+
+def test_stack_script_never_writes_a_counts_dir_with_a_newline():
+    facts = Facts(bayer_pattern="GRBG", frame_count=1015, exptime_s=10.0, counts_dir=f"process\n{INJECTED}")
+    text = stack_script(ROUND80, facts)
+    assert "\r" not in text
+    for ln in text.splitlines():
+        assert ln.strip() == "" or ln.startswith("#") or ln.startswith(
+            ("requires ", "cd ", "seqapplyreg ", "stack ", "close")), ln
+        assert not ln.startswith(INJECTED) and ln != INJECTED
+    assert "These counts are from" not in text  # unknown folder: no counts note
+    assert f"# Counted in {COACH_DIR}/" in text  # the server's own folder, not the supplied name
+    assert "process\n" not in text and "process\r" not in text
+
+
+def test_stack_script_carriage_return_counts_dir_is_dropped():
+    facts = Facts(bayer_pattern=None, frame_count=10, exptime_s=10.0, counts_dir="process\rclose")
+    text = stack_script(ROUND80, facts)
+    assert "\r" not in text and "process\r" not in text and "These counts are from" not in text
+
+
+def test_normal_counts_dir_still_gives_the_counts_note():
+    facts = Facts(bayer_pattern=None, frame_count=10, exptime_s=10.0, counts_dir="process")
+    text = stack_script(ROUND80, facts)
+    assert "These counts are from process/" in text and "Counted in process/" in text
+
+
+def test_stack_script_rejects_a_bad_lights_dir():
+    with pytest.raises(ValueError):
+        stack_script(ROUND80, Facts(bayer_pattern=None, frame_count=10, exptime_s=10.0, lights_dir="a\nclose"))

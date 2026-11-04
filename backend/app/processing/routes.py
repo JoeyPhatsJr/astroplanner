@@ -29,6 +29,7 @@ from .measure import METHOD, StackMeasurement, UnmeasurableStack, measure_stack
 from .models import ProcessingRun, StepId
 from .report import AltitudeFn, FolderError, FolderResult, Report, UploadedText, build_folder, night_report
 from .rules import Facts
+from .names import is_plain_folder_name
 from .scripts import COACH_DIR, SCRIPT_NAMES, SIRIL_REQUIRES, counts_note, disk_estimate_bytes, prepare_script, stack_script
 from .selection import LastChoice, SelectionOption, selection_options
 from .seq import SeqParseError
@@ -107,7 +108,7 @@ def _facts(frames: list[CaptureFrame], report: Report | None = None,
 def _counts_dir(run: ProcessingRun | None) -> str | None:
     """The Siril folder the report and the selection counts were read from."""
     rd = ((run.folder if run else None) or {}).get("run_dir")
-    return rd if isinstance(rd, str) and rd else None
+    return rd if is_plain_folder_name(rd) else None  # a stored name that is not plain is treated as unknown
 
 
 def _selection_counts(run: ProcessingRun) -> dict[str, Any] | None:

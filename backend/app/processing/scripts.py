@@ -16,6 +16,7 @@ from __future__ import annotations
 import math
 import textwrap
 
+from .names import is_plain_folder_name
 from .rules import MIN_FRAMES_FOR_REJECTION, REJECTION, Facts, stack_rejection
 from .selection import SelectionOption
 
@@ -62,17 +63,15 @@ def format_duration(seconds: float) -> str:
 def counts_note(run_dir: str | None) -> str | None:
     """Said wherever frame counts meet script 2, when the counts were read from a folder other than ``COACH_DIR``:
     script 2 always works on ``COACH_DIR``'s own registration, which can align a different set of frames."""
-    if not run_dir or run_dir == COACH_DIR:
-        return None
+    if not run_dir or run_dir == COACH_DIR or not is_plain_folder_name(run_dir):
+        return None  # an unsafe name is treated as unknown: never written into a script comment
     return (f"These counts are from {run_dir}/. Script 2 applies the same filter to {COACH_DIR}/, whose alignment may "
             f"differ; choose the night folder again after script 1 and pick {COACH_DIR} to see its own counts.")
 
 
 def _lights_arg(name: str) -> str:
     """The lights folder as a ``cd`` argument: one plain folder name inside the night folder."""
-    bad = (not name or name != name.strip() or name in (".", "..") or any(c in name for c in "/\\~\"'\n\r\t")
-           or name.startswith("-") or not name.isprintable())
-    if bad:
+    if not is_plain_folder_name(name):
         raise ValueError(f"The lights folder must be a single folder name inside the night folder, not {name!r}.")
     return f'"{name}"' if " " in name else name
 
@@ -180,8 +179,10 @@ def _stack_lines(kept: int) -> list[str]:
 def stack_script(option: SelectionOption, facts: Facts) -> str:
     opts, what, why = _filter(option)
     k = option.kept
-    src = facts.counts_dir or COACH_DIR
-    note = counts_note(facts.counts_dir)
+    _lights_arg(facts.lights_dir)  # validates lights_dir, which the run lines name in a comment
+    counts_dir = facts.counts_dir if is_plain_folder_name(facts.counts_dir) else None  # else unknown: not written
+    src = counts_dir or COACH_DIR
+    note = counts_note(counts_dir)
     lines = [
         *_header(2, "stack", "apply your frame choice and stack."),
         *_run_lines(SCRIPT_NAMES["stack"], after_first=True, lights_dir=facts.lights_dir),

@@ -23,6 +23,7 @@ from typing import Any, Callable, Sequence
 from zoneinfo import ZoneInfo
 
 from .models import Basis
+from .names import is_plain_folder_name
 from .seq import KeptMappingError, SeqFile, SeqParseError, kept_mask, parse_conversion, parse_seq
 
 # Heuristic constants (rules of thumb, not Siril limits); each is listed in docs/PROCESSING.md.
@@ -121,11 +122,25 @@ def _name(path: str) -> str:
     return path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].strip()
 
 
+def _folder_name(path: str) -> str:
+    """The last component of a browser-supplied folder path, for use in Siril script text. Raises ``FolderError``
+    unless it is a plain folder name (see ``names.is_plain_folder_name``): line breaks and other control
+    characters are refused, not trimmed, because the name is later written into a script."""
+    last = path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].strip(" ")
+    if not is_plain_folder_name(last):
+        raise FolderError("The Siril working folder's name must be one plain folder name: no line breaks or other "
+                          "control characters, quotes, slashes or ~, and it cannot start with -.")
+    return last
+
+
 def _clean_dirs(dirs: Sequence[str]) -> list[str]:
     out: list[str] = []
     for d in dirs:
-        nm = _name(d)[:64]
-        if nm and nm not in (".", "..") and nm not in out:
+        try:
+            nm = _folder_name(d)[:64]
+        except FolderError:
+            continue  # a calibration folder with an unsafe name is simply not listed
+        if is_plain_folder_name(nm) and nm not in out:
             out.append(nm)
     return out
 
@@ -180,9 +195,10 @@ def build_folder(
     reg_name, reg = max(registered, key=lambda kv: (kv[1].nb_images, len(kv[0]), kv[0]))
     conv = _pick_conversion(conversions, reg_name)
 
-    rd = _name(run_dir if run_dir is not None else seq_dir.get(reg_name, ""))
-    if rd in ("", ".", ".."):
+    raw_rd = run_dir if run_dir is not None else seq_dir.get(reg_name, "")
+    if _name(raw_rd) in ("", ".", ".."):
         raise FolderError("The Siril working folder's name is missing.")
+    rd = _folder_name(raw_rd)
 
     kept_name = f"r_{reg_name}"
     mask: list[bool] | None = None
