@@ -170,6 +170,30 @@ def test_missing_conversion_is_an_error():
         build_folder(files, [], even_times())
 
 
+def test_unmatched_frames_are_explicit():
+    times = {k: v for k, v in even_times().items() if int(k[-6:-4]) <= 30}  # frames 1-30 imported
+    folder, rep = make_report(times=times)
+    assert folder.matched == 30
+    assert rep.totals["matched"] == 30 and rep.totals["unmatched"] == 10
+    assert rep.totals["captured"] == 40  # still counted: they may be this night's frames never imported
+    um = finding(rep, "unmatched")
+    assert um.title == "10 of this folder's 40 frames don't match this night's imported frames"
+    assert um.detail.startswith("They are counted in the totals but not in the time chart.")
+    assert um.basis == "measured" and um.heuristic is False
+    assert sum(b.captured for b in rep.bins) == 30
+
+    _, rep = make_report()
+    assert rep.totals["matched"] == 40 and rep.totals["unmatched"] == 0
+    assert finding(rep, "unmatched") is None
+
+
+def test_percent_never_rounds_to_all_or_none():
+    assert rp._pct(249, 250) == 99  # 99.6 % is not "100 %"
+    assert rp._pct(1, 250) == 1  # 0.4 % is not "0 %"
+    assert rp._pct(250, 250) == 100 and rp._pct(0, 250) == 0
+    assert rp._pct(1, 2) == 50 and rp._pct(23, 25) == 92
+
+
 def test_bins_local_labels():
     times = {basename(i): iso(START + timedelta(minutes=2 * (i - 1))) for i in range(1, 41)}  # 03:00Z..04:18Z
     _, rep = make_report(times=times)
@@ -351,6 +375,10 @@ def test_report_rules():
     align = advice_for("align", facts)
     assert [a.rule_id for a in align] == ["align.two_pass"]
     assert align[0].heuristic is True and align[0].basis == "measured" and "-2pass" in align[0].setting
+    # Explains what the coach's script already does; not presented as a choice to make.
+    assert align[0].setting.startswith("The coach's script registers in two passes")
+    assert f"median of {rep.medians['stars']:g} stars" in align[0].why
+    assert "always" in align[0].why and "nothing to change" in align[0].why.lower()
     stack = advice_for("stack", facts)
     assert stack == []  # 26 kept frames: under the 30-frame rule
 

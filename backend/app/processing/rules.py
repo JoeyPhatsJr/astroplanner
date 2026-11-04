@@ -94,11 +94,12 @@ def _two_pass(f: Facts) -> Advice:
     m = _median_stars(f)
     return Advice(
         rule_id="align.two_pass",
-        setting="Register with two passes (register ... -2pass)",
-        why=f"Siril found a median of {m:g} stars per aligned frame on this night, under the coach's rule-of-thumb "
-            f"level of {LOW_STARS}. Two-pass registration first picks a reference frame from the whole sequence, "
-            "then aligns every frame to it, so a frame with few stars is matched against a well-chosen reference. "
-            "This is a rule of thumb, not a Siril requirement.",
+        setting="The coach's script registers in two passes (register ... -2pass)",
+        why="The coach's script always registers in two passes: the first picks a reference frame from the whole "
+            "sequence, the second aligns every frame to it. It matters on this night because Siril found a median "
+            f"of {m:g} stars per aligned frame, under the coach's rule-of-thumb level of {LOW_STARS}, so each frame "
+            "has few stars to match and a well-chosen reference helps. Nothing to change: this explains what the "
+            "script already does.",
         basis="measured", heuristic=True)
 
 

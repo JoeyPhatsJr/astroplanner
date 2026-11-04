@@ -59,11 +59,15 @@ debayered 32-bit float ones, so they are only compared within one sequence.
 
 | id | when | basis / heuristic |
 | --- | --- | --- |
+| `unmatched` | some of the registration sequence's frames have no imported frame with the same basename ("N of this folder's M frames don't match this night's imported frames"). They stay in the totals (they may be this night's frames that were never imported) but not in the time chart; `totals.matched` / `totals.unmatched` give the counts | measured / no |
 | `not_aligned` | some frames have no registration data ("N frames couldn't be aligned"; the files do not say why) | measured / no |
 | `round_cut` | kept frames are known and every aligned-but-dropped frame's roundness is below every kept frame's. The value is the midpoint at 2 decimals, or at the fewest further decimals that still lies above every dropped frame and at or below every kept one, so both "the dropped frames were below v" and Siril's `>= v` comparison hold | measured / no |
 | `time_split` | kept frames are known and a half-hour boundary splits the timed frames into a part keeping at most `SPLIT_LOW` and a part keeping at least `SPLIT_HIGH` of its frames. Among such boundaries the one with the largest between-part variance `n1*n2/(n1+n2)*(p1-p2)^2` is used (earliest on ties) | measured / yes |
 | `low_stars` | median stars per aligned frame below `LOW_STARS` | measured / yes |
 | `calibration` | the night folder has dark/flat/bias folders; the coach says it does not use them yet and how they would change the steps | measured / no |
+
+**Percentages** are whole numbers rounded half up, except that a share is never shown as 100 % unless every
+frame reached the stack, nor as 0 % unless none did (99.6 % shows as 99 %, 0.4 % as 1 %).
 
 **Causes.** The only cause the report ever offers is low altitude, only in the `time_split` detail, only as text
 beginning "Possible causes:", and only when the app's own Astropy altitude (target catalogue or library
@@ -89,8 +93,9 @@ with no registered sequence are refused with their own messages.
 | `LOW_ALT_DEG` | 30 | altitude (degrees) below which low altitude is offered as a possible cause |
 | `MIN_FRAMES_FOR_REJECTION` (`rules.py`) | 30 | frames to stack (kept, else aligned) from which `stack.rejection` suggests winsorized sigma clipping 3/3 |
 
-**Advice from the report.** `align.two_pass` (basis measured, heuristic): when the median star count is below
-`LOW_STARS`, suggest `register ... -2pass`. `stack.rejection` (basis siril-docs, heuristic, source: the Siril
+**Advice from the report.** `align.two_pass` (basis measured, heuristic): the coach's script always registers in
+two passes; when the median star count is below `LOW_STARS`, this advice explains why that matters on this night
+(it is not offered as a choice, since there is nothing to change). `stack.rejection` (basis siril-docs, heuristic, source: the Siril
 command reference): with at least `MIN_FRAMES_FOR_REJECTION` frames to stack, suggest `rej w 3 3`; 3 and 3 are
 common starting limits, not tuned to the night.
 

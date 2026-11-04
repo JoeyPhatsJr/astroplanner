@@ -231,7 +231,13 @@ def _label(ts: float, tz: str | None) -> str:
 
 
 def _pct(k: int, n: int) -> int:
-    return math.floor(100 * k / n + 0.5)
+    """Whole percent, half up, but never "100" unless all and never "0" unless none."""
+    p = math.floor(100 * k / n + 0.5)
+    if k < n:
+        p = min(p, 99)
+    if k > 0:
+        p = max(p, 1)
+    return p
 
 
 def _plural(n: int, one: str, many: str) -> str:
@@ -356,7 +362,8 @@ def night_report(folder: FolderResult, exptime_s: float, tz: str | None, bin_min
 
     totals = {"captured": len(frames), "aligned": len(aligned), "kept": len(kept) if kept is not None else None,
               "captured_s": secs(frames), "aligned_s": secs(aligned),
-              "kept_s": secs(kept) if kept is not None else None}
+              "kept_s": secs(kept) if kept is not None else None,
+              "matched": folder.matched, "unmatched": len(frames) - folder.matched}
 
     def med(attr: str) -> float | None:
         vals = [getattr(f, attr) for f in aligned]
@@ -371,6 +378,16 @@ def night_report(folder: FolderResult, exptime_s: float, tz: str | None, bin_min
     bins = _bins(timed, tz, bin_minutes, kept_known)
 
     findings: list[Finding] = []
+    unmatched = totals["unmatched"]
+    if unmatched > 0:
+        verb = _plural(unmatched, "doesn't", "don't")
+        findings.append(Finding(
+            "unmatched",
+            f"{unmatched} of this folder's {len(frames)} frames {verb} match this night's imported frames",
+            f"{_plural(unmatched, 'It is', 'They are')} counted in the totals but not in the time chart. "
+            f"{_plural(unmatched, 'It may be a frame', 'They may be frames')} of this night that "
+            f"{_plural(unmatched, 'was', 'were')} never imported, or from another night; the files cannot tell which.",
+            "measured", False))
     n_un = len(frames) - len(aligned)
     if n_un:
         findings.append(Finding(
