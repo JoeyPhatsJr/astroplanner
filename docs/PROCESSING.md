@@ -1,7 +1,8 @@
 # Processing Coach: methods and sources
 
-_Skeleton created in Phase 4 Task 1 (gate G1). Later tasks add the method sections: the `.seq` reader, the night
-report, selection options, the generated scripts, stack measurement and the advice rules._
+_Phase 4 (Processing Coach). Sections below, in build order: sources (gate G1), the night report rules and
+constants, frame-selection options, the generated Siril scripts, stack measurement (`coach-measure-2`), advice from
+a measured stack, the Seestar-versus-Siril comparison, and the local validation record._
 
 AstroPlanner writes Siril scripts and reads Siril's output files. It copies no Siril source code or documentation
 text (Siril is GPL-3.0; its documentation has its own licence). Facts below are recorded in our own words in
@@ -316,3 +317,38 @@ stack the three steps show `tutorial-default` (background, colour) or `taste` (s
   "between opposite corners".
 - The 64 px minimum edge (`MIN_EDGE`) is applied to the image the 8 x 8 grid sees, i.e. after the 2 x 2 super-pixel
   of a colour-mosaic file, so a Bayer file needs at least 128 px per side.
+
+## Seestar versus Siril comparison (Phase 4 Task 11)
+
+_`routes.py` (`POST /api/processing/runs/{id}/pictures/seestar`, `POST .../stacks/{side}`, `PATCH .../runs/{id}`
+with `comparison`), `CompareStep.tsx`._ Step 10 has two views over the same two sides, with nothing ranked and no
+winner:
+
+- **Final pictures** shows the picture you made from the Seestar's own result (JPEG, PNG or TIFF; only two
+  metadata-free previews are kept) beside the target's current AstroLog final picture. It shows **no numbers**:
+  taste and editing differ between pictures. If the Seestar picture's metadata names editing software, the picture is
+  marked edited (`edited_by` records the software name); the user can set the flag by hand (`PATCH` accepts only
+  `{"seestar_picture": {"edited": true | false | null}}`). An edited picture gets no measurements.
+- **Stacks (measured)** shows the two unedited stack FITS files with the same preview stretch and the same
+  `coach-measure-2` measurements, each relative to its own image. Numbers are shown only for a stack measured with
+  the current method version; a stack stored under another version is treated as absent and the step says to add it
+  again, so figures from different methods are never put side by side. Only the Siril stack drives advice.
+
+Both sides start empty and say so ("No Seestar picture yet.", "No final picture yet.", "No measurements for this
+side yet.", "No stack yet.") with the action that fills them. The measured comparison has been run on synthetic data
+and on the developer's real Siril stack only: no Seestar stacked FITS has been supplied yet (gate G2), so the claim
+"the same method gives comparable numbers across the two devices' stacks" is untested on real Seestar output.
+
+## Local real-data validation (Phase 4 Task 12)
+
+Local checks on the developer's Bubble Nebula night (2026-09-11/12, 1,015 frames); not part of CI, not repeatable
+without that folder. Recorded in `PROGRESS.md` with the commands.
+
+| check | result |
+| --- | --- |
+| night report on the existing Siril run | 1,015 captured / 851 aligned / 654 kept; median 44 stars, FWHM 2.25 px; "Before 03:30, 51 % of frames reached the stack; from 03:30 on, 91 %"; round cut 0.743 |
+| `siril-cli` 1.4.5, coach script 1 (prepare) | 41 s; 1,015 converted, 851 registered |
+| `siril-cli` 1.4.5, coach script 2 (stack, "same as last time" selection) | 66 s; `STACKCNT` 654, `LIVETIME` 6540 |
+| the developer's `lights/` and `process/` before and after | fingerprints identical (the scripts write only into `process-coach/`) |
+| `coach-measure-2` on the real Siril stack | FWHM 2.19 px, noise 0.0405 of the brightness range, gradient 0.156, residual 0.026, colour 0.999 : 1.000 : 1.001 with "equalized RGB" in the header |
+

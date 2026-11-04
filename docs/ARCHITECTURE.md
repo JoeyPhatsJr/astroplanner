@@ -111,6 +111,44 @@ requests**. A live observation layer (VSX `api.delim` provider, observation cach
 built and removed before merge because no AAVSO terms cover a third-party app downloading and showing AID
 observations; it is preserved on the `aavso-live-layer` branch (including its migration `0005_variable_hunter`).
 
+## Processing Coach (Phase 4)
+
+Package `backend/app/processing/`; page `frontend/src/pages/ProcessingCoachPage.tsx`; methods and constants in
+[PROCESSING.md](PROCESSING.md).
+
+| Module | Role |
+|---|---|
+| `models.py` | Table `processing_runs` (migration `0005_processing_runs`): one run per capture set, with the saved night report, frame statistics, the user's choices and the comparison entries |
+| `seq.py` | Reader for Siril `.seq` and `*_conversion.txt` text (versions it knows; anything else is refused with a message) |
+| `report.py` | Night report: totals, half-hour bins in the night's IANA timezone, fixed-rule findings, optional low-altitude cause (Astropy) |
+| `selection.py` | Frame options with exact counts, following Siril's own filter rules |
+| `scripts.py` | The two generated `.ssf` scripts and their disk estimates (golden files in `tests/golden/`) |
+| `measure.py` | `coach-measure-2`: star size, noise, gradient and colour of a finished stack FITS, plus two metadata-free JPEGs |
+| `rules.py`, `steps.py` | Advice rules (each with a `basis` and a heuristic flag) and the ten-step skeleton |
+| `routes.py` | `/api/processing/runs` (create, read, patch, folder, scripts, stacks, pictures, images) |
+
+Flow:
+
+```
+browser                                              backend
+  pick night folder
+  read ONLY *.seq and *_conversion.txt (text) ──►  POST /runs/{id}/siril-folder
+                                                     match frames to the AstroLog night by basename, build report
+  report, options, advice                       ◄──  (absolute paths dropped; only basenames and the folder name kept)
+  choose frames                                 ──►  PATCH /runs/{id}  (choices.selection)
+  download scripts                              ◄──  GET  /runs/{id}/scripts/{prepare|stack}
+  add finished stack (FITS)                     ──►  POST /runs/{id}/stacks/{side}
+                                                     measure in memory; keep numbers + two small JPEGs
+```
+
+Rules specific to this phase: Siril does the measuring (the app reads its text output and never opens light frames);
+the generated scripts write only into `process-coach/` beside `lights/` and begin with `requires 1.4.5`; a measured
+stack's FITS and header values (including any site coordinates) are never stored or returned; measurements carry a
+method version and are never compared across versions; every recommendation names its basis (measured, Siril's
+documentation, tutorial default, or taste) and nothing is scored. Stacks, not raw frames, are the only image data
+that reaches the backend, and only when the user adds one; this extends the Phase 2 rule for stacks only and must be
+re-checked against hosting limits before any deployment.
+
 ## Persistence
 
 - Phase 1 tables: `observing_locations`, `equipment_profiles`, `sessions`,
@@ -118,7 +156,7 @@ observations; it is preserved on the `aavso-live-layer` branch (including its mi
   (one-time seeding flags such as the Canon profile).
 - **Migrations are Alembic** (`backend/migrations/versions/`): `0001_phase1_baseline`,
   `0002_astrolog`, `0003_library_target_coords`, `0004_capture_exif` (Canon ISO / f-number /
-  focal length per frame, lens per capture set; all nullable). The app upgrades to head at startup, and an
+  focal length per frame, lens per capture set; all nullable), `0005_processing_runs` (Phase 4). The app upgrades to head at startup, and an
   existing Phase 1 database (no version table) is stamped at the baseline first. Migrations are
   written for both SQLite and Postgres; a test runs them on Postgres when `TEST_POSTGRES_URL` is set.
   Revisions are hand-written (no autogenerate), and a test compares the ORM schema with the migrated one.

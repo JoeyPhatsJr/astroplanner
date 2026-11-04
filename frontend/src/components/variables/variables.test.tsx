@@ -156,7 +156,7 @@ describe("Star page", () => {
     expect(link).toHaveAttribute("target", "_blank");
     expect(link.getAttribute("rel")).toContain("noopener");
     expect(container.querySelector("svg.recharts-surface, canvas, [data-testid=light-curve]")).toBeNull();
-    expect(screen.getByText("Coming in Phase 4")).toBeInTheDocument();
+    expect(screen.getByText("Planned for a later phase")).toBeInTheDocument();
     expect(screen.getByText(/International Variable Star Index/)).toBeInTheDocument();
   });
 

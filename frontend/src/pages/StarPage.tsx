@@ -143,7 +143,7 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
 
       <section className="panel p-4" aria-labelledby="vh-p4">
         <h2 id="vh-p4" className="label">
-          Coming in Phase 4
+          Planned for a later phase
         </h2>
         <p className="mt-1 text-sm text-ink-2">Your own brightness measurements from your frames, plotted on the light curve with error bars.</p>
       </section>
