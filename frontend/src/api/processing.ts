@@ -40,6 +40,61 @@ export interface StepView {
   blocked: string | null;
 }
 
+export interface ReportBin {
+  start_utc: string;
+  label_local: string;
+  captured: number;
+  aligned: number;
+  kept: number | null;
+}
+
+export interface ReportFinding {
+  id: string;
+  title: string;
+  detail: string;
+  basis: Basis;
+  heuristic: boolean;
+  value?: number | null;
+}
+
+export interface ReportTotals {
+  captured: number;
+  aligned: number;
+  kept: number | null;
+  captured_s: number;
+  aligned_s: number;
+  kept_s: number | null;
+  matched: number;
+  unmatched: number;
+}
+
+export interface NightReportData {
+  totals: ReportTotals;
+  medians: Record<string, number | null>;
+  ranges: Record<string, number[] | null>;
+  bins: ReportBin[];
+  findings: ReportFinding[];
+  time_unknown: number;
+  timezone: string | null;
+  units: Record<string, string>;
+}
+
+export interface FolderInfo {
+  run_dir: string;
+  registration_seq: string;
+  kept_seq: string | null;
+  seq_version: number;
+  matched: number;
+  kept_error: string | null;
+  calibration_dirs: string[];
+}
+
+export interface SirilFolderBody {
+  run_dir: string;
+  files: { path: string; text: string }[];
+  calibration_dirs: string[];
+}
+
 export interface RunOut {
   id: string;
   capture_set_id: string;
@@ -48,7 +103,8 @@ export interface RunOut {
   frames: number;
   exptime_s: number | null;
   steps: StepView[];
-  report: unknown;
+  report: NightReportData | null;
+  folder?: FolderInfo | null;
   selection: unknown[];
   comparison: Record<string, unknown>;
   siril_target: string;
@@ -60,6 +116,8 @@ export interface RunPatch {
 }
 
 export const processingApi = {
+  uploadFolder: (id: string, body: SirilFolderBody) =>
+    request<RunOut>(`/api/processing/runs/${encodeURIComponent(id)}/siril-folder`, { method: "POST", body: JSON.stringify(body) }),
   startRun: (captureSetId: string) =>
     request<RunOut>("/api/processing/runs", { method: "POST", body: JSON.stringify({ capture_set_id: captureSetId }) }),
   run: (id: string) => request<RunOut>(`/api/processing/runs/${encodeURIComponent(id)}`),
@@ -87,6 +145,14 @@ export function usePatchRun(runId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: RunPatch) => processingApi.patchRun(runId as string, body),
+    onSuccess: (run) => qc.setQueryData(qk.processingRun(run.id), run),
+  });
+}
+
+export function useUploadFolder(runId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: SirilFolderBody) => processingApi.uploadFolder(runId as string, body),
     onSuccess: (run) => qc.setQueryData(qk.processingRun(run.id), run),
   });
 }

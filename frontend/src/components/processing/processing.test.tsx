@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Advice, RunOut, StepView } from "../../api/processing";
 import { ProcessingCoachPage } from "../../pages/ProcessingCoachPage";
+import { PrefsProvider } from "../../state/prefs";
 import { AdviceList } from "./AdviceList";
 
 const TITLES = ["Night report", "Convert & debayer", "Align", "Choose frames", "Stack", "Background", "Colour", "Stretch", "Stars & finish", "Compare"];
@@ -62,14 +63,16 @@ afterEach(() => vi.unstubAllGlobals());
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={["/astrolog/process/cs1"]}>
-        <Routes>
-          <Route path="/astrolog/process/:captureSetId" element={<ProcessingCoachPage />} />
-          <Route path="/astrolog/targets/:id" element={<p>Target page</p>} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <PrefsProvider>
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={["/astrolog/process/cs1"]}>
+          <Routes>
+            <Route path="/astrolog/process/:captureSetId" element={<ProcessingCoachPage />} />
+            <Route path="/astrolog/targets/:id" element={<p>Target page</p>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </PrefsProvider>,
   );
 }
 
@@ -160,5 +163,117 @@ describe("ProcessingCoachPage", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ detail: "The coach supports Seestar S30 FITS nights only." }), { status: 422 })));
     renderPage();
     expect(await screen.findByText("The coach supports Seestar S30 FITS nights only.")).toBeInTheDocument();
+  });
+});
+
+const mkReport = (over: Record<string, unknown> = {}) => ({
+  totals: { captured: 1015, aligned: 851, kept: 654, captured_s: 10150, aligned_s: 8510, kept_s: 6540, matched: 1015, unmatched: 0 },
+  medians: { stars: 44, fwhm: 2.25, wfwhm: 2.1, roundness: 0.8 },
+  ranges: { stars: [13, 64] },
+  bins: [
+    { start_utc: "2026-09-11T05:00:00Z", label_local: "1:00 AM", captured: 40, aligned: 30, kept: 20 },
+    { start_utc: "2026-09-11T05:30:00Z", label_local: "1:30 AM", captured: 40, aligned: 38, kept: 36 },
+  ],
+  findings: [
+    { id: "split", title: "Before 3:30 AM, about half the frames were lost", detail: "From 3:30 on, 91% made it.", basis: "measured", heuristic: true },
+  ],
+  time_unknown: 0,
+  timezone: "America/Denver",
+  units: { fwhm: "px", wfwhm: "px", background: "Siril units, relative" },
+  ...over,
+});
+
+const textFile = (rel: string, text: string) => {
+  const f = new File([text], rel.split("/").pop() as string);
+  Object.defineProperty(f, "webkitRelativePath", { value: rel });
+  Object.defineProperty(f, "text", { value: async () => text });
+  return f;
+};
+
+describe("night report step", () => {
+  it("shows totals, findings with basis and Heuristic tag, and a described chart", async () => {
+    run = { ...mkRun(), report: mkReport(), folder: { run_dir: "process", kept_error: null } } as unknown as RunOut;
+    renderPage();
+    const stats = await screen.findByRole("group", { name: "Night totals" });
+    expect(stats).toHaveTextContent("1,015");
+    expect(stats).toHaveTextContent("851");
+    expect(stats).toHaveTextContent("654");
+    expect(await screen.findByText("Before 3:30 AM, about half the frames were lost")).toBeInTheDocument();
+    expect(screen.getByText("Measured")).toBeInTheDocument();
+    expect(screen.getByText("Heuristic")).toBeInTheDocument();
+    const chart = await screen.findByRole("img", { name: /Frames per half hour/ });
+    expect(chart.getAttribute("aria-label")).toMatch(/2 time bins/);
+    expect(screen.getByRole("button", { name: "Re-read folder" })).toBeInTheDocument();
+  });
+
+  it("shows unknown kept with the reason, never 0, and surfaces the unmatched finding", async () => {
+    run = {
+      ...mkRun(),
+      report: mkReport({
+        totals: { captured: 10, aligned: 8, kept: null, captured_s: 100, aligned_s: 80, kept_s: null, matched: 7, unmatched: 3 },
+        findings: [{ id: "unmatched", title: "3 of this folder's 10 frames don't match this night's imported frames", detail: "d", basis: "measured", heuristic: false }],
+      }),
+      folder: { run_dir: "process", kept_error: "Couldn't tell which frames were kept: no r_ file." },
+    } as unknown as RunOut;
+    renderPage();
+    const stats = await screen.findByRole("group", { name: "Night totals" });
+    expect(within(stats).getByText("unknown")).toBeInTheDocument();
+    expect(await screen.findByText(/no r_ file/)).toBeInTheDocument();
+    expect(screen.getByText(/3 of this folder's 10 frames/)).toBeInTheDocument();
+  });
+
+  it("uploads a picked folder and asks which run when there are two", async () => {
+    const bodies: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (String(url).endsWith("/siril-folder")) {
+          bodies.push(JSON.parse(String(init?.body)));
+          run = { ...run, report: mkReport() as unknown as RunOut["report"] };
+        }
+        return new Response(JSON.stringify(run), { status: 200 });
+      }),
+    );
+    renderPage();
+    const input = await screen.findByLabelText("Choose the night folder (the one containing lights/)");
+    fireEvent.change(input, {
+      target: {
+        files: [
+          textFile("Night/process/light_.seq", "A"),
+          textFile("Night/process/light_conversion.txt", "B"),
+          textFile("Night/process-coach/light_.seq", "C"),
+          textFile("Night/flats/f.fit", "x"),
+        ],
+      },
+    });
+    const group = await screen.findByRole("radiogroup", { name: /Which Siril folder/ });
+    expect(bodies).toHaveLength(0);
+    fireEvent.click(within(group).getByRole("radio", { name: /process-coach/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Read this folder" }));
+    await screen.findByRole("group", { name: "Night totals" });
+    expect(bodies[0]).toEqual({ run_dir: "process-coach", files: [{ path: "process-coach/light_.seq", text: "C" }], calibration_dirs: ["flats"] });
+  });
+
+  it("shows the server's 422 message in an alert", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        String(url).endsWith("/siril-folder")
+          ? new Response(JSON.stringify({ detail: "This folder has no light_conversion.txt." }), { status: 422 })
+          : new Response(JSON.stringify(run), { status: 200 }),
+      ),
+    );
+    renderPage();
+    const input = await screen.findByLabelText("Choose the night folder (the one containing lights/)");
+    fireEvent.change(input, { target: { files: [textFile("Night/process/light_.seq", "A")] } });
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("This folder has no light_conversion.txt.");
+  });
+
+  it("explains when the folder has no Siril sequence", async () => {
+    renderPage();
+    const input = await screen.findByLabelText("Choose the night folder (the one containing lights/)");
+    fireEvent.change(input, { target: { files: [textFile("Night/lights/a.fit", "x")] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(/no Siril/i);
   });
 });

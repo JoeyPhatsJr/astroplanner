@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { usePatchRun, useRun, useStartRun, type RunOut } from "../api/processing";
 import { CoachRail } from "../components/processing/CoachRail";
+import { FolderPicker } from "../components/processing/FolderPicker";
+import { NightReport } from "../components/processing/NightReport";
 import { StepPanel } from "../components/processing/StepPanel";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate } from "../lib/time";
@@ -86,6 +88,14 @@ function Coach({ run, loadError }: { run: RunOut; loadError: unknown }) {
         <StepPanel
           step={step}
           total={run.steps.length}
+          body={
+            step.id === "report" ? (
+              <div className="flex flex-col gap-4">
+                {run.report && <NightReport report={run.report} folder={run.folder} />}
+                <FolderPicker runId={run.id} hasReport={!!run.report} />
+              </div>
+            ) : undefined
+          }
           actions={
             <>
               <button type="button" className="btn" disabled={idx === 0} onClick={() => setCurrentId(run.steps[idx - 1].id)}>
