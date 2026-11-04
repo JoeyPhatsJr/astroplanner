@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import math
+import uuid
 from collections import Counter
 from dataclasses import asdict
+from pathlib import PurePosixPath
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import PlainTextResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -15,10 +18,12 @@ from sqlalchemy.orm import Session
 
 from app import astronomy, targets
 from app.api import get_db
-from app.astrolog import library
+from app.astrolog import library, previews
+from app.astrolog.routes import _read_limited
 from app.astrolog.models import CaptureFrame, CaptureSet, LibraryTarget
 from app.db import ObservingLocation, ObservingSession, _utcnow
 
+from .measure import METHOD, StackMeasurement, UnmeasurableStack, measure_stack
 from .models import ProcessingRun, StepId
 from .report import AltitudeFn, FolderError, FolderResult, Report, UploadedText, build_folder, night_report
 from .rules import Facts
@@ -65,8 +70,24 @@ def _frames(db: Session, cs: CaptureSet) -> list[CaptureFrame]:
     return list(db.scalars(select(CaptureFrame).where(CaptureFrame.capture_set_id == cs.id)))
 
 
+STACK_SIDES = ("siril", "seestar")
+
+
+def _stack_of(run: ProcessingRun | None, side: str) -> StackMeasurement | None:
+    """The stored measurement for ``side``, or None when absent or made by another method (never compared)."""
+    entry = ((run.comparison if run else None) or {}).get(side + "_stack")
+    d = entry.get("measurement") if isinstance(entry, dict) else None
+    if not isinstance(d, dict) or d.get("method") != METHOD:
+        return None
+    try:
+        ratio = d.get("bg_rgb_ratio")
+        return StackMeasurement(**{**d, "bg_rgb_ratio": tuple(ratio) if ratio is not None else None})
+    except TypeError:
+        return None
+
+
 def _facts(frames: list[CaptureFrame], report: Report | None = None,
-           chosen: SelectionOption | None = None) -> Facts:
+           chosen: SelectionOption | None = None, run: ProcessingRun | None = None) -> Facts:
     patterns = {f.bayer_pattern for f in frames}
     exptimes = {float(f.exptime_s) for f in frames}
     return Facts(
@@ -74,6 +95,8 @@ def _facts(frames: list[CaptureFrame], report: Report | None = None,
         frame_count=len(frames),
         exptime_s=next(iter(exptimes)) if len(exptimes) == 1 else None,
         report=report,
+        siril_stack=_stack_of(run, "siril"),
+        seestar_stack=_stack_of(run, "seestar"),
         selection_kept=chosen.kept if chosen else None)
 
 
@@ -154,7 +177,7 @@ def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
     report = _report(run, frames, lt, loc)
     options = _options(run, frames, report)
     chosen = _chosen(run, options)
-    facts = _facts(frames, report, chosen)
+    facts = _facts(frames, report, chosen, run)
     return {
         "id": run.id,
         "capture_set_id": run.capture_set_id,
@@ -274,3 +297,72 @@ def get_script(run_id: str, which: str, db: Session = Depends(get_db)) -> PlainT
         text = stack_script(chosen, facts)
     return PlainTextResponse(text, media_type="text/plain; charset=utf-8", headers={
         "Content-Disposition": f'attachment; filename="{SCRIPT_NAMES[which]}"'})
+
+
+def _finite(m: StackMeasurement) -> bool:
+    vals = [v for k, v in asdict(m).items() if isinstance(v, float)]
+    ratio = m.bg_rgb_ratio or ()
+    return all(math.isfinite(v) for v in [*vals, *ratio])
+
+
+@router.post("/runs/{run_id}/stacks/{side}")
+async def upload_stack(run_id: str, side: str, request: Request, file: UploadFile = File(...),
+                       db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Measure one finished stack (``siril`` or ``seestar``) in memory. The FITS is not stored: only its numbers
+    and two metadata-free JPEGs are. Uploading again replaces the previous stack for that side."""
+    if side not in STACK_SIDES:
+        raise HTTPException(404, "No such stack")
+    run = _get_run(db, run_id)
+    limit: int = request.app.state.max_upload_bytes
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > limit + 64 * 1024:
+        raise HTTPException(413, f"File is too large; the limit is {limit // (1024 * 1024)} MB.")
+    name = PurePosixPath((file.filename or "").replace("\\", "/")).name[:512]
+    if "." + previews.format_of(name) not in previews.FITS_EXT:
+        raise HTTPException(422, "Stacks must be FITS files")
+    data = await _read_limited(file, limit)
+    try:
+        m, preview, thumb = measure_stack(data, name)
+    except previews.ImageTooLarge as exc:
+        raise HTTPException(413, str(exc)) from exc
+    except (previews.UnsupportedImage, UnmeasurableStack) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if not _finite(m):
+        raise HTTPException(422, "The stack could not be measured: a measurement was not a finite number.")
+    storage = request.app.state.storage
+    token = uuid.uuid4().hex[:12]
+    keys = {"preview_key": f"processing/{run.id}/{side}-{token}-preview.jpg",
+            "thumb_key": f"processing/{run.id}/{side}-{token}-thumb.jpg"}
+    old = (run.comparison or {}).get(side + "_stack") or {}
+    try:
+        storage.put(keys["preview_key"], preview, "image/jpeg")
+        storage.put(keys["thumb_key"], thumb, "image/jpeg")
+        run.comparison = {**(run.comparison or {}), side + "_stack": {
+            "measurement": asdict(m), **keys, "source_filename": name}}  # new dict: JSON columns aren't tracked
+        run.updated_at = _utcnow()
+        db.commit()
+    except Exception:
+        db.rollback()
+        for k in keys.values():
+            storage.delete(k)
+        raise
+    for k in ("preview_key", "thumb_key"):
+        if old.get(k):
+            storage.delete(old[k])
+    return run_out(db, run)
+
+
+@router.get("/runs/{run_id}/images/{key:path}")
+def get_stack_image(run_id: str, key: str, request: Request, db: Session = Depends(get_db)) -> Response:
+    """A stored stack preview or thumbnail; only keys this run's comparison lists are served."""
+    run = _get_run(db, run_id)
+    listed = {e.get(k) for e in (run.comparison or {}).values() if isinstance(e, dict)
+              for k in ("preview_key", "thumb_key")}
+    if key not in listed:
+        raise HTTPException(404, "Image not found")
+    try:
+        body = request.app.state.storage.get(key)
+    except KeyError:
+        raise HTTPException(404, "Image file is missing") from None
+    return Response(body, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=3600",
+                                                            "X-Content-Type-Options": "nosniff"})

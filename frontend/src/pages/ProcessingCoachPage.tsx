@@ -1,12 +1,13 @@
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { usePatchRun, useRun, useStartRun, type RunOut } from "../api/processing";
+import { usePatchRun, useRun, useStartRun, type RunOut, type StackEntry } from "../api/processing";
 import { CoachRail } from "../components/processing/CoachRail";
 import { FolderPicker } from "../components/processing/FolderPicker";
 import { NightReport } from "../components/processing/NightReport";
 import { ScriptBlock } from "../components/processing/ScriptButton";
 import { SelectionStep } from "../components/processing/SelectionStep";
+import { StackUpload } from "../components/processing/StackUpload";
 import { StepPanel } from "../components/processing/StepPanel";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate } from "../lib/time";
@@ -136,6 +137,8 @@ function Coach({ run, loadError }: { run: RunOut; loadError: unknown }) {
                   patch.mutate({ choices: { selection: id } });
                 }}
               />
+            ) : step.id === "background" || step.id === "colour" || step.id === "stretch" ? (
+              <StackUpload runId={run.id} entry={(run.comparison.siril_stack as StackEntry | undefined) ?? null} />
             ) : undefined
           }
           actions={

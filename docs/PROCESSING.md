@@ -277,3 +277,24 @@ Each stack measures in about 0.9-1.5 s.
   (within 0.6 px of the truth in the test).
 - **Saturation uses the maximum.** The saturation rule compares against the maximum, so one hot pixel brighter
   than every star lets saturated stars through.
+
+## Advice from a measured stack (Phase 4 Task 10)
+
+_`rules.py` (background, colour and stretch rules), `routes.py` (`POST /api/processing/runs/{id}/stacks/{side}`,
+`side` = `siril` or `seestar`; `GET .../images/{key}`)._ The developer adds their Siril stack; the backend measures
+it with `coach-measure-2` (above) in memory and stores only the numbers and two metadata-free JPEGs (preview,
+thumbnail) under `comparison["<side>_stack"]`; the FITS itself and its header values (including any site
+coordinates) are never stored or returned. Re-uploading replaces the stack and deletes its old JPEGs. Only FITS
+(`.fit/.fits/.fts`) is accepted ("Stacks must be FITS files", 422); images under 64 px (`MIN_EDGE`) on either side
+and any non-finite measurement are 422; the size limit is the AstroLog upload limit. Only the **Siril** stack
+drives advice; the Seestar stack is kept for the compare step.
+
+| rule (`basis`, all heuristic) | constant | meaning |
+| --- | --- | --- |
+| `background.degree` (`measured`) | `RESIDUAL_FOR_DEGREE2 = 0.01` | degree 1 (`subsky 1`) when `gradient_residual_frac` is under 1 % of the brightness range, else degree 2. The text quotes `gradient_frac` and `gradient_residual_frac` as percents of the image's brightness range |
+| `colour.cast` (`measured`) | `COLOUR_CAST_RATIO = 1.05` | when the strongest of `bg_rgb_ratio` exceeds 1.05 the advice names that channel and says colour calibration (`pcc`/`spcc`) corrects it, and that both need plate solving. Otherwise it reports no strong cast (and says that neutral background is not the same as right star colours). A mono stack has no ratio and gets the tutorial default |
+| `stretch.start` (`taste`) | none | start from `autostretch`; with a stack the text also quotes `noise_frac` as a percent of the brightness range. No number is chosen for the stretch |
+
+Both constants are rules of thumb chosen by the coach, not Siril values; nothing derives them. Without a Siril
+stack the three steps show `tutorial-default` (background, colour) or `taste` (stretch) advice and the prompt
+"Add your Siril stack to get advice for this night". There is no score and no winner.

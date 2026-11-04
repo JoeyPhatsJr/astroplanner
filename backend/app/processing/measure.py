@@ -44,6 +44,8 @@ from app.astrolog.previews import (
 
 METHOD = "coach-measure-2"  # -1 took the noise MAD over raw background pixels; gradients inflated it
 
+MIN_EDGE = 64                # stacks smaller than this on either side are refused: the 8 x 8 tile grid degenerates
+
 # The only header keys read; widening this list is a deliberate, reviewed change (a test pins it).
 HEADER_KEYS = ("STACKCNT", "LIVETIME", "EXPTIME", "PROGRAM", "BAYERPAT", "ROWORDER")
 
@@ -338,6 +340,9 @@ def measure_stack(data: bytes, filename: str, max_pixels: int = MAX_PIXELS
     bottom_up = roworder is not None and roworder.upper() == "BOTTOM-UP"
     img = _to_hwc(raw, fits_order=False).astype(np.float32)  # stored order; flipped below if declared
     height, width, channels = img.shape
+    if min(height, width) < MIN_EDGE:
+        raise UnmeasurableStack(f"The image is {width} x {height} px; the coach needs at least {MIN_EDGE} px on "
+                                "each side to measure a stack.")
     pattern = _str(facts["BAYERPAT"])
     bayer = pattern.upper() if pattern and pattern.upper() in BAYER_PATTERNS else None
 

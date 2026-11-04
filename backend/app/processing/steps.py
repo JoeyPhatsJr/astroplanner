@@ -93,6 +93,7 @@ class StepView:
     expect: str | None = None
     state: Literal["todo", "done"] = "todo"
     blocked: str | None = None
+    prompt: str | None = None  # an invitation to add a file for measured advice; the step still works without it
 
 
 def _blocked(step: str, facts: Facts) -> str | None:
@@ -106,6 +107,14 @@ def _blocked(step: str, facts: Facts) -> str | None:
     return None
 
 
+STACK_PROMPT = "Add your Siril stack to get advice for this night"
+_NEEDS_SIRIL_STACK = ("background", "colour", "stretch")
+
+
+def _prompt(step: str, facts: Facts) -> str | None:
+    return STACK_PROMPT if step in _NEEDS_SIRIL_STACK and facts.siril_stack is None else None
+
+
 def build_steps(facts: Facts, step_states: dict[str, str]) -> list[StepView]:
     out: list[StepView] = []
     for n, sid in enumerate(STEP_ORDER, start=1):
@@ -113,5 +122,5 @@ def build_steps(facts: Facts, step_states: dict[str, str]) -> list[StepView]:
         out.append(StepView(
             id=sid, n=n, title=STEP_TITLES[sid], does=does, advice=advice_for(sid, facts), gui=gui,
             command=command, expect=expect, state="done" if step_states.get(sid) == "done" else "todo",
-            blocked=_blocked(sid, facts)))
+            blocked=_blocked(sid, facts), prompt=_prompt(sid, facts)))
     return out

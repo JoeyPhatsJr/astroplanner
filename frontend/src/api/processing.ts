@@ -38,6 +38,16 @@ export interface StepView {
   expect: string | null;
   state: "todo" | "done";
   blocked: string | null;
+  prompt?: string | null; // an invitation to add a file for measured advice (steps 6-8 without a Siril stack)
+}
+
+export type StackSide = "siril" | "seestar";
+
+export interface StackEntry {
+  measurement: { width: number; height: number; stack_count: number | null; method: string };
+  preview_key: string;
+  thumb_key: string;
+  source_filename: string;
 }
 
 export interface ReportBin {
@@ -149,6 +159,11 @@ export interface RunPatch {
 }
 
 export const processingApi = {
+  uploadStack: (id: string, side: StackSide, file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    return request<RunOut>(`/api/processing/runs/${encodeURIComponent(id)}/stacks/${side}`, { method: "POST", body: fd });
+  },
   uploadFolder: (id: string, body: SirilFolderBody) =>
     request<RunOut>(`/api/processing/runs/${encodeURIComponent(id)}/siril-folder`, { method: "POST", body: JSON.stringify(body) }),
   startRun: (captureSetId: string) =>
@@ -186,6 +201,14 @@ export function useUploadFolder(runId: string | undefined) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: SirilFolderBody) => processingApi.uploadFolder(runId as string, body),
+    onSuccess: (run) => qc.setQueryData(qk.processingRun(run.id), run),
+  });
+}
+
+export function useUploadStack(runId: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { side: StackSide; file: File }) => processingApi.uploadStack(runId as string, v.side, v.file),
     onSuccess: (run) => qc.setQueryData(qk.processingRun(run.id), run),
   });
 }
