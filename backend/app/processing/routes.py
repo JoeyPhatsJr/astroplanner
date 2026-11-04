@@ -222,7 +222,9 @@ def upload_siril_folder(run_id: str, body: SirilFolderIn, db: Session = Depends(
         raise HTTPException(422, str(e)) from e
     run.folder, run.frame_stats = folder.to_store()
     # The options (and their counts) come from this folder, so a choice made on the previous one no longer applies.
+    had_selection = bool((run.choices or {}).get("selection"))
     run.choices = {k: v for k, v in (run.choices or {}).items() if k not in ("selection", "selection_summary")}
     run.updated_at = _utcnow()
     db.commit()
-    return run_out(db, run)
+    # Only this response says so, so the UI can tell the user their frame choice was dropped.
+    return {**run_out(db, run), "selection_cleared": had_selection}

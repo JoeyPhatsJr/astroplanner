@@ -15,12 +15,14 @@ export function SelectionStep({
   lastTime,
   chosen,
   pending,
+  cleared = false,
   onChoose,
 }: {
   options: SelectionOption[];
   lastTime: LastChoice | null;
   chosen: string | null;
   pending: boolean;
+  cleared?: boolean;
   onChoose: (id: string) => void;
 }) {
   if (options.length === 0)
@@ -31,6 +33,11 @@ export function SelectionStep({
     );
   return (
     <div className="flex flex-col gap-3">
+      {cleared && (
+        <p role="status" className="rounded-lg border border-warn/40 bg-warn/5 px-3.5 py-2.5 text-sm text-ink-2">
+          Your frame choice was cleared because the Siril folder was re-read; the counts may have changed. Choose again.
+        </p>
+      )}
       {lastTime && (
         <p className="text-sm text-ink-2">
           Last time ({formatCalendarDate(lastTime.night_date)}, {lastTime.target_name}) you chose &ldquo;{lastTime.option_label}&rdquo; and kept{" "}

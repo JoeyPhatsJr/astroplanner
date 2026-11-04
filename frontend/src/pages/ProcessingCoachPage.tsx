@@ -10,6 +10,8 @@ import { StepPanel } from "../components/processing/StepPanel";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate } from "../lib/time";
 
+const CLEARED_TEXT = "Your frame choice was cleared because the Siril folder was re-read; the counts may have changed. Choose again in step 4.";
+
 export function ProcessingCoachPage() {
   const { captureSetId } = useParams();
   const start = useStartRun();
@@ -53,6 +55,7 @@ export function ProcessingCoachPage() {
 function Coach({ run, loadError }: { run: RunOut; loadError: unknown }) {
   const patch = usePatchRun(run.id);
   const navigate = useNavigate();
+  const [cleared, setCleared] = useState(false);
   const [currentId, setCurrentId] = useState<string>(() => (run.steps.find((s) => s.state !== "done") ?? run.steps[0]).id);
   const idx = Math.max(0, run.steps.findIndex((s) => s.id === currentId));
   const step = run.steps[idx];
@@ -93,15 +96,20 @@ function Coach({ run, loadError }: { run: RunOut; loadError: unknown }) {
             step.id === "report" ? (
               <div className="flex flex-col gap-4">
                 {run.report && <NightReport report={run.report} folder={run.folder} />}
-                <FolderPicker runId={run.id} hasReport={!!run.report} />
+                {cleared && <Notice tone="warn">{CLEARED_TEXT}</Notice>}
+                <FolderPicker runId={run.id} hasReport={!!run.report} onSelectionCleared={() => setCleared(true)} />
               </div>
             ) : step.id === "select" && !step.blocked ? (
               <SelectionStep
+                cleared={cleared}
                 options={run.selection}
                 lastTime={run.selection_last_time ?? null}
                 chosen={run.choices?.selection ?? null}
                 pending={patch.isPending}
-                onChoose={(id) => patch.mutate({ choices: { selection: id } })}
+                onChoose={(id) => {
+                  setCleared(false);
+                  patch.mutate({ choices: { selection: id } });
+                }}
               />
             ) : undefined
           }

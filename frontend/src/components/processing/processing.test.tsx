@@ -334,6 +334,31 @@ describe("choose frames step", () => {
     await waitFor(() => expect((screen.getByRole("radio", { name: /Same as your last run: roundness/ }) as HTMLInputElement).checked).toBe(true));
   });
 
+  it("tells the user when re-reading the folder cleared their saved choice", async () => {
+    run = { ...mkRun(), report: mkReport() as unknown as RunOut["report"], selection: OPTIONS, choices: { selection: "all" } } as RunOut;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (String(url).endsWith("/siril-folder")) {
+          run = { ...run, choices: {} };
+          return new Response(JSON.stringify({ ...run, selection_cleared: true }), { status: 200 });
+        }
+        return new Response(JSON.stringify(run), { status: 200 });
+      }),
+    );
+    renderPage();
+    fireEvent.change(await screen.findByLabelText("Choose the night folder (the one containing lights/)"), {
+      target: { files: [textFile("Night/process/light_.seq", "A"), textFile("Night/process/light_conversion.txt", "B")] },
+    });
+    expect(await screen.findByText(/Your frame choice was cleared because the Siril folder was re-read/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Choose frames/ }));
+    await screen.findByText("Step 4 of 10");
+    expect(screen.getByRole("status")).toHaveTextContent(/Choose again/);
+    expect(screen.getAllByRole("radio").every((r) => !(r as HTMLInputElement).checked)).toBe(true);
+    fireEvent.click(screen.getByRole("radio", { name: /Keep every aligned frame/ }));
+    await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+  });
+
   it("explains when there are no options yet", async () => {
     run = mkRun({ select: { blocked: null } });
     await gotoSelect();

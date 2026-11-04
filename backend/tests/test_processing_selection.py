@@ -112,7 +112,9 @@ def test_run_offers_options_and_patch_validates(api):  # noqa: F811
     assert r.status_code == 200 and r.json()["choices"]["selection"] == "previous"
     # re-reading the folder changes the counts, so an old choice is cleared rather than kept silently
     again = upload(api, run_id, night_files()).json()
-    assert again["choices"] == {}
+    assert again["choices"] == {} and again["selection_cleared"] is True
+    assert "selection_cleared" not in api.get(f"{RUNS}/{run_id}").json()
+    assert upload(api, run_id, night_files()).json()["selection_cleared"] is False
 
 
 def test_selection_rejected_without_a_report(api):  # noqa: F811

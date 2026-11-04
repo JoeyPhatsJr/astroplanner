@@ -5,7 +5,7 @@ import { readNightFolder, type FolderRun, type NightFolder } from "../../lib/nig
 
 const LABEL = "Choose the night folder (the one containing lights/)";
 
-export function FolderPicker({ runId, hasReport }: { runId: string; hasReport: boolean }) {
+export function FolderPicker({ runId, hasReport, onSelectionCleared }: { runId: string; hasReport: boolean; onSelectionCleared?: () => void }) {
   const upload = useUploadFolder(runId);
   const inputRef = useRef<HTMLInputElement>(null);
   const [reading, setReading] = useState(false);
@@ -18,7 +18,12 @@ export function FolderPicker({ runId, hasReport }: { runId: string; hasReport: b
     setProblem(null);
     upload.mutate(
       { run_dir: run.runDir, files: run.files, calibration_dirs: calibrationDirs },
-      { onSuccess: () => setPending(null) },
+      {
+        onSuccess: (run) => {
+          setPending(null);
+          if (run.selection_cleared) onSelectionCleared?.();
+        },
+      },
     );
   };
 

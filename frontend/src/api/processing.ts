@@ -128,6 +128,7 @@ export interface RunOut {
   selection: SelectionOption[];
   selection_last_time?: LastChoice | null;
   choices?: { selection?: string; filter?: string };
+  selection_cleared?: boolean; // only on a folder-upload response
   comparison: Record<string, unknown>;
   siril_target: string;
 }
