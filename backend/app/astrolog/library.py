@@ -254,7 +254,7 @@ def target_page(db: Session, lt: LibraryTarget) -> dict[str, Any]:
         if s is None:
             continue
         times = sorted((f.date_obs_utc for f in fs), key=_utc_key)
-        nights.append({"session_id": cs.session_id, "night_date": s.local_night_date, "device": cs.device,
+        nights.append({"capture_set_id": cs.id, "session_id": cs.session_id, "night_date": s.local_night_date, "device": cs.device,
                        "frames": len(fs), "captured_s": float(sum(f.exptime_s for f in fs)),
                        "first_utc": times[0], "last_utc": times[-1],
                        "exptimes_s": _distinct([float(f.exptime_s) for f in fs]),
@@ -371,6 +371,10 @@ def link_to_variable(db: Session, lt: LibraryTarget, star_id: str) -> LibraryTar
     return lt
 
 
+class MergeConflictError(Exception):
+    """Merging would leave one capture set with two processing runs; the caller maps this to HTTP 409."""
+
+
 def _move_records(db: Session, src: LibraryTarget, dest: LibraryTarget) -> LibraryTarget:
     """Move everything of ``src`` onto ``dest``, then delete ``src``.
 
@@ -380,6 +384,8 @@ def _move_records(db: Session, src: LibraryTarget, dest: LibraryTarget) -> Libra
     Nothing is summed or recomputed here: totals are always derived from the frames."""
     from sqlalchemy import update
 
+    from app.processing.models import ProcessingRun
+
     for cs in list(db.scalars(select(CaptureSet).where(CaptureSet.library_target_id == src.id))):
         existing = db.scalars(select(CaptureSet).where(
             CaptureSet.session_id == cs.session_id, CaptureSet.library_target_id == dest.id,
@@ -387,6 +393,15 @@ def _move_records(db: Session, src: LibraryTarget, dest: LibraryTarget) -> Libra
         if existing is None:
             cs.library_target_id = dest.id
         else:
+            # A processing run belongs to one capture set. Moving the frames must not orphan or
+            # duplicate a run: re-point the merged-away set's run, or refuse if both sets have one.
+            src_run = db.scalars(select(ProcessingRun).where(ProcessingRun.capture_set_id == cs.id)).first()
+            if src_run is not None:
+                if db.scalars(select(ProcessingRun).where(ProcessingRun.capture_set_id == existing.id)).first():
+                    raise MergeConflictError(
+                        "Both of these nights already have a processing coach run, so they can't be merged without losing one of them.")
+                src_run.capture_set_id = existing.id
+                db.flush()
             db.execute(update(CaptureFrame).where(CaptureFrame.capture_set_id == cs.id)
                        .values(capture_set_id=existing.id))
             existing.lens = existing.lens or cs.lens

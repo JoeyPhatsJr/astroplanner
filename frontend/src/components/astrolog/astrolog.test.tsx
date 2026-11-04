@@ -162,7 +162,7 @@ describe("TargetLogPage", () => {
 
   it("shows each night's local start → end and per-frame exposure", () => {
     mocks.target = page({
-      nights: [{ session_id: "s1", night_date: "2026-09-11", device: "Seestar S30", frames: 1015, captured_s: 10150,
+      nights: [{ capture_set_id: "cs1", session_id: "s1", night_date: "2026-09-11", device: "Seestar S30", frames: 1015, captured_s: 10150,
         first_utc: "2026-09-12T03:11:24.634Z", last_utc: "2026-09-12T09:43:55.2Z", exptimes_s: [10], timezone: "America/New_York", planned: false }],
     });
     renderTarget();

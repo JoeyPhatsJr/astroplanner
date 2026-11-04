@@ -13,3 +13,5 @@ ExifRead==3.5.1
 tifffile==2026.3.3
 pillow==13.0.0
 python-multipart==0.0.33
+photutils==3.0.0
+scipy==1.17.1

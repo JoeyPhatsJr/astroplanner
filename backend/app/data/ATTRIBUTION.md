@@ -42,3 +42,10 @@ only, provided the materials are not modified and copyright notices are retained
 another server requires AAVSO permission. This app is local and single-user; a public deployment
 would need AAVSO's permission first. The build script sends one request per star, at least 2 s
 apart, with an identifying user agent. To regenerate: `python scripts/build_variables.py`.
+
+## photutils (Phase 4, stack measurement)
+
+photutils (https://photutils.readthedocs.io/, version pinned in `backend/requirements.txt`) is used to measure
+star FWHM in uploaded stacked images, in memory only. License: BSD-3-Clause (from the package metadata). It
+depends on SciPy, also pinned. Siril itself is GPL-3.0 and is not bundled or linked; the app only writes Siril
+scripts and reads Siril's output text files.

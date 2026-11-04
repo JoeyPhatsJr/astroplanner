@@ -44,6 +44,7 @@ class FitsInfo:
     creator: str | None = None
     ra_deg: float | None = None  # the object's RA/DEC, not the site
     dec_deg: float | None = None
+    bayer_pattern: str | None = None  # BAYERPAT, only a plain 4-letter R/G/B pattern
 
 
 def _in_range(v: float | None, lo: float, hi: float) -> float | None:
@@ -73,6 +74,11 @@ def _s(v: Any) -> str | None:
         return None
     s = str(v).strip()
     return s or None
+
+
+def _bayer(v: Any) -> str | None:
+    s = _s(v)
+    return s if s is not None and re.fullmatch(r"[RGB]{4}", s) else None
 
 
 def _parse_date(v: Any) -> datetime | None:
@@ -137,6 +143,7 @@ def parse_fits_header(data: bytes) -> FitsInfo:
         creator=_s(h.get("CREATOR")),
         ra_deg=_in_range(_f(h.get("RA")), 0.0, 360.0),
         dec_deg=_in_range(_f(h.get("DEC")), -90.0, 90.0),
+        bayer_pattern=_bayer(h.get("BAYERPAT")),
     )
 
 

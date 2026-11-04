@@ -110,6 +110,10 @@
 }
 
 @layer components {
+  /* Pictures in night vision: monochrome dim red, like everything else (matches the approved mockups). */
+  :root[data-vision="night"] .vision-img {
+    filter: grayscale(1) sepia(1) saturate(5) hue-rotate(-50deg) brightness(0.55);
+  }
   .panel {
     background: var(--color-panel);
     border: 1px solid var(--color-line-soft);

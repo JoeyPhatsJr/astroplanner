@@ -323,6 +323,7 @@ class Frame:
     f_number: float | None = None
     focal_mm: float | None = None
     lens: str | None = None
+    bayer_pattern: str | None = None  # FITS BAYERPAT (validated at parse time)
 
 
 def group_key(night: date | None, device: str, library_key: str) -> str:
@@ -410,7 +411,7 @@ def _frame(p: Parsed, tz: str | None, clock_offset_minutes: int) -> Frame:
         f = p.fits
         return Frame(p, fits_device(f), resolve_target(f.object), f.date_obs_utc,
                      night_date_for(f.date_obs_utc, tz) if tz else None, float(f.exptime_s), f.filter, f.gain,
-                     f.ccd_temp_c, frame_dedup_key(f, p.filename))
+                     f.ccd_temp_c, frame_dedup_key(f, p.filename), bayer_pattern=f.bayer_pattern)
     e = p.exif
     local = e.captured_local + timedelta(minutes=clock_offset_minutes)
     utc = local.replace(tzinfo=ZoneInfo(tz)).astimezone(timezone.utc) if tz else None
@@ -693,7 +694,7 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
             known.add(f.dedup_key)
             db.add(CaptureFrame(capture_set_id=cs.id, date_obs_utc=iso_z(f.utc), exptime_s=f.exptime_s,
                                 filter=f.filter, gain=f.gain, ccd_temp_c=f.ccd_temp_c, iso=f.iso,
-                                f_number=f.f_number, focal_mm=f.focal_mm,
+                                f_number=f.f_number, focal_mm=f.focal_mm, bayer_pattern=f.bayer_pattern,
                                 source_filename=f.parsed.filename, dedup_key=f.dedup_key))
             inserted_frames += 1
 

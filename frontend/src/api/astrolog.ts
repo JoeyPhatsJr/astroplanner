@@ -169,6 +169,7 @@ export interface TargetFact {
 }
 
 export interface TargetNight {
+  capture_set_id: string;
   session_id: string;
   night_date: string;
   device: string;

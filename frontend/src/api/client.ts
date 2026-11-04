@@ -15,7 +15,7 @@ import type {
   VisibilityResponse,
 } from "./types";
 
-const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
+export const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
 
 export class ApiError extends Error {
   status: number;
@@ -25,7 +25,7 @@ export class ApiError extends Error {
   }
 }
 
-function detailMessage(body: unknown, status: number): string {
+export function detailMessage(body: unknown, status: number): string {
   if (body && typeof body === "object" && "detail" in body) {
     const d = (body as { detail: unknown }).detail;
     if (typeof d === "string") return d;

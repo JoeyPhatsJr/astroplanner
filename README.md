@@ -71,10 +71,39 @@ A short, curated list of variable stars a Seestar can follow: **SS Cygni, U Gemi
 (light curves from the AAVSO International Database, sky alerts) was built and then removed before merge: VSX's
 copyright page allows personal, non-commercial use only, and neither AAVSO's Data Usage Guidelines (2026-07-16) nor
 its forum API notes say whether a third-party app may download and display observations. That code is kept on the
-`aavso-live-layer` branch. Phase 4 will plot your own brightness measurements instead, which need nobody's permission.
+`aavso-live-layer` branch. A later phase (Phase 5, image analysis) will plot your own brightness measurements instead, which need nobody's permission.
 
 Attribution shown with the catalog facts: "Catalog data: International Variable Star Index (VSX), operated at AAVSO,
 Cambridge, Massachusetts, USA."
+
+## Processing Coach (Phase 4)
+
+A step-by-step guide for processing one night of **Seestar S30** frames in **Siril**, built from numbers Siril itself
+wrote. Open a night from its target page ("Process this night"; `/astrolog/process/:captureSetId`).
+
+- **Night report:** choose the night folder (the one containing `lights/` and Siril's working folder). Only Siril's
+  `.seq` and `*_conversion.txt` text files are read, in your browser; light frames are never opened. You get frames
+  captured / aligned / in your stack, a frames-per-half-hour chart in the observer's timezone, and fixed-rule findings
+  (frames that could not be aligned, the roundness cut Siril applied, a time split, stars per frame), each tagged
+  measured or heuristic.
+- **Choose frames:** up to four options, each with the exact number of frames and integration time it keeps. Nothing
+  is pre-selected.
+- **Scripts:** download the coach's two Siril scripts (prepare, then stack). They write only into a new
+  `process-coach/` folder beside `lights/` and state the disk they will use first.
+- **Stack advice:** add your finished Siril stack (FITS) and the coach measures it on your computer: star size, noise,
+  background gradient and colour balance feed the background, colour and stretch steps. Only the numbers and a small
+  preview are kept.
+- **Compare:** your final picture beside the Seestar's, and (measured the same way) the two stacks side by side.
+  There is no score and no winner.
+
+![Night report](docs/screenshots/processing-report-desktop.png)
+![Choose frames on a phone](docs/screenshots/processing-select-mobile.png)
+![Compare, stacks measured](docs/screenshots/processing-compare-desktop.png)
+![Night vision](docs/screenshots/processing-night-vision.png)
+
+Screenshots are from a local run on the developer's own Bubble Nebula night. Methods, constants and sources are in
+[docs/PROCESSING.md](docs/PROCESSING.md). Requires **Siril 1.4.5** to run the scripts (the app itself does not need
+Siril installed). The coach does not use dark, flat or bias frames yet and says so when it finds those folders.
 
 ## Accuracy
 
@@ -116,17 +145,18 @@ Optional environment variables:
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q        # 232 passed, 7 skipped (astronomy references, scoring, weather, API, AstroLog, Variable Hunter, migrations)
-cd frontend && npm run typecheck && npm test       # 83 tests: time formatting, header slicing, import merge, Variable Hunter, components
+cd backend && .venv/bin/python -m pytest -q        # 379 passed, 12 skipped (astronomy references, scoring, weather, API, AstroLog, Variable Hunter, Processing Coach, migrations)
+cd frontend && npm run typecheck && npm test       # 121 tests: time formatting, header slicing, import merge, Variable Hunter, Processing Coach, components
 cd frontend && npm run build
-cd frontend && npx playwright install chromium && npm run test:e2e   # 16 end-to-end tests (Phase 1 smoke, AstroLog import, Variable Hunter), desktop + mobile
+cd frontend && npx playwright install chromium && npm run test:e2e   # 18 end-to-end tests (Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach), desktop + mobile
 ```
 
 The end-to-end suite starts its own backend (fresh SQLite file and preview folder under
 `frontend/e2e/`) and Vite server on ports 8100/5180, so it never touches your dev servers or data.
-It builds its FITS files itself with dummy coordinates. No test contacts AAVSO.
+It builds its FITS files itself with dummy coordinates (the Processing Coach test generates a synthetic night with
+`backend/scripts/make_synthetic_night.py` into the git-ignored `frontend/e2e/fixtures/`). No test contacts AAVSO.
 
-The 7 skipped backend tests are 6 local real-data checks and 1 Postgres migration test (runs when
+The 12 skipped backend tests are 11 local real-data checks (6 AstroLog, 5 Processing Coach; they need your own folders) and 1 Postgres migration test (runs when
 `TEST_POSTGRES_URL` is set; CI provides it). To run the real-data acceptance checks against your own
 folder of Seestar and Canon files (read-only, header slices only, prints no coordinates or serial numbers):
 
@@ -134,7 +164,9 @@ folder of Seestar and Canon files (read-only, header slices only, prints no coor
 cd backend && ASTROPLANNER_REAL_DATA=<your folder> .venv/bin/python -m pytest tests/test_astrolog_real_data.py -v
 ```
 
-Without the variable they are skipped, so CI never needs your files.
+Without the variable they are skipped, so CI never needs your files. The Processing Coach has the same kind of local check
+(`ASTROPLANNER_REAL_NIGHT_DIR=<night folder> .venv/bin/python -m pytest tests/test_processing_real_data.py -v`; it reads `.seq`/conversion
+text and FITS headers only).
 
 Development follows the phased plan in [ROADMAP.md](ROADMAP.md); current status is in [PROGRESS.md](PROGRESS.md).
 
@@ -143,7 +175,7 @@ Development follows the phased plan in [ROADMAP.md](ROADMAP.md); current status 
 ```
 backend/   FastAPI + Astropy API (app/), tests/, scripts/build_catalog.py
 frontend/  React + TypeScript + Vite + Tailwind UI
-docs/      ARCHITECTURE.md · ASTRONOMY.md · SCORING.md · screenshots/
+docs/      ARCHITECTURE.md · ASTRONOMY.md · SCORING.md · PROCESSING.md · screenshots/
 scripts/   setup.sh · dev.sh
 ```
 
@@ -156,7 +188,9 @@ scripts/   setup.sh · dev.sh
 - **AAVSO VSX** (catalog facts for four stars; personal, non-commercial use): see Variable Hunter above for the
   terms and attribution; facts are listed in
   [backend/app/data/ATTRIBUTION.md](backend/app/data/ATTRIBUTION.md).
-- **Astropy** (BSD-3-Clause), **timezonefinder** (MIT).
+- **Astropy** (BSD-3-Clause), **timezonefinder** (MIT), **photutils** (BSD-3-Clause; star size in stack measurements).
+- **Siril** (GPL-3.0) is run by the user, never bundled; the coach writes scripts and reads Siril's own text output, and copies no
+  Siril code or documentation text. Sources: [docs/PROCESSING.md](docs/PROCESSING.md).
 - Seestar S30 specifications: [manufacturer product page](https://us.seestar.com/products/seestar-s30-all-in-one-smart-telescope).
   The published 2.46° FOV does not state its axis, so framing notes are approximate.
 

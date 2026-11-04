@@ -130,6 +130,24 @@ def _altaz_frame(times: Time, loc: EarthLocation) -> AltAz:
     return AltAz(obstime=times, location=loc, pressure=0 * u.hPa)
 
 
+def altitude_deg(ra_deg: float, dec_deg: float, lat_deg: float, lon_deg: float, utc_iso: list[str]) -> np.ndarray:
+    """Geometric altitude (deg, no refraction) of an ICRS position at the given UTC instants.
+
+    ``utc_iso`` are ISO-8601 strings in UTC (a trailing ``Z`` or ``+00:00`` is accepted). The site is used only
+    for this computation; callers must not store or return it.
+    """
+    ts = [datetime.fromisoformat(s.replace("Z", "+00:00")) for s in utc_iso]
+    unix = [(t if t.tzinfo else t.replace(tzinfo=timezone.utc)).timestamp() for t in ts]
+    if not unix:
+        return np.zeros(0, dtype=float)
+    times = Time(unix, format="unix", scale="utc")
+    loc = EarthLocation.from_geodetic(lon=lon_deg * u.deg, lat=lat_deg * u.deg, height=0 * u.m)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=UserWarning)  # degraded-IERS notices far from today
+        alt = SkyCoord(ra=ra_deg * u.deg, dec=dec_deg * u.deg, frame="icrs").transform_to(_altaz_frame(times, loc))
+    return np.asarray(alt.alt.deg, dtype=float)
+
+
 @lru_cache(maxsize=48)
 def sky_context(
     latitude: float,

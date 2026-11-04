@@ -4,6 +4,8 @@ import { lazy, Suspense, type ComponentProps } from "react";
 const NightTimelineImpl = lazy(() => import("./NightTimeline").then((m) => ({ default: m.NightTimeline })));
 const AltitudeChartImpl = lazy(() => import("./AltitudeChart").then((m) => ({ default: m.AltitudeChart })));
 
+const FramesChartImpl = lazy(() => import("./FramesChart").then((m) => ({ default: m.FramesChart })));
+
 function ChartPlaceholder({ label }: { label: string }) {
   return (
     <div role="status" className="flex h-64 items-center justify-center rounded-lg border border-line-soft text-sm text-muted md:h-72">
@@ -24,6 +26,14 @@ export function AltitudeChart(props: ComponentProps<typeof AltitudeChartImpl>) {
   return (
     <Suspense fallback={<ChartPlaceholder label="altitude chart" />}>
       <AltitudeChartImpl {...props} />
+    </Suspense>
+  );
+}
+
+export function FramesChart(props: ComponentProps<typeof FramesChartImpl>) {
+  return (
+    <Suspense fallback={<ChartPlaceholder label="frames chart" />}>
+      <FramesChartImpl {...props} />
     </Suspense>
   );
 }
