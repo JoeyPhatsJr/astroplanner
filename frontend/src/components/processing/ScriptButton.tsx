@@ -1,6 +1,6 @@
 import { Download } from "lucide-react";
 import { useId, useState } from "react";
-import { fetchScript, type ScriptKind } from "../../api/processing";
+import { fetchScript, type ScriptKind, type SelectionCounts } from "../../api/processing";
 
 const LABEL: Record<ScriptKind, string> = { prepare: "script 1 (prepare)", stack: "script 2 (stack)" };
 // Display only; the downloaded file is named by the server's Content-Disposition.
@@ -79,6 +79,8 @@ export function ScriptBlock({
   disabledReason,
   lead,
   commandBelow,
+  chosen = null,
+  counts = null,
 }: {
   runId: string;
   which: ScriptKind;
@@ -88,6 +90,8 @@ export function ScriptBlock({
   disabledReason: string | null;
   lead: string;
   commandBelow: boolean; // the step shows the siril-cli line under this box
+  chosen?: { label: string; kept: number } | null; // stack only: the step-4 choice the script applies
+  counts?: SelectionCounts | null; // stack only: which folder that choice's count was read from
 }) {
   const n = frames.toLocaleString();
   const what =
@@ -107,6 +111,17 @@ export function ScriptBlock({
       <p className="text-sm leading-relaxed text-ink-2">
         <b className="text-ink">{lead}</b> {what}
       </p>
+      {which === "stack" && chosen && (
+        <p className="text-sm leading-relaxed text-ink-2">
+          Your choice from step 4: <b className="text-ink">{chosen.label}</b>, keeping {chosen.kept.toLocaleString()} frames
+          {counts ? ` as counted in ${counts.run_dir}/` : ""}.
+        </p>
+      )}
+      {which === "stack" && counts?.note && (
+        <p role="note" className="rounded-lg border border-warn/40 bg-warn/5 px-3.5 py-2.5 text-sm leading-relaxed text-ink-2">
+          {counts.note}
+        </p>
+      )}
       <p className="text-sm leading-relaxed text-ink-2">
         To run it, make the night folder (the one that holds lights/) Siril&apos;s working folder. From a terminal, give the script&apos;s full
         path after <code className="text-xs text-ink">-s</code>, for example the Downloads folder you saved it to: a bare file name is looked up
@@ -122,7 +137,8 @@ export function ScriptBlock({
         . In Siril itself, add the folder holding the script to the script folders in Preferences (Scripts), then choose it from the Scripts
         menu.
       </p>
-      <ScriptButton runId={runId} which={which} disabledReason={disabledReason} />
+      {/* Keyed by script so one script's "Download started" status never carries over to the other step. */}
+      <ScriptButton key={which} runId={runId} which={which} disabledReason={disabledReason} />
     </div>
   );
 }

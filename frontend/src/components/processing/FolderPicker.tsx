@@ -70,6 +70,8 @@ export function FolderPicker({ runId, hasReport, onSelectionCleared }: { runId: 
           id="coach-folder"
           type="file"
           className="peer sr-only"
+          // With a report, the visible Re-read button drives this input, so it is not a second (invisible) tab stop.
+          tabIndex={hasReport ? -1 : undefined}
           multiple
           // Non-standard but supported by every current browser.
           {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}

@@ -13,11 +13,14 @@ reports success. Every other command line is preceded by a ``# `` comment giving
 
 from __future__ import annotations
 
+import math
+import textwrap
+
 from .rules import MIN_FRAMES_FOR_REJECTION, REJECTION, Facts, stack_rejection
 from .selection import SelectionOption
 
-__all__ = ["COACH_DIR", "SCRIPT_NAMES", "SIRIL_REQUIRES", "disk_estimate_bytes", "frame_bytes", "prepare_script",
-           "stack_script"]
+__all__ = ["COACH_DIR", "SCRIPT_NAMES", "SIRIL_REQUIRES", "counts_note", "disk_estimate_bytes", "format_duration",
+           "frame_bytes", "prepare_script", "stack_script"]
 
 COACH_DIR = "process-coach"
 SIRIL_REQUIRES = "1.4.5"
@@ -43,10 +46,26 @@ def _gb(n: int) -> str:
     return f"{n / 1e9:.1f} GB"
 
 
-def _duration(seconds: float) -> str:
-    minutes = round(seconds / 60)
-    h, m = divmod(minutes, 60)
-    return f"{h} h {m} min" if h else f"{m} min"
+def format_duration(seconds: float) -> str:
+    """Integration time the way AstroLog shows it (``formatIntegration`` in the frontend): floored, never rounded
+    up, as "2 h 21 m", "3 m 20 s" or "45 s"."""
+    whole = max(0, math.floor(seconds))
+    if whole < 3600:
+        m, s = divmod(whole, 60)
+        if m == 0:
+            return f"{s} s"
+        return f"{m} m {s} s" if s else f"{m} m"
+    h, m = divmod(whole // 60, 60)
+    return f"{h} h {m} m"
+
+
+def counts_note(run_dir: str | None) -> str | None:
+    """Said wherever frame counts meet script 2, when the counts were read from a folder other than ``COACH_DIR``:
+    script 2 always works on ``COACH_DIR``'s own registration, which can align a different set of frames."""
+    if not run_dir or run_dir == COACH_DIR:
+        return None
+    return (f"These counts are from {run_dir}/. Script 2 applies the same filter to {COACH_DIR}/, whose alignment may "
+            f"differ; choose the night folder again after script 1 and pick {COACH_DIR} to see its own counts.")
 
 
 def _lights_arg(name: str) -> str:
@@ -161,10 +180,14 @@ def _stack_lines(kept: int) -> list[str]:
 def stack_script(option: SelectionOption, facts: Facts) -> str:
     opts, what, why = _filter(option)
     k = option.kept
+    src = facts.counts_dir or COACH_DIR
+    note = counts_note(facts.counts_dir)
     lines = [
         *_header(2, "stack", "apply your frame choice and stack."),
         *_run_lines(SCRIPT_NAMES["stack"], after_first=True, lights_dir=facts.lights_dir),
-        f"# Your choice: {what}. The coach expects it to keep {k} frames ({_duration(option.seconds)}).",
+        f"# Your choice: {what}.",
+        f"# Counted in {src}/, the folder the coach read, it would keep {k} frames ({format_duration(option.seconds)}).",
+        *(["# " + ln for ln in textwrap.wrap(note, 104)] if note else []),
         f"# It writes only into {COACH_DIR}/: about {_gb(disk_estimate_bytes(k))} more for the {k} aligned frames, "
         "plus the stack.",
         f"# Move into {COACH_DIR}/, where script 1 left the aligned sequence.",

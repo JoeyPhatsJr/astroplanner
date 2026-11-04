@@ -209,7 +209,7 @@ def build_folder(
         raise FolderError(f"{reg_name}.seq lists no frames.")
     matched = sum(1 for f in frames if f.basename is not None and f.basename in frame_times)
     if matched < MIN_MATCH_FRACTION * len(frames):
-        raise FolderError(f"This Siril folder doesn't look like this night's frames ({matched} of {len(frames)} match)")
+        raise FolderError(f"This Siril folder doesn't look like this night's frames ({matched:,} of {len(frames):,} match)")
     return FolderResult(run_dir=rd, registration_seq=reg_name, kept_seq=kept_name if kept_name in seqs else None,
                         seq_version=reg.version, frames=frames, matched=matched, kept_error=kept_error,
                         calibration_dirs=_clean_dirs(calibration_dirs))
@@ -332,8 +332,8 @@ def _time_split(timed: list[tuple[float, FrameStat]], bins: list[Bin], folder: F
     lab = _label(bt, tz) + ("" if tz else " UTC")
     title = (f"Before {lab}, {_pct(k1, len(before))} % of frames reached the stack; "
              f"from {lab} on, {_pct(k2, len(after))} %")
-    detail = (f"Counted over the {len(timed)} frames with a known capture time: {k1} of {len(before)} before {lab} "
-              f"and {k2} of {len(after)} from then on are in {folder.kept_seq}.seq. The split is the half-hour "
+    detail = (f"Counted over the {len(timed):,} frames with a known capture time: {k1:,} of {len(before):,} before "
+              f"{lab} and {k2:,} of {len(after):,} from then on are in {folder.kept_seq}.seq. The split is the half-hour "
               f"boundary that best separates the two shares. Siril's files record which frames were kept, not "
               f"what changed in the sky.")
     if time_unknown:
@@ -384,7 +384,7 @@ def night_report(folder: FolderResult, exptime_s: float, tz: str | None, bin_min
         verb = _plural(unmatched, "doesn't", "don't")
         findings.append(Finding(
             "unmatched",
-            f"{unmatched} of this folder's {len(frames)} frames {verb} match this night's imported frames",
+            f"{unmatched:,} of this folder's {len(frames):,} frames {verb} match this night's imported frames",
             f"{_plural(unmatched, 'It is', 'They are')} counted in the totals but not in the time chart. "
             f"{_plural(unmatched, 'It may be a frame', 'They may be frames')} of this night that "
             f"{_plural(unmatched, 'was', 'were')} never imported, or from another night; the files cannot tell which.",
@@ -392,7 +392,7 @@ def night_report(folder: FolderResult, exptime_s: float, tz: str | None, bin_min
     n_un = len(frames) - len(aligned)
     if n_un:
         findings.append(Finding(
-            "not_aligned", f"{n_un} {_plural(n_un, 'frame', 'frames')} couldn't be aligned",
+            "not_aligned", f"{n_un:,} {_plural(n_un, 'frame', 'frames')} couldn't be aligned",
             f"Siril's registration left {_plural(n_un, 'it', 'them')} without alignment data in "
             f"{folder.registration_seq}.seq, so {_plural(n_un, 'it', 'they')} cannot go into the stack. "
             "The files do not say why.", "measured", False))
@@ -405,7 +405,7 @@ def night_report(folder: FolderResult, exptime_s: float, tz: str | None, bin_min
             if hi_d < lo_k:
                 v = separating_cut(hi_d, lo_k)
                 nd = len(dropped)
-                title = (f"The {nd} aligned frames left out of the stack all had roundness below {v:g}" if nd != 1
+                title = (f"The {nd:,} aligned frames left out of the stack all had roundness below {v:g}" if nd != 1
                          else f"The 1 aligned frame left out of the stack had roundness below {v:g}")
                 findings.append(Finding(
                     "round_cut", title,
@@ -423,7 +423,8 @@ def night_report(folder: FolderResult, exptime_s: float, tz: str | None, bin_min
             "low_stars", f"Median of {medians['stars']:g} stars detected per aligned frame",
             f"Siril detected between {ranges['stars'][0]} and {ranges['stars'][1]} stars per aligned frame. The "
             f"coach treats a median under {LOW_STARS} as few (a rule of thumb, not a Siril limit): alignment has "
-            "less to match, so the align step suggests two-pass registration.", "measured", True))
+            "less to match. The coach's script already registers in two passes, which helps when stars are few.",
+            "measured", True))
 
     if folder.calibration_dirs:
         findings.append(Finding(

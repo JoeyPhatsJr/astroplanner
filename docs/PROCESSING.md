@@ -134,6 +134,14 @@ the stack script passes to Siril. Choosing an option stores its id in `choices.s
 choice keys and ids not offered for the run (422), and re-reading the Siril folder clears the choice because the
 counts may have changed.
 
+**Which folder the counts describe.** The counts come from the Siril folder the coach read (`folder.run_dir`),
+often the tutorial's `process/`, but script 2 always applies the filter to `process-coach/`, a separate
+registration that may align a different set of frames. When the two differ, step 4, the stack step's script box and
+the script's own comment say "These counts are from `process/`. Script 2 applies the same filter to
+`process-coach/`, whose alignment may differ; choose the night folder again after script 1 and pick
+`process-coach` to see its own counts." (`scripts.counts_note`; `selection_counts` in the run JSON). Durations are
+floored everywhere (night report, step 4, script comments, Compare), in AstroLog's format: 8,510 s is "2 h 21 m".
+
 ## Generated Siril scripts (Phase 4 Task 8)
 
 _`backend/app/processing/scripts.py`; served by `GET /api/processing/runs/{id}/scripts/{prepare|stack}` as

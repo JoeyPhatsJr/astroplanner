@@ -207,6 +207,29 @@ describe("night report step", () => {
     expect(screen.getByRole("button", { name: "Re-read folder" })).toBeInTheDocument();
   });
 
+  it("floors durations like step 4 and AstroLog: 8,510 s is 2 h 21 m", async () => {
+    run = { ...mkRun(), report: mkReport(), folder: { run_dir: "process", kept_error: null } } as unknown as RunOut;
+    renderPage();
+    const stats = await screen.findByRole("group", { name: "Night totals" });
+    expect(stats).toHaveTextContent("= 2 h 21 m"); // aligned_s 8510
+    expect(stats).toHaveTextContent("= 2 h 49 m"); // captured_s 10150
+    expect(stats).toHaveTextContent("= 1 h 49 m"); // kept_s 6540
+    expect(stats).not.toHaveTextContent(/2 h 22/);
+  });
+
+  it("takes the hidden folder input out of the tab order once the Re-read button drives it", async () => {
+    run = { ...mkRun(), report: mkReport(), folder: { run_dir: "process", kept_error: null } } as unknown as RunOut;
+    const { unmount } = renderPage();
+    await screen.findByRole("button", { name: "Re-read folder" });
+    const label = "Choose the night folder (the one containing lights/)";
+    expect(screen.getByLabelText(label)).toHaveAttribute("tabindex", "-1");
+    unmount();
+    run = mkRun();
+    renderPage();
+    // Without a report the input itself is the focus target (its label shows the focus ring).
+    expect(await screen.findByLabelText(label)).not.toHaveAttribute("tabindex");
+  });
+
   it("shows unknown kept with the reason, never 0, and surfaces the unmatched finding", async () => {
     run = {
       ...mkRun(),
@@ -324,7 +347,9 @@ describe("choose frames step", () => {
     expect(radios).toHaveLength(3);
     expect(radios.every((r) => !(r as HTMLInputElement).checked)).toBe(true);
     expect(screen.getByText(/Last time \(Fri 11 Sept?, NGC 7635\)/)).toBeInTheDocument();
-    expect(screen.getByText("Sharper")).toBeInTheDocument();
+    // Both roundness cuts carry the same tag: neither shows sharper stars, only rounder ones.
+    expect(screen.getAllByText("Rounder stars")).toHaveLength(2);
+    expect(screen.queryByText("Sharper")).toBeNull();
     expect(screen.getByText("Smoother")).toBeInTheDocument();
     expect(screen.getByText(/^654 frames/)).toHaveTextContent("1 h 49 m");
     expect(screen.getByText(/^851 frames/)).toHaveTextContent("2 h 21 m");
@@ -357,6 +382,33 @@ describe("choose frames step", () => {
     expect(screen.getAllByRole("radio").every((r) => !(r as HTMLInputElement).checked)).toBe(true);
     fireEvent.click(screen.getByRole("radio", { name: /Keep every aligned frame/ }));
     await waitFor(() => expect(screen.queryByRole("status")).toBeNull());
+  });
+
+  const NOTE =
+    "These counts are from process/. Script 2 applies the same filter to process-coach/, whose alignment may differ; choose the night folder again after script 1 and pick process-coach to see its own counts.";
+
+  it("says when the counts come from a folder other than the one script 2 works in", async () => {
+    run = {
+      ...mkRun(),
+      selection: OPTIONS,
+      choices: {},
+      selection_counts: { run_dir: "process", script_dir: "process-coach", differs: true, note: NOTE },
+    } as RunOut;
+    await gotoSelect();
+    expect(screen.getByRole("note")).toHaveTextContent(NOTE);
+  });
+
+  it("shows no folder note when the counts come from process-coach itself", async () => {
+    run = {
+      ...mkRun(),
+      selection: OPTIONS,
+      choices: {},
+      selection_counts: { run_dir: "process-coach", script_dir: "process-coach", differs: false, note: null },
+    } as RunOut;
+    await gotoSelect();
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.queryByRole("note")).toBeNull();
+    expect(screen.queryByText(/These counts are from/)).toBeNull();
   });
 
   it("explains when there are no options yet", async () => {
@@ -441,6 +493,61 @@ describe("script downloads", () => {
     expect(screen.getByText("Choose which frames to keep first.")).toBeVisible();
     fireEvent.click(btn);
     expect(calls).toHaveLength(0);
+  });
+
+  it("names the chosen option and its count on the stack step, with the folder note when counts differ", async () => {
+    const note = "These counts are from process/. Script 2 applies the same filter to process-coach/, whose alignment may differ; choose the night folder again after script 1 and pick process-coach to see its own counts.";
+    run = {
+      ...mkRun(Object.fromEntries(IDS.slice(0, 4).map((id) => [id, { state: "done" as const }]))),
+      scripts: { ...SCRIPTS, stack_bytes: 16_275_496_320, stack_blocked: null },
+      selection: OPTIONS,
+      choices: { selection: "round80" },
+      selection_counts: { run_dir: "process", script_dir: "process-coach", differs: true, note },
+    } as RunOut;
+    renderPage();
+    await screen.findByText("Step 5 of 10");
+    expect(screen.getByText(/Your choice from step 4/)).toHaveTextContent(
+      "Your choice from step 4: Roundness filter, 80 %, keeping 700 frames as counted in process/.",
+    );
+    expect(screen.getByRole("note")).toHaveTextContent(note);
+  });
+
+  it("shows no folder note on the stack step when the counts come from process-coach", async () => {
+    run = {
+      ...mkRun(Object.fromEntries(IDS.slice(0, 4).map((id) => [id, { state: "done" as const }]))),
+      scripts: { ...SCRIPTS, stack_bytes: 16_275_496_320, stack_blocked: null },
+      selection: OPTIONS,
+      choices: { selection: "all" },
+      selection_counts: { run_dir: "process-coach", script_dir: "process-coach", differs: false, note: null },
+    } as RunOut;
+    renderPage();
+    await screen.findByText("Step 5 of 10");
+    expect(screen.getByText(/Your choice from step 4/)).toHaveTextContent("Keep every aligned frame, keeping 851 frames as counted in process-coach/.");
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
+  it("does not carry script 1's download status onto the stack step", async () => {
+    run = {
+      ...mkRun({ report: { state: "done" } }),
+      scripts: { ...SCRIPTS, stack_bytes: 16_275_496_320, stack_blocked: null },
+      selection: OPTIONS,
+      choices: { selection: "all" },
+    } as RunOut;
+    serveScript(
+      () =>
+        new Response("requires 1.4.5\n", {
+          status: 200,
+          headers: { "Content-Type": "text/plain; charset=utf-8", "Content-Disposition": 'attachment; filename="astroplanner-prepare.ssf"' },
+        }),
+    );
+    renderPage();
+    await screen.findByText("Step 2 of 10");
+    fireEvent.click(screen.getByRole("button", { name: "Download script 1 (prepare)" }));
+    expect(await screen.findByText("Download started: astroplanner-prepare.ssf")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Stack/ }));
+    await screen.findByText("Step 5 of 10");
+    expect(screen.getByRole("button", { name: "Download script 2 (stack)" })).toBeEnabled();
+    expect(screen.queryByText(/Download started/)).toBeNull();
   });
 
   it("shows the stack estimate once frames are chosen and the server's message when a download fails", async () => {

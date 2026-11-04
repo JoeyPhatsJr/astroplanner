@@ -59,7 +59,7 @@ def _reg_from_tokens(tokens: list[str]) -> RegData | None:
     try:
         fwhm, wfwhm, roundness, quality, background = (float(t) for t in tokens[:5])
         stars = int(float(tokens[5]))
-    except ValueError as e:
+    except (ValueError, OverflowError) as e:  # OverflowError: int(float("inf"))
         raise SeqParseError("Malformed registration line in Siril sequence file") from e
     if fwhm == 0 and roundness == 0:  # Siril's own "no data" test
         return None

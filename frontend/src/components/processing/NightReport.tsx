@@ -1,10 +1,10 @@
 import type { FolderInfo, NightReportData } from "../../api/processing";
 import { FramesChart } from "../charts/LazyCharts";
-import { formatDuration } from "../../lib/time";
+import { formatIntegration } from "../../lib/time";
 import { BASIS_LABEL } from "./AdviceList";
 
 const n = (x: number) => x.toLocaleString("en-US");
-const dur = (s: number) => formatDuration(Math.round(s / 60));
+const dur = formatIntegration; // floored, the same rule and format as AstroLog, step 4 and script 2
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (

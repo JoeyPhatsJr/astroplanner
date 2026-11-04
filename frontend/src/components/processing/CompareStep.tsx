@@ -11,6 +11,7 @@ import {
   type ComparisonStack,
   type RunOut,
 } from "../../api/processing";
+import { formatIntegration } from "../../lib/time";
 import { imageSrc } from "../astrolog/TargetTile";
 import { StackUpload } from "./StackUpload";
 
@@ -18,13 +19,8 @@ type Mode = "pictures" | "stacks";
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** "1 h 49 m" / "12 m 30 s": the stack's LIVETIME header. */
-function duration(s: number): string {
-  const total = Math.round(s);
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  return h > 0 ? `${h} h ${m} m` : `${m} m ${total % 60} s`;
-}
+/** The stack's LIVETIME header, floored like every other duration in the app ("1 h 49 m", "12 m 30 s"). */
+const duration = formatIntegration;
 
 /** A real file input behind a button-styled label (same focus-ring approach as StackUpload). */
 function FilePick({

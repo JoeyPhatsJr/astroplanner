@@ -56,8 +56,17 @@ test("import a synthetic night, read its Siril folder, choose frames, download b
   await expect(page.getByText(/had roundness below/).first()).toBeVisible();
   await expect(page.getByText(/6 frames couldn't be aligned/)).toBeVisible();
 
-  // Step 4: the stack script is blocked until a choice is made, then both scripts download with their names.
+  // Step 5 before any choice: the stack script is blocked, with its reason visible next to the button.
+  await page.getByRole("button", { name: /^5 · Stack$/ }).click();
+  const stackBtn = page.getByRole("button", { name: "Download script 2 (stack)" });
+  await expect(stackBtn).toBeDisabled();
+  await expect(page.getByText("Choose which frames to keep first.")).toBeVisible();
+  await expect(stackBtn).toHaveAccessibleDescription("Choose which frames to keep first.");
+
+  // Step 4: choose, then both scripts download with their names. The synthetic counts come from process/, so the
+  // step says script 2 (which works in process-coach/) may count differently.
   await page.getByRole("button", { name: /^4 · Choose frames$/ }).click();
+  await expect(page.getByRole("note").filter({ hasText: "These counts are from process/." })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Choose frames", level: 2 })).toBeVisible();
   const radios = page.getByRole("radio", { name: /frames/ });
   await expect(radios.first()).toBeVisible();
@@ -66,9 +75,12 @@ test("import a synthetic night, read its Siril folder, choose frames, download b
   await expect(page.getByRole("radio", { checked: true })).toHaveCount(1);
 
   await page.getByRole("button", { name: /^5 · Stack$/ }).click();
+  await expect(page.getByText(/^Your choice from step 4:/)).toBeVisible();
   const [stackDl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download script 2 (stack)" }).click()]);
   expect(stackDl.suggestedFilename()).toBe("astroplanner-stack.ssf");
-  expect(readFileSync(await stackDl.path(), "utf8")).toContain("requires 1.4.5");
+  const stackText = readFileSync(await stackDl.path(), "utf8");
+  expect(stackText).toContain("requires 1.4.5");
+  expect(stackText).toContain("# These counts are from process/.");
 
   await page.getByRole("button", { name: /^2 · Convert & debayer$/ }).click();
   const [prepDl] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download script 1 (prepare)" }).click()]);

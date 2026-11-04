@@ -7,7 +7,8 @@ requires 1.4.5
 # A bare file name after -s is looked up in the night folder, not in the terminal's current folder.
 # In Siril itself: set the working folder to the night folder, add the folder holding this file
 # to the script folders in Preferences (Scripts), then choose the script from the Scripts menu.
-# Your choice: Siril's 80 % roundness filter. The coach expects it to keep 812 frames (2 h 15 min).
+# Your choice: Siril's 80 % roundness filter.
+# Counted in process-coach/, the folder the coach read, it would keep 812 frames (2 h 15 m).
 # It writes only into process-coach/: about 20.2 GB more for the 812 aligned frames, plus the stack.
 # Move into process-coach/, where script 1 left the aligned sequence.
 cd process-coach

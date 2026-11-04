@@ -153,6 +153,12 @@ describe("Compare step: stacks (measured)", () => {
     expect(screen.getByAltText(/Seestar stack/)).toBeInTheDocument();
   });
 
+  it("floors the total exposure like every other duration (8,510 s is 2 h 21 m, never 2 h 22 m)", () => {
+    renderStep({ ...STACKS, siril_stack: stack("result_coach.fit", { stack_count: 851, livetime_s: 8510 }) });
+    expect(within(panel(/Siril stack/)).getByText("2 h 21 m")).toBeInTheDocument();
+    expect(screen.queryByText(/2 h 22/)).toBeNull();
+  });
+
   it('shows "—" and "not in file" where a header lacks the value, the same way on both sides', () => {
     renderStep({ ...STACKS, seestar_stack: stack("seestar.fit", { stack_count: null, livetime_s: null }) });
     const seestar = panel(/Seestar stack/);

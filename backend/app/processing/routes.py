@@ -29,7 +29,7 @@ from .measure import METHOD, StackMeasurement, UnmeasurableStack, measure_stack
 from .models import ProcessingRun, StepId
 from .report import AltitudeFn, FolderError, FolderResult, Report, UploadedText, build_folder, night_report
 from .rules import Facts
-from .scripts import SCRIPT_NAMES, SIRIL_REQUIRES, disk_estimate_bytes, prepare_script, stack_script
+from .scripts import COACH_DIR, SCRIPT_NAMES, SIRIL_REQUIRES, counts_note, disk_estimate_bytes, prepare_script, stack_script
 from .selection import LastChoice, SelectionOption, selection_options
 from .seq import SeqParseError
 from .steps import build_steps
@@ -100,7 +100,23 @@ def _facts(frames: list[CaptureFrame], report: Report | None = None,
         report=report,
         siril_stack=_stack_of(run, "siril"),
         seestar_stack=_stack_of(run, "seestar"),
-        selection_kept=chosen.kept if chosen else None)
+        selection_kept=chosen.kept if chosen else None,
+        counts_dir=_counts_dir(run))
+
+
+def _counts_dir(run: ProcessingRun | None) -> str | None:
+    """The Siril folder the report and the selection counts were read from."""
+    rd = ((run.folder if run else None) or {}).get("run_dir")
+    return rd if isinstance(rd, str) and rd else None
+
+
+def _selection_counts(run: ProcessingRun) -> dict[str, Any] | None:
+    """Which folder the step-4 counts describe, and whether script 2 (always ``COACH_DIR``) works on another one."""
+    rd = _counts_dir(run)
+    if rd is None:
+        return None
+    note = counts_note(rd)
+    return {"run_dir": rd, "script_dir": COACH_DIR, "differs": note is not None, "note": note}
 
 
 def _modal_exptime(frames: list[CaptureFrame]) -> float:
@@ -228,6 +244,7 @@ def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
         "report": asdict(report) if report is not None else None,
         "selection": [asdict(o) for o in options],
         "selection_last_time": asdict(last) if (last := _last_time(db, run, cs)) else None,
+        "selection_counts": _selection_counts(run),
         "choices": {k: v for k, v in (run.choices or {}).items() if k in CHOICE_KEYS},
         "comparison": comparison_out(db, run, lt),  # the only public shape; stored keys stay server-side
         "siril_target": SIRIL_TARGET,
@@ -312,6 +329,9 @@ def upload_siril_folder(run_id: str, body: SirilFolderIn, db: Session = Depends(
             frame_exptimes={f.source_filename: float(f.exptime_s) for f in frames})
     except (SeqParseError, FolderError) as e:
         raise HTTPException(422, str(e)) from e
+    except Exception as e:  # noqa: BLE001 - any other parser failure is still a file the coach can't read, not a 500
+        raise HTTPException(422, "The coach couldn't read this Siril folder's text files: a .seq or conversion "
+                                 "file is not in the form Siril 1.4.5 writes.") from e
     run.folder, run.frame_stats = folder.to_store()
     # The options (and their counts) come from this folder, so a choice made on the previous one no longer applies.
     had_selection = bool((run.choices or {}).get("selection"))
@@ -335,7 +355,7 @@ def get_script(run_id: str, which: str, db: Session = Depends(get_db)) -> PlainT
     frames = _frames(db, cs)
     report = _report(run, frames, db.get(LibraryTarget, cs.library_target_id), loc)
     chosen = _chosen(run, _options(run, frames, report))
-    facts = _facts(frames, report, chosen)
+    facts = _facts(frames, report, chosen, run)
     if which == "prepare":
         text = prepare_script(facts)
     else:

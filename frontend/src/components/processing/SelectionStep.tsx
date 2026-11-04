@@ -4,7 +4,7 @@ import { BASIS_LABEL } from "./AdviceList";
 
 // Short trade-off words in the spirit of mockup option B. They name a direction, not a winner.
 const TAG: Record<string, string> = {
-  previous: "Sharper",
+  previous: "Rounder stars",
   all: "Smoother",
   round80: "Rounder stars",
   wfwhm80: "Tighter stars",
@@ -16,6 +16,7 @@ export function SelectionStep({
   chosen,
   pending,
   cleared = false,
+  countsNote = null,
   onChoose,
 }: {
   options: SelectionOption[];
@@ -23,6 +24,7 @@ export function SelectionStep({
   chosen: string | null;
   pending: boolean;
   cleared?: boolean;
+  countsNote?: string | null; // set when the counts come from a folder other than the one script 2 works in
   onChoose: (id: string) => void;
 }) {
   if (options.length === 0)
@@ -36,6 +38,11 @@ export function SelectionStep({
       {cleared && (
         <p role="status" className="rounded-lg border border-warn/40 bg-warn/5 px-3.5 py-2.5 text-sm text-ink-2">
           Your frame choice was cleared because the Siril folder was re-read; the counts may have changed. Choose again.
+        </p>
+      )}
+      {countsNote && (
+        <p role="note" className="rounded-lg border border-warn/40 bg-warn/5 px-3.5 py-2.5 text-sm leading-relaxed text-ink-2">
+          {countsNote}
         </p>
       )}
       {lastTime && (

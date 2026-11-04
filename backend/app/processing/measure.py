@@ -373,7 +373,10 @@ def measure_stack(data: bytes, filename: str, max_pixels: int = MAX_PIXELS
     resid = lum - _background_model(z, cy, cx, h, w)
     _, _, sigma = (float(v) for v in sigma_clipped_stats(resid[valid], sigma=CLIP_SIGMA, maxiters=CLIP_ITERS))
 
-    fwhm, n_stars = _star_fwhm(resid, valid, sigma)
+    try:
+        fwhm, n_stars = _star_fwhm(resid, valid, sigma)
+    except Exception:  # noqa: BLE001 - a photutils/scipy failure on unusual data is "too few usable stars"
+        fwhm, n_stars = None, 0  # (no FWHM), the same outcome as a star-poor image, never a failed upload
     if fwhm is not None and super_px:
         fwhm *= 2.0  # back to the file's pixels
 

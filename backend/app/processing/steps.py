@@ -17,8 +17,9 @@ __all__ = ["STEP_ORDER", "StepId", "StepView", "build_steps"]
 _RUN = 'siril-cli -d "<night folder>" -s "<folder you saved it in>/{}"'
 _COPY: dict[str, tuple[str, str, str | None, str | None]] = {
     "report": (
-        "Reads your light frames once and writes down facts about the night (how many frames, how sharp and round "
-        "the stars are, where the background sits) so the later choices can be based on your data.",
+        "Reads Siril's record of your light frames (the .seq sequence files and the conversion list), never the "
+        "frames themselves, and writes down facts about the night (how many frames, how sharp and round the stars "
+        "are, where the background sits) so the later choices can be based on your data.",
         "Nothing to do in Siril's windows for this step. Choose the night folder (the one containing lights/) with "
         "a Siril run inside, whether it is one you already made or one from the coach's first script, and the "
         "coach reads it. Choose it again any time to re-read it.",

@@ -1,8 +1,11 @@
 """Frame-selection options for the "Choose frames" step.
 
-Every count and every second comes from the stored per-frame statistics (Siril's own numbers), never an
-estimate. The percentage options reproduce Siril 1.4.5's ``-filter-round=p%`` / ``-filter-wfwhm=p%`` rule
-(spec 2a, source ``src/core/sequence_filtering.c``), so the number shown here is the number Siril will keep:
+Every count and every second comes from the stored per-frame statistics (Siril's own numbers) of the folder the
+coach read, never an estimate. The percentage options reproduce Siril 1.4.5's ``-filter-round=p%`` /
+``-filter-wfwhm=p%`` rule (spec 2a, source ``src/core/sequence_filtering.c``), so the number shown is the number
+Siril keeps when it applies the filter to that same registration. Script 2 always applies it to ``process-coach/``;
+when the folder read was another one (often the tutorial ``process/``), that registration may have aligned
+different frames and the count can differ, which the coach says next to the counts (``scripts.counts_note``):
 
 * roundness (higher is better): the sorted list covers all N frames of the sequence with unaligned frames
   counted as zeros, threshold = sorted[floor((100 - p) * (N - 1) / 100)]; with unaligned frames present this

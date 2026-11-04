@@ -161,6 +161,15 @@ export interface ScriptsInfo {
   stack_blocked: string | null; // why the stack script can't be downloaded yet
 }
 
+/** Which Siril folder the step-4 counts were read from. Script 2 always works in `script_dir` (process-coach);
+ *  when the counts come from another folder, `note` says so wherever counts meet script 2. */
+export interface SelectionCounts {
+  run_dir: string;
+  script_dir: string;
+  differs: boolean;
+  note: string | null;
+}
+
 export interface RunOut {
   id: string;
   capture_set_id: string;
@@ -173,6 +182,7 @@ export interface RunOut {
   folder?: FolderInfo | null;
   selection: SelectionOption[];
   selection_last_time?: LastChoice | null;
+  selection_counts?: SelectionCounts | null;
   choices?: { selection?: string; filter?: string };
   selection_cleared?: boolean; // only on a folder-upload response
   comparison: ComparisonOut; // the only public shape: previews by URL, no storage keys

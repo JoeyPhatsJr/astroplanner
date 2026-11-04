@@ -45,6 +45,7 @@ class Facts:
     seestar_stack: StackMeasurement | None = None  # the Seestar's own stack, measured; used by the compare step
     lights_dir: str = "lights"  # the night-folder subfolder holding the light FITS frames (used by scripts.py)
     selection_kept: int | None = None  # frames the saved frame choice keeps; what the stack script will stack
+    counts_dir: str | None = None  # the Siril folder the report and selection counts were read from (folder.run_dir)
 
 
 @dataclass(frozen=True)
