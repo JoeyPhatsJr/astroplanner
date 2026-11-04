@@ -1,7 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { usePatchRun, useRun, useStartRun, type RunOut, type StackEntry } from "../api/processing";
+import { usePatchRun, useRun, useStartRun, type RunOut } from "../api/processing";
 import { CoachRail } from "../components/processing/CoachRail";
 import { CompareStep } from "../components/processing/CompareStep";
 import { FolderPicker } from "../components/processing/FolderPicker";
@@ -139,7 +139,7 @@ function Coach({ run, loadError }: { run: RunOut; loadError: unknown }) {
                 }}
               />
             ) : step.id === "background" || step.id === "colour" || step.id === "stretch" ? (
-              <StackUpload runId={run.id} entry={(run.comparison.siril_stack as StackEntry | undefined) ?? null} />
+              <StackUpload runId={run.id} entry={run.comparison.siril_stack} />
             ) : step.id === "compare" ? (
               <CompareStep run={run} />
             ) : undefined

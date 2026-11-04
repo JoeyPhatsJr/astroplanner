@@ -1,6 +1,6 @@
 import { FileUp } from "lucide-react";
 import { useRef } from "react";
-import { useUploadStack, type StackEntry, type StackSide } from "../../api/processing";
+import { useUploadStack, type ComparisonStack, type StackSide } from "../../api/processing";
 
 /** Adds (or replaces) the developer's Siril stack. The file is measured in memory by the local backend and not kept. */
 export function StackUpload({
@@ -11,7 +11,7 @@ export function StackUpload({
   compact = false,
 }: {
   runId: string;
-  entry: StackEntry | null;
+  entry: ComparisonStack | null;
   side?: StackSide;
   who?: string; // labels become "Add <who>" / "Replace <who>"
   compact?: boolean; // just the button and its messages (the Compare step explains the rest itself)

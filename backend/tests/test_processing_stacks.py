@@ -145,7 +145,7 @@ def test_non_fits_is_422(api, run):
     Image.new("RGB", (100, 100)).save(buf, "JPEG")
     r = _post(api, run["id"], "siril", buf.getvalue(), "stack.jpg")
     assert r.status_code == 422 and r.json()["detail"] == "Stacks must be FITS files"
-    assert api.get(f"{RUNS}/{run['id']}").json()["comparison"] == {} and _files(api) == []
+    assert api.get(f"{RUNS}/{run['id']}").json()["comparison"]["siril_stack"] is None and _files(api) == []
 
 
 def test_unknown_side_and_run(api, run):
@@ -156,7 +156,7 @@ def test_unknown_side_and_run(api, run):
 def test_tiny_stack_is_422(api, run):
     r = _post(api, run["id"], "siril", _fits(size=(5, 5)))
     assert r.status_code == 422 and "at least 64" in r.json()["detail"]
-    assert api.get(f"{RUNS}/{run['id']}").json()["comparison"] == {}
+    assert api.get(f"{RUNS}/{run['id']}").json()["comparison"]["siril_stack"] is None
 
 
 def test_non_finite_measurement_is_422(api, run, monkeypatch):
@@ -171,7 +171,7 @@ def test_non_finite_measurement_is_422(api, run, monkeypatch):
     monkeypatch.setattr(routes, "measure_stack", bad)
     r = _post(api, run["id"], "siril", _fits())
     assert r.status_code == 422 and "finite" in r.json()["detail"]
-    assert api.get(f"{RUNS}/{run['id']}").json()["comparison"] == {} and _files(api) == []
+    assert api.get(f"{RUNS}/{run['id']}").json()["comparison"]["siril_stack"] is None and _files(api) == []
 
 
 def test_too_large_is_413(make_client, clear_provider):
@@ -199,11 +199,12 @@ def test_two_files_per_upload_and_reupload_replaces(api, run):
     first = _post(api, run["id"], "siril", _fits(seed=1)).json()["comparison"]["siril_stack"]
     files = _files(api)
     assert len(files) == 2
-    assert {p.name for p in files} == {first["preview_key"].rsplit("/", 1)[1], first["thumb_key"].rsplit("/", 1)[1]}
+    preview_name = first["preview_url"].rsplit("/", 1)[1]
+    assert {p.name for p in files} == {preview_name, preview_name.replace("-preview", "-thumb")}
     second = _post(api, run["id"], "siril", _fits(seed=2), "again.fit").json()["comparison"]["siril_stack"]
     assert len(_files(api)) == 2
-    assert second["preview_key"] != first["preview_key"] and second["source_filename"] == "again.fit"
-    assert api.get(f"{RUNS}/{run['id']}/images/{first['preview_key']}").status_code == 404
+    assert second["preview_url"] != first["preview_url"] and second["source_filename"] == "again.fit"
+    assert api.get(first["preview_url"]).status_code == 404
     # a different side adds its own two files
     _post(api, run["id"], "seestar", _fits(seed=4))
     assert len(_files(api)) == 4
@@ -211,7 +212,7 @@ def test_two_files_per_upload_and_reupload_replaces(api, run):
 
 def test_images_are_served_as_jpeg(api, run):
     e = _post(api, run["id"], "siril", _fits()).json()["comparison"]["siril_stack"]
-    r = api.get(f"{RUNS}/{run['id']}/images/{e['thumb_key']}")
+    r = api.get(e["preview_url"])
     assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg"
     assert Image.open(io.BytesIO(r.content)).format == "JPEG"
     assert api.get(f"{RUNS}/{run['id']}/images/processing/other/x.jpg").status_code == 404

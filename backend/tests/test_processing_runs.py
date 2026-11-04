@@ -53,7 +53,7 @@ def test_create_run_is_idempotent(api):
     assert a["frames"] == 3 and a["exptime_s"] == 10.0 and a["siril_target"] == "1.4.5"
     assert a["night"]["night_date"] == "2026-09-11" and a["night"]["timezone"] == "America/New_York"
     assert a["target"]["name"]
-    assert a["report"] is None and a["selection"] == [] and a["comparison"] == {}
+    assert a["report"] is None and a["selection"] == [] and a["comparison"]["siril_stack"] is None
     assert api.get(f"{RUNS}/{a['id']}").json()["id"] == a["id"]
     assert api.get(f"{RUNS}/nope").status_code == 404
 

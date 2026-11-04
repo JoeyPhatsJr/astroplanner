@@ -117,11 +117,11 @@ function Picture({ src, alt, width, height }: { src: string; alt: string; width:
 
 function Facts({ rows }: { rows: [string, ReactNode][] }) {
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 border-t border-line-soft pt-3 text-[13px]">
+    <dl className="flex flex-col gap-2 border-t border-line-soft pt-3 text-[13px]">
       {rows.map(([k, v]) => (
-        <div key={k} className="contents">
+        <div key={k} className="flex flex-wrap items-baseline justify-between gap-x-3">
           <dt className="text-muted">{k}</dt>
-          <dd className="text-right font-medium text-ink">{v}</dd>
+          <dd className="ml-auto min-w-0 text-right font-medium text-ink">{v}</dd>
         </div>
       ))}
     </dl>
@@ -271,7 +271,6 @@ function PicturesMode({ run, c }: { run: RunOut; c: ComparisonOut }) {
 
 function StacksMode({ run, c }: { run: RunOut; c: ComparisonOut }) {
   const note = binningNote(c.siril_stack, c.seestar_stack);
-  const entry = (s: ComparisonStack) => ({ preview_key: "", thumb_key: "", source_filename: s.source_filename, measurement: s.measurement });
   return (
     <div className="grid gap-3.5 min-[640px]:grid-cols-2">
       <Side title="Seestar stack" subtitle="The Seestar's own stacked FITS, shown with the app's standard preview stretch.">
@@ -284,7 +283,7 @@ function StacksMode({ run, c }: { run: RunOut; c: ComparisonOut }) {
               height={c.seestar_stack.measurement.height}
             />
             <StackFacts m={c.seestar_stack.measurement} note={note} />
-            <StackUpload runId={run.id} entry={entry(c.seestar_stack)} side="seestar" who="the Seestar FITS stack" compact />
+            <StackUpload runId={run.id} entry={c.seestar_stack} side="seestar" who="the Seestar FITS stack" compact />
           </>
         ) : (
           <Missing
@@ -305,7 +304,7 @@ function StacksMode({ run, c }: { run: RunOut; c: ComparisonOut }) {
               height={c.siril_stack.measurement.height}
             />
             <StackFacts m={c.siril_stack.measurement} note={note} />
-            <StackUpload runId={run.id} entry={entry(c.siril_stack)} compact />
+            <StackUpload runId={run.id} entry={c.siril_stack} compact />
           </>
         ) : (
           <Missing title="No stack yet." action={<StackUpload runId={run.id} entry={null} compact />}>
@@ -319,13 +318,7 @@ function StacksMode({ run, c }: { run: RunOut; c: ComparisonOut }) {
 
 /** Step 10: the Seestar's result beside the developer's. Two modes; neither ranks anything. */
 export function CompareStep({ run }: { run: RunOut }) {
-  const c: ComparisonOut = run.compare ?? {
-    mode_available: { pictures: false, stacks: false },
-    seestar_picture: null,
-    final_picture: null,
-    siril_stack: null,
-    seestar_stack: null,
-  };
+  const c: ComparisonOut = run.comparison;
   const [mode, setMode] = useState<Mode>(() => (!c.mode_available.pictures && c.mode_available.stacks ? "stacks" : "pictures"));
   const seg = (m: Mode, label: string) => (
     <button

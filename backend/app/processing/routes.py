@@ -229,8 +229,7 @@ def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
         "selection": [asdict(o) for o in options],
         "selection_last_time": asdict(last) if (last := _last_time(db, run, cs)) else None,
         "choices": {k: v for k, v in (run.choices or {}).items() if k in CHOICE_KEYS},
-        "comparison": run.comparison or {},
-        "compare": comparison_out(db, run, lt),
+        "comparison": comparison_out(db, run, lt),  # the only public shape; stored keys stay server-side
         "siril_target": SIRIL_TARGET,
         "scripts": _scripts(facts, chosen),
     }

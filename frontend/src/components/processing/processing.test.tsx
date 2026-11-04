@@ -32,7 +32,7 @@ const mkRun = (over: Partial<Record<string, Partial<StepView>>> = {}): RunOut =>
   })),
   report: null,
   selection: [],
-  comparison: {},
+  comparison: { mode_available: { pictures: false, stacks: false }, seestar_picture: null, final_picture: null, siril_stack: null, seestar_stack: null },
   siril_target: "1.4.5",
 });
 

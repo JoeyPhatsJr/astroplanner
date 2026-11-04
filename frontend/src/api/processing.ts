@@ -43,13 +43,6 @@ export interface StepView {
 
 export type StackSide = "siril" | "seestar";
 
-export interface StackEntry {
-  measurement: { width: number; height: number; stack_count: number | null; method: string };
-  preview_key: string;
-  thumb_key: string;
-  source_filename: string;
-}
-
 /** Everything measure.py reports for a finished stack; null = not in the file (or too few stars). */
 export interface CompareMeasurement {
   width: number;
@@ -182,8 +175,7 @@ export interface RunOut {
   selection_last_time?: LastChoice | null;
   choices?: { selection?: string; filter?: string };
   selection_cleared?: boolean; // only on a folder-upload response
-  comparison: Record<string, unknown>;
-  compare?: ComparisonOut; // what the Compare step shows (previews by URL, no storage keys)
+  comparison: ComparisonOut; // the only public shape: previews by URL, no storage keys
   siril_target: string;
   scripts?: ScriptsInfo;
 }

@@ -66,8 +66,7 @@ const mkRun = (compare: ComparisonOut): RunOut =>
     steps: [],
     report: null,
     selection: [],
-    comparison: {},
-    compare,
+    comparison: compare,
     siril_target: "1.4.5",
   }) as RunOut;
 

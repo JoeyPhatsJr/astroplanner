@@ -31,9 +31,22 @@ const mkRun = (withStack: boolean): RunOut => ({
   })),
   report: null,
   selection: [],
-  comparison: withStack
-    ? { siril_stack: { measurement: { width: 1080, height: 1920, stack_count: 654, method: "coach-measure-2" }, preview_key: "a", thumb_key: "b", source_filename: "my_stack.fit" } }
-    : {},
+  comparison: {
+    mode_available: { pictures: false, stacks: false },
+    seestar_picture: null,
+    final_picture: null,
+    seestar_stack: null,
+    siril_stack: withStack
+      ? {
+          preview_url: "/api/processing/runs/r1/images/a",
+          source_filename: "my_stack.fit",
+          measurement: {
+            width: 1080, height: 1920, bayer: null, stack_count: 654, livetime_s: 6540,
+            star_fwhm_px: 2.2, stars_measured: 100, noise_frac: 0.04, method: "coach-measure-2",
+          },
+        }
+      : null,
+  },
   siril_target: "1.4.5",
 });
 
