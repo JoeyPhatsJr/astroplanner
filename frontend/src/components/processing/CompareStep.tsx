@@ -149,7 +149,13 @@ function StackFacts({ m, note }: { m: CompareMeasurement; note: string | null })
         </>
       ),
     ],
-    ["Background noise (relative, same method)", `${(m.noise_frac * 100).toFixed(1)} % of the image's brightness range`],
+    [
+      "Background noise (relative, same method)",
+      <>
+        {(m.noise_frac * 100).toFixed(1)} %
+        <span className="block text-xs font-normal text-muted">of the image&apos;s brightness range</span>
+      </>,
+    ],
   ];
   return (
     <>
@@ -188,7 +194,7 @@ function PicturesMode({ run, c }: { run: RunOut; c: ComparisonOut }) {
         ? "No"
         : "Unknown (the file doesn't say)";
   const choice = (label: string, value: boolean | null) => (
-    <button type="button" className="btn" aria-pressed={sp?.edited === value} disabled={patch.isPending} onClick={() => setEdited(value)}>
+    <button type="button" className="btn aria-pressed:border-ice aria-pressed:text-ice" aria-pressed={sp?.edited === value} disabled={patch.isPending} onClick={() => setEdited(value)}>
       {label}
     </button>
   );
