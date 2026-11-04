@@ -19,7 +19,7 @@ from .test_processing_runs import RUNS, make_run, only_set_id, seestar_night  # 
 from .test_processing_runs import api  # noqa: F401
 
 
-def _fits(ramp=0.0, bumps=0.0, bg=(1000.0, 1000.0, 1000.0), size=(96, 128), seed=3, **header) -> bytes:
+def _fits(ramp=0.0, bumps=0.0, bg=(1000.0, 1000.0, 1000.0), size=(96, 128), seed=3, history=(), **header) -> bytes:
     rng = np.random.default_rng(seed)
     h, w = size
     yy, xx = np.mgrid[0:h, 0:w]
@@ -32,6 +32,8 @@ def _fits(ramp=0.0, bumps=0.0, bg=(1000.0, 1000.0, 1000.0), size=(96, 128), seed
     hdu.header["SITELAT"] = 39.95
     hdu.header["SITELONG"] = -75.16
     hdu.header["STACKCNT"] = 654
+    for line in history:
+        hdu.header.add_history(line)
     for k, v in header.items():
         hdu.header[k] = v
     buf = io.BytesIO()
@@ -65,6 +67,7 @@ def test_ramp_stack_gets_measured_degree_one(api, run):
     assert a["basis"] == "measured" and a["heuristic"] is True and a["rule_id"] == "background.degree"
     assert "degree 1" in a["setting"] and "subsky 1" in a["setting"]
     assert "of the image's brightness range" in a["why"] and "sky level" not in a["why"]
+    assert "between opposite corners" in a["why"] and "one side to the other" not in a["why"]
     m = r.json()["comparison"]["siril_stack"]["measurement"]
     assert f"{100 * m['gradient_frac']:.1f} %" in a["why"]
     assert _step(r.json(), "background")["prompt"] is None
@@ -76,6 +79,10 @@ def test_residual_heavy_stack_gets_degree_two(api, run):
     assert m["gradient_residual_frac"] >= RESIDUAL_FOR_DEGREE2
     a = _step(r.json(), "background")["advice"][0]
     assert a["basis"] == "measured" and "degree 2" in a["setting"] and "subsky 2" in a["setting"]
+    assert "degree 1 if the model follows the nebula" in a["setting"]
+    why = a["why"]
+    assert why.index("cannot tell nebula from sky gradient") < why.index("so a second-degree")
+    assert "shows the nebula's shape" in why and "dimmer after extraction" in why and "undo and use degree 1" in why
 
 
 def test_colour_cast_names_strongest_channel(api, run):
@@ -87,9 +94,33 @@ def test_colour_cast_names_strongest_channel(api, run):
     assert "plate-solved" in a["why"] and "pcc" in a["why"]
 
 
-def test_neutral_background_reports_no_cast(api, run):
-    a = _step(_post(api, run["id"], "siril", _fits()).json(), "colour")["advice"][0]
+def test_neutral_background_unknown_origin_is_conditional(api, run):
+    r = _post(api, run["id"], "siril", _fits()).json()
+    assert r["comparison"]["siril_stack"]["measurement"]["rgb_equalized"] is None
+    a = _step(r, "colour")["advice"][0]
     assert a["basis"] == "measured" and "No strong colour cast" in a["setting"]
+    assert "If the stack was made with the coach's script" in a["why"] and "-rgb_equal" in a["why"]
+    assert "header says" not in a["why"]
+
+
+def test_neutral_background_with_equalized_history_is_stated(api, run):
+    # Siril wraps HISTORY text over 72-character cards, even mid-word
+    r = _post(api, run["id"], "siril", _fits(HISTORY="mean stacking, no image weighting, equalized R")).json()
+    assert r["comparison"]["siril_stack"]["measurement"]["rgb_equalized"] is None  # one card alone: not the phrase
+    r = _post(api, run["id"], "siril", _fits(history=("no image weighting, equalized R", "GB, filter all"))).json()
+    assert r["comparison"]["siril_stack"]["measurement"]["rgb_equalized"] is True
+    a = _step(r, "colour")["advice"][0]
+    assert "header says Siril equalized RGB while stacking" in a["why"]
+    assert "If the stack was made" not in a["why"] and "HISTORY" not in json.dumps(r)
+
+
+def test_tiny_bayer_stack_is_judged_after_super_pixel(api, run):
+    hdu = fits.PrimaryHDU(np.random.default_rng(1).integers(900, 1100, (100, 100)).astype(np.uint16))
+    hdu.header["BAYERPAT"] = "RGGB"
+    buf = io.BytesIO()
+    hdu.writeto(buf)
+    r = _post(api, run["id"], "siril", buf.getvalue())
+    assert r.status_code == 422 and "at least 64" in r.json()["detail"]
 
 
 def test_stretch_is_taste_with_and_without_stack(api, run):

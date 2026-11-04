@@ -90,6 +90,15 @@ describe("Siril stack upload on steps 6-8", () => {
     expect(screen.getByLabelText("Replace your Siril stack (FITS)")).toBeInTheDocument();
   });
 
+  it("keeps the file input directly before its label so the focus ring (peer-focus-visible) can reach it", async () => {
+    renderPage();
+    await screen.findByText("Step 6 of 10");
+    const input = screen.getByLabelText("Add your Siril stack (FITS)");
+    expect(input).toHaveClass("peer");
+    expect(input.nextElementSibling).toHaveAttribute("for", "coach-siril-stack");
+    expect(input.nextElementSibling?.className).toContain("peer-focus-visible:outline");
+  });
+
   it("shows the server's message when the stack is rejected", async () => {
     postResponse = () => new Response(JSON.stringify({ detail: "Stacks must be FITS files" }), { status: 422 });
     renderPage();

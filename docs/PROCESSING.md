@@ -298,3 +298,21 @@ drives advice; the Seestar stack is kept for the compare step.
 Both constants are rules of thumb chosen by the coach, not Siril values; nothing derives them. Without a Siril
 stack the three steps show `tutorial-default` (background, colour) or `taste` (stretch) advice and the prompt
 "Add your Siril stack to get advice for this night". There is no score and no winner.
+
+**Limitations of the stack advice (Task 10 fixes).**
+- **A neutral colour reading is expected after equalized stacking.** The coach's stack script runs
+  `stack ... -rgb_equal`, and Siril's "equalize RGB" levels the background channels during stacking, so a stack
+  made that way (or by a tutorial that ticks it) reads about 1 : 1 : 1 whatever the sky's colour was (the real
+  stack: 0.999 : 1.000 : 1.001). When the header's `HISTORY` contains "equalized RGB" (Siril writes it; text wrapped
+  across cards is joined first) the advice says so definitively; the stored `rgb_equalized` is then `true`. When it
+  does not, `rgb_equalized` is `None` and the advice is conditional ("if the stack was made with the coach's script
+  or with 'equalize RGB' ..."). It is never `false`: a header without the phrase does not prove the stack was not
+  equalized. `HISTORY` is read only to search for that phrase and is not stored. A measured cast (over 1.05) is
+  reported as measured either way.
+- **Degree-2 background advice cannot tell nebula from sky gradient.** `gradient_residual_frac` includes large
+  nebula, so the advice states that first and gives a check: if Siril's background model shows the nebula's shape,
+  or the nebula looks dimmer after extraction, undo and use degree 1.
+- `gradient_frac` is the fitted plane's maximum minus minimum over the image's four corners, so the text says
+  "between opposite corners".
+- The 64 px minimum edge (`MIN_EDGE`) is applied to the image the 8 x 8 grid sees, i.e. after the 2 x 2 super-pixel
+  of a colour-mosaic file, so a Bayer file needs at least 128 px per side.

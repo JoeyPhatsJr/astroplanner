@@ -162,18 +162,21 @@ def _background_measured(f: Facts) -> Advice:
     m = f.siril_stack
     d = _degree(m)
     lead = (f"Your Siril stack's background changes by {_pct(m.gradient_frac)} of the image's brightness range "
-            f"from one side to the other (the best flat plane through it). After that plane is taken out, "
-            f"{_pct(m.gradient_residual_frac)} of the brightness range remains as uneven structure")
+            f"between opposite corners (the best flat plane through it). After that plane is taken out, "
+            f"{_pct(m.gradient_residual_frac)} of the brightness range remains as uneven structure; large nebula "
+            "counts as structure here and the coach cannot tell nebula from sky gradient in that number")
     if d == 1:
-        tail = (f", under the coach's rule-of-thumb {_pct(RESIDUAL_FOR_DEGREE2)}, so a first-degree model (a "
+        tail = (f". That is under the coach's rule-of-thumb {_pct(RESIDUAL_FOR_DEGREE2)}, so a first-degree model (a "
                 "tilted plane) is enough to start with.")
     else:
-        tail = (f", at or over the coach's rule-of-thumb {_pct(RESIDUAL_FOR_DEGREE2)}, so a second-degree "
-                "(curved) model may follow the background better than a plane. Bright nebula in the frame also "
-                "counts as structure here, so check the model it makes before accepting it.")
+        tail = (f". That is at or over the coach's rule-of-thumb {_pct(RESIDUAL_FOR_DEGREE2)}, so a second-degree "
+                "(curved) model may follow the background better than a plane. Check it: if Siril's background "
+                "model shows the nebula's shape, or the nebula looks dimmer after extraction, undo and use "
+                "degree 1.")
     return Advice(
         rule_id="background.degree",
-        setting=f"Background extraction, polynomial degree {d} (subsky {d})",
+        setting=(f"Background extraction, polynomial degree {d} (subsky {d})" if d == 1 else
+                 "Background extraction, polynomial degree 2 (subsky 2); degree 1 if the model follows the nebula"),
         why=lead + tail,
         basis="measured", heuristic=True)
 
@@ -212,15 +215,24 @@ def _colour_cast(f: Facts) -> Advice:
         basis="measured", heuristic=True)
 
 
+EQUALIZED_CAVEAT = ("If the stack was made with the coach's script or with Siril's 'equalize RGB' (-rgb_equal), "
+                    "the background channels are levelled during stacking, so a neutral reading is expected and "
+                    "says little about the sky's colour; colour calibration still sets the star colours.")
+EQUALIZED_STATED = ("This stack's header says Siril equalized RGB while stacking, which levels the background "
+                    "channels, so a neutral reading is expected and says little about the sky's colour; "
+                    "colour calibration still sets the star colours.")
+
+
 def _colour_neutral(f: Facts) -> Advice:
     m = f.siril_stack
+    caveat = EQUALIZED_STATED if m.rgb_equalized else EQUALIZED_CAVEAT
     return Advice(
         rule_id="colour.cast",
         setting="No strong colour cast measured; colour calibration is still worth running",
-        why=f"The sky background of your Siril stack measures red : green : blue = {_ratios(m)} against their "
+        why=f"The background of your Siril stack measures red : green : blue = {_ratios(m)} against their "
             f"mean, no channel more than {100.0 * (COLOUR_CAST_RATIO - 1):.0f} % above it (the coach's "
-            "rule-of-thumb limit). That says the background is neutral, not that star colours are right: "
-            f"colour calibration (pcc or spcc) matches those to a catalogue. {PLATE_SOLVE_NOTE}",
+            f"rule-of-thumb limit). {caveat} Colour calibration (pcc or spcc) matches star colours to a "
+            f"catalogue. {PLATE_SOLVE_NOTE}",
         basis="measured", heuristic=True)
 
 

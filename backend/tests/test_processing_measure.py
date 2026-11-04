@@ -195,7 +195,7 @@ def test_header_allow_list_is_exact(base):
     raw = _fits(base.astype(np.float32), SITELAT=12.5, SITELONG=-98.5, OBJCTRA="1 2 3", DATE_OBS="2026-09-12",
                 STACKCNT=3, ROWORDER="BOTTOM-UP")
     _, facts = _read(raw, 10**9)
-    assert HEADER_KEYS == ("STACKCNT", "LIVETIME", "EXPTIME", "PROGRAM", "BAYERPAT", "ROWORDER")
+    assert HEADER_KEYS == ("STACKCNT", "LIVETIME", "EXPTIME", "PROGRAM", "BAYERPAT", "ROWORDER", "HISTORY")
     assert set(facts) == set(HEADER_KEYS)
 
 

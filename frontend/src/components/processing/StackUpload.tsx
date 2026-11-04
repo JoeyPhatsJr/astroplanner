@@ -14,16 +14,16 @@ export function StackUpload({ runId, entry }: { runId: string; entry: StackEntry
   const error = upload.error ? (upload.error instanceof Error ? upload.error.message : String(upload.error)) : null;
   return (
     <div className="flex flex-col gap-2">
-      <input
-        ref={inputRef}
-        id="coach-siril-stack"
-        type="file"
-        accept=".fit,.fits,.fts"
-        className="peer sr-only"
-        disabled={upload.isPending}
-        onChange={(e) => onPick(e.target.files)}
-      />
       <div className="flex flex-wrap items-center gap-2">
+        <input
+          ref={inputRef}
+          id="coach-siril-stack"
+          type="file"
+          accept=".fit,.fits,.fts"
+          className="peer sr-only"
+          disabled={upload.isPending}
+          onChange={(e) => onPick(e.target.files)}
+        />
         <label
           htmlFor="coach-siril-stack"
           className={`btn ${entry ? "" : "btn-primary"} peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ice ${upload.isPending ? "pointer-events-none opacity-50" : "cursor-pointer"}`}

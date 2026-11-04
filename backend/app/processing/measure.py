@@ -7,7 +7,8 @@ adding an offset changes nothing, and stacks with different pixel units compare.
 not finite (registration / field-rotation wedges) are left out of every statistic.
 
 Pure: pixels are measured in memory only and nothing is stored. Header reading is an allow-list
-(``STACKCNT``, ``LIVETIME``, ``EXPTIME``, ``PROGRAM``, ``BAYERPAT``, and ``ROWORDER`` for orientation);
+(``STACKCNT``, ``LIVETIME``, ``EXPTIME``, ``PROGRAM``, ``BAYERPAT``, ``ROWORDER`` for orientation, and ``HISTORY``,
+searched only for the phrase "equalized RGB" and otherwise discarded);
 astropy applies ``BZERO``/``BSCALE`` when it decodes the pixels. No other header value -- in particular no
 site or sky coordinate -- is read into the result.
 
@@ -47,7 +48,7 @@ METHOD = "coach-measure-2"  # -1 took the noise MAD over raw background pixels; 
 MIN_EDGE = 64                # stacks smaller than this on either side are refused: the 8 x 8 tile grid degenerates
 
 # The only header keys read; widening this list is a deliberate, reviewed change (a test pins it).
-HEADER_KEYS = ("STACKCNT", "LIVETIME", "EXPTIME", "PROGRAM", "BAYERPAT", "ROWORDER")
+HEADER_KEYS = ("STACKCNT", "LIVETIME", "EXPTIME", "PROGRAM", "BAYERPAT", "ROWORDER", "HISTORY")
 
 SCALE_PERCENTILE = 99.5      # brightness range = P99.5 - median of the luminance
 BACKGROUND_PERCENTILE = 60   # colour-balance pixels: luminance strictly below its 60th percentile
@@ -89,6 +90,7 @@ class StackMeasurement:
     gradient_residual_frac: float
     bg_rgb_ratio: tuple[float, float, float] | None
     method: str = METHOD
+    rgb_equalized: bool | None = None  # True when HISTORY says Siril equalized RGB while stacking; None = not stated
 
 
 # ---------------------------------------------------------------------------------------------- headers
@@ -318,7 +320,9 @@ def _read(data: bytes, max_pixels: int):
                     dims = [d for d in hdu.shape if d > 4] or [1]
                     _check_pixels(int(np.prod(dims)), 1, max_pixels)
                     hdr = hdu.header
-                    facts = {k: hdr.get(k) for k in HEADER_KEYS}
+                    facts = {k: hdr.get(k) for k in HEADER_KEYS if k != "HISTORY"}
+                    # Siril wraps HISTORY text across 72-character cards, even mid-word: join without separators.
+                    facts["HISTORY"] = "".join(str(x) for x in hdr.get("HISTORY", []))
                     return np.asarray(hdu.data), facts
     except (UnsupportedImage, ImageTooLarge):
         raise
@@ -340,15 +344,16 @@ def measure_stack(data: bytes, filename: str, max_pixels: int = MAX_PIXELS
     bottom_up = roworder is not None and roworder.upper() == "BOTTOM-UP"
     img = _to_hwc(raw, fits_order=False).astype(np.float32)  # stored order; flipped below if declared
     height, width, channels = img.shape
-    if min(height, width) < MIN_EDGE:
-        raise UnmeasurableStack(f"The image is {width} x {height} px; the coach needs at least {MIN_EDGE} px on "
-                                "each side to measure a stack.")
     pattern = _str(facts["BAYERPAT"])
     bayer = pattern.upper() if pattern and pattern.upper() in BAYER_PATTERNS else None
 
     super_px = channels == 1 and bayer is not None and height >= 2 and width >= 2
     if super_px:
         img = _superpixel(img[..., 0], bayer)  # BAYERPAT is the pattern at stored pixel (0, 0)
+    if min(img.shape[:2]) < MIN_EDGE:  # after the 2 x 2 super-pixel: this is the image the 8 x 8 grid sees
+        raise UnmeasurableStack(f"The image is {img.shape[1]} x {img.shape[0]} px when measured; the coach needs "
+                                f"at least {MIN_EDGE} px on each side to measure a stack (a colour-mosaic file "
+                                "is halved on each side first).")
     if bottom_up:
         img = img[::-1]
     lum = img.mean(axis=2) if img.shape[2] > 1 else img[..., 0]
@@ -389,6 +394,7 @@ def measure_stack(data: bytes, filename: str, max_pixels: int = MAX_PIXELS
         star_fwhm_px=fwhm, stars_measured=n_stars,
         noise_frac=sigma / scale, gradient_frac=plane_range / scale, gradient_residual_frac=plane_resid / scale,
         bg_rgb_ratio=ratio,  # type: ignore[arg-type]
+        rgb_equalized=True if "equalized rgb" in (facts["HISTORY"] or "").lower() else None,
     )
     rgb = coach_stretch(img)
     if rgb.shape[2] == 1:
