@@ -1,4 +1,4 @@
-"""Stack measurement (coach-measure-1) on synthetic images with known answers.
+"""Stack measurement (coach-measure-2) on synthetic images with known answers.
 
 Stars are rendered pixel-integrated (erf), i.e. exactly the circular-Gaussian PRF photutils fits, so the
 known FWHM is the true answer rather than a sampled approximation.
@@ -15,9 +15,11 @@ from scipy.special import erf
 
 from app.astrolog.previews import UnsupportedImage
 from app.processing.measure import (
+    HEADER_KEYS,
     METHOD,
     StackMeasurement,
     UnmeasurableStack,
+    _read,
     coach_stretch,
     measure_stack,
 )
@@ -90,7 +92,7 @@ def base_m(base) -> StackMeasurement:
 
 
 def test_fwhm_of_known_stars(base_m):
-    assert base_m.method == METHOD == "coach-measure-1"
+    assert base_m.method == METHOD == "coach-measure-2"
     assert base_m.stars_measured >= 50
     assert base_m.star_fwhm_px == pytest.approx(FWHM_TRUE, abs=0.15)
 
@@ -113,6 +115,32 @@ def test_linear_ramp_is_a_gradient_without_residual(base_m):
     assert m.gradient_frac > 0.1
     assert m.gradient_residual_frac < 0.02
     assert base_m.gradient_frac < 0.02  # flat control
+    assert m.noise_frac == pytest.approx(base_m.noise_frac, rel=0.05)  # the background model removes it
+
+
+@pytest.mark.parametrize("ramp", [10.0, 20.0])  # 2 and 4 per-channel noise sigma across the frame
+def test_small_gradient_does_not_read_as_noise(base_m, ramp):
+    m = _measure(_image(ramp=ramp))
+    assert m.noise_frac == pytest.approx(base_m.noise_frac, rel=0.05)
+
+
+def test_vignetting_does_not_read_as_noise(base_m):
+    img = _image()
+    yy, xx = np.mgrid[:512, :512]
+    img -= 40.0 * (((yy - 256) ** 2 + (xx - 256) ** 2) / 256.0 ** 2)[None]  # darker corners, ~14 sigma
+    m = _measure(img)
+    assert m.noise_frac == pytest.approx(base_m.noise_frac, rel=0.05)
+
+
+def test_zero_wedge_is_left_out():
+    ramp = _image(ramp=20.0)
+    ref = _measure(ramp)
+    wedged = ramp.copy()
+    wedged[:, :, : int(512 * 0.05)] = 0.0  # 5 % zero column, as registration leaves
+    m = _measure(wedged)
+    assert m.noise_frac == pytest.approx(ref.noise_frac, rel=0.03)
+    assert m.gradient_frac == pytest.approx(ref.gradient_frac, rel=0.03)
+    assert m.star_fwhm_px == pytest.approx(ref.star_fwhm_px, abs=0.05)
 
 
 def test_green_biased_background(base_m):
@@ -161,6 +189,14 @@ def test_bayer_uint16_with_bzero(roworder):
     assert m.star_fwhm_px is not None and m.stars_measured >= 50
     assert m.star_fwhm_px == pytest.approx(FWHM_TRUE, abs=0.6)
     assert Image.open(io.BytesIO(preview)).size == (384, 512)  # super-pixel image
+
+
+def test_header_allow_list_is_exact(base):
+    raw = _fits(base.astype(np.float32), SITELAT=12.5, SITELONG=-98.5, OBJCTRA="1 2 3", DATE_OBS="2026-09-12",
+                STACKCNT=3, ROWORDER="BOTTOM-UP")
+    _, facts = _read(raw, 10**9)
+    assert HEADER_KEYS == ("STACKCNT", "LIVETIME", "EXPTIME", "PROGRAM", "BAYERPAT", "ROWORDER")
+    assert set(facts) == set(HEADER_KEYS)
 
 
 def test_site_coordinates_never_reach_the_result(base):

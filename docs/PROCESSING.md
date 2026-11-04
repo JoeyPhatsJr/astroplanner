@@ -164,18 +164,28 @@ states script 2's upper bound (`stack_max_bytes`, an aligned copy of every frame
 so the estimate ran 0.01 % low per frame; `du` of the whole coach folder (1,015 + 654 frames, the stack, star lists)
 was 39 GiB against an estimate of 41.5 GB (38.7 GiB).
 
-## Stack measurement (coach-measure-1)
+## Stack measurement (coach-measure-2)
 
 _`backend/app/processing/measure.py`, `measure_stack(data, filename) -> (StackMeasurement, preview JPEG, thumb
 JPEG)`; Phase 4 Task 9._ One fixed method, applied identically to any finished stack FITS (Siril's, the
-Seestar's, the coach's), so two stacks can be put side by side as "same method, relative". It is a measurement,
-not a score: nothing is ranked and no winner is named. Pixels are measured in memory only; the module stores
-nothing.
+Seestar's, the coach's), so two stacks can be put side by side as "same method, relative". The relative numbers
+are fractions of **the image's brightness range (P99.5 - median of the luminance)**, not of the sky level. It is a
+measurement, not a score: nothing is ranked and no winner is named. Pixels are measured in memory only; the
+module stores nothing. Each result carries `method = "coach-measure-2"`; numbers from different methods are not
+compared.
+
+**Why -2 replaced -1 (the plan's formula).** The plan defined `noise_frac` as `1.4826 x MAD` of the pixels
+below the 60th percentile, taken as they are. A background gradient then counts as noise: on synthetic images a
+ramp of only about 7 sigma across the frame (`gradient_frac` 0.05) multiplied it by 2.48, a large ramp by 35, and
+on the real stack it read 13 % high, the size of difference a Seestar-versus-Siril comparison exists to show. It
+also read about 0.66 of the true sigma (the 60 % cut truncates the distribution), so it could not double as the
+star-detection sigma. Method -2 subtracts a background model first and uses one sigma for both. Values of -1 and
+-2 differ by definition (real stack: 0.0335 under -1, 0.0405 under -2) and must not be compared.
 
 **Header facts (allow-list).** Only `STACKCNT` (frames), `LIVETIME` (s), `EXPTIME` (s), `PROGRAM`, `BAYERPAT`
 and `ROWORDER` are read; astropy applies `BZERO`/`BSCALE` when it decodes the pixels. A missing or malformed
 value is `None` ("not in file"). No other header value, in particular no site (`SITELAT`, `SITELONG`) or sky
-coordinate, is read into the result. The first image HDU with at least two axes is measured.
+coordinate, is read into the result. The first image HDU with at least two axes is measured. `HEADER_KEYS` in the module is that list, and a test pins it, so widening it is a deliberate change.
 
 **Orientation and Bayer phase.** Rows are flipped for display only when the file declares
 `ROWORDER = 'BOTTOM-UP'`; without the keyword, stored row 0 is shown at the top. This departs from the FITS
@@ -193,56 +203,77 @@ measured numbers are whole-image statistics, so orientation changes only the pre
 
 **Pixels.** A 2-D image with a recognised `BAYERPAT` is reduced to colour by a 2x2 super-pixel (R, mean of the
 two G, B; no interpolation; an odd last row or column is dropped), so its stars are measured at half size.
-Luminance `L` = mean of the channels (the single channel for mono). Non-finite pixels are left out of every
-statistic.
+Luminance `L` = mean of the channels (the single channel for mono). **Valid pixels** are those where `L` is
+finite and not exactly 0; exact zeros are what registration and field rotation leave in the corners and edges
+of a stack (the Seestar is alt-az). Every statistic below uses valid pixels only.
 
 | quantity | definition |
 | --- | --- |
-| signal scale | `scale = P99.5(L) - median(L)`; every fraction below is divided by it, so multiplying the image by a constant or adding an offset changes nothing |
-| background pixels | `L` strictly below its 60th percentile |
-| `noise_frac` | `1.4826 x MAD(L over background pixels) / scale` |
-| `gradient_frac` | fit a plane `a + b x + c y` (least squares) to the medians of an 8 x 8 grid of tiles of `L` (tile centres as x, y); (max - min) of the plane over the image's four corners / `scale` |
+| brightness range | `scale = P99.5(L) - median(L)`; every fraction below is divided by it, so multiplying the image by a constant or adding an offset changes nothing |
+| tile medians | median of the valid pixels in each tile of an 8 x 8 grid (a tile with under 10 % valid pixels has none) |
+| background model | bilinear surface through the tile medians at the tile centres, extrapolated linearly to the image edges (a tile without a median takes its nearest tile's); removes gradients and vignetting on scales larger than a tile |
+| `noise_frac` | `sigma / scale`, where `sigma` is the standard deviation of `L - background model` over valid pixels after sigma clipping (`astropy.stats.sigma_clipped_stats`, 3 sigma, 5 iterations; stars and bright nebula are clipped) |
+| `gradient_frac` | least-squares plane `a + b x + c y` through the tile medians (tile centres as x, y); (max - min) of the plane over the image's four corners / `scale` |
 | `gradient_residual_frac` | `1.4826 x MAD` of the tile medians minus the plane / `scale` (structure a plane does not explain: nebula, vignetting, uneven sky) |
-| `bg_rgb_ratio` | median of each channel over the background pixels, divided by the mean of the three; `None` for mono |
+| `bg_rgb_ratio` | median of each channel over the valid pixels with `L` below its 60th percentile, divided by the mean of the three; `None` for mono |
 | `star_fwhm_px` | median of the fitted FWHMs (below); `None` when fewer than 5 stars fit |
 
-**Stars.** Detection: `photutils.detection.DAOStarFinder` (kernel FWHM 3 px, `min_separation=0`, default
-sharpness/roundness limits) on `L - median` with threshold 5 sigma, where median and sigma come from
-`astropy.stats.sigma_clipped_stats` (3 sigma, 5 iterations) over the whole of `L`. (The `noise_frac` sigma is
-not used here: taken from the lower 60 % of pixels only, it reads about 0.66 of the true sigma for Gaussian
-noise, which would put the threshold near 3.3 sigma and let noise peaks in; with it, a star-free synthetic image
-gave 99 false detections, with the clipped sigma none.) Kept: detections whose peak is below 90 % of the
-image's maximum above the median (unsaturated), whose fit window plus a 2-px ring lies inside the image, and
-with no other detection within one window width (isolated); the 200 brightest by flux. Fit: each star's window
-minus the median of the 2-px ring around it (local background), then `photutils.psf.fit_fwhm` (circular Gaussian
-PRF) with a 9 x 9 window; if the median FWHM asks for a wider window (`3 x FWHM`, odd, 9-25 px), select and fit
-again once with it. Fits that are non-finite, below 0.5 px or wider than the window are dropped. For a
-super-pixelled image the FWHM is doubled back to the file's pixels.
+**Stars.** Everything runs on `L - background model` (invalid pixels set to 0) with the same `sigma` as
+`noise_frac`. Detection: `photutils.detection.DAOStarFinder` (kernel FWHM 3 px, `min_separation=0`, default
+sharpness/roundness limits), threshold 5 sigma. Kept: detections whose peak is below 90 % of the maximum
+(unsaturated), whose fit window plus a 2-px ring lies inside the image and wholly on valid pixels, and with no
+other detection within one window width (isolated); the 200 brightest by flux. Fit: each star's window minus the
+median of the 2-px ring around it (local background), then `photutils.psf.fit_fwhm` (circular Gaussian PRF) with
+a 9 x 9 window; if the median FWHM asks for a wider window (`3 x FWHM`, odd, 9-25 px), select and fit again once
+with it. Fits that are non-finite, below 0.5 px or wider than the window are dropped. For a super-pixelled image
+the FWHM is doubled back to the file's pixels.
 
 **Preview stretch (`coach_stretch`).** Per channel (unlinked): sigma = 1.4826 MAD; black point = max(median -
 2.8 sigma, channel minimum); white point = channel maximum; then the midtones transfer
 `y = (m - 1) x / ((2m - 1) x - m)` with `m` chosen so the median lands at 0.25. The same stretch is used for
 every stack, so previews differ only where the data differ. Preview 1,600 px and thumbnail 400 px on the long
-edge, re-encoded JPEGs with no EXIF/ICC (the AstroLog preview writer).
+edge, re-encoded JPEGs with no EXIF/ICC (the AstroLog preview writer). Its median and MAD also leave out exact zeros and non-finite pixels, which are drawn black.
 
-**Checked on synthetic images (`tests/test_processing_measure.py`).** Pixel-integrated Gaussian stars of FWHM
-3.0 px on a flat background with noise measure 3.000 px (tolerance 0.15); `noise_frac` is unchanged (ratio
-0.99997) when the image is multiplied by 7 and offset by 500, and doubles (ratio 2.005) when the noise doubles;
-a linear ramp gives `gradient_frac` 0.74 and `gradient_residual_frac` 0.0007; a green-biased background gives
-`bg_rgb_ratio` (0.96, 1.08, 0.96); a 2-D GRBG uint16 frame with `BZERO = 32768` returns the channel ratios it
-was built with; a star-free image reports no FWHM. A full-size 1080 x 1920 x 3 float32 image measures in about
-1 s on a laptop.
+**Checked on synthetic images (`tests/test_processing_measure.py`).**
+- Pixel-integrated Gaussian stars of FWHM 3.0 px measure 3.000 px (tolerance 0.15).
+- Multiplying the image by 7 and adding 500 leaves `noise_frac` unchanged (ratio 1.0000); doubling the noise
+  doubles it (ratio 2.009).
+- Ramps of 10 and 20 counts (2 and 4 per-channel sigma) change `noise_frac` by +0.4 % (tolerance 5 %). A ramp of 300 changes it by
+  -0.3 % and gives `gradient_frac` 0.74 and `gradient_residual_frac` 0.0007.
+- Vignetting (corners 40 counts darker) changes `noise_frac` by +2.3 %.
+- A 5 % column of zeros on the 20-count ramp changes `noise_frac` by +1.2 % and `gradient_frac` by -0.3 %
+  (tolerance 3 %).
+- A green-biased background gives `bg_rgb_ratio` (0.96, 1.08, 0.96). A 2-D GRBG uint16 frame with
+  `BZERO = 32768` returns the channel ratios it was built with.
+- A star-free image reports no FWHM.
+- A full-size 1080 x 1920 x 3 float32 image measures in about 0.7 s on a laptop.
 
 **Real-night check (local only, 2026-11-03).** Siril 1.4.4's stack of the tutorial night and the coach's
-Siril 1.4.5 stack of the same 654 frames measure identically (they hold the same pixels): 654 frames, 6,540 s,
-FWHM 2.19 px from 200 stars (Siril's per-frame FWHM of the 654 kept frames: 1.97-3.10, median 2.21),
-`noise_frac` 0.0335, `gradient_frac` 0.156, `gradient_residual_frac` 0.026, `bg_rgb_ratio` (0.999, 1.000, 1.001)
-(Siril's "equalized RGB"); about 1-1.6 s each.
+Siril 1.4.5 stack of the same 654 frames hold the same pixels, so they measure identically:
 
-**Limitations.** `noise_frac` is a relative index, not a sigma: it is consistent between stacks measured the
-same way, but it reads low for pure Gaussian noise (lower-60 % truncation) and a background gradient raises it,
-because the MAD is taken over the background pixels as they are, gradient included (a synthetic ramp of 0.74
-`scale` raised it 35-fold; on the real stack, removing the fitted plane first would give 0.0294 instead of
-0.0335). Read it together with `gradient_frac`. The FWHM of a super-pixelled image is slightly widened by the
-2x2 binning (within 0.6 px of the truth in the test). The saturation rule uses the image maximum, so one hot
-pixel brighter than every star lets saturated stars through.
+| field | value |
+| --- | --- |
+| frames | 654 |
+| integration | 6,540 s |
+| `star_fwhm_px` | 2.19 px from 200 stars (Siril's per-frame FWHM of the 654 kept frames: 1.97-3.10, median 2.21) |
+| `noise_frac` | 0.0405 |
+| `gradient_frac` | 0.156 |
+| `gradient_residual_frac` | 0.026 |
+| `bg_rgb_ratio` | (0.999, 1.000, 1.001), Siril's "equalized RGB" |
+
+Each stack measures in about 0.9-1.5 s.
+
+**Limitations.**
+- **The brightness range depends on star sharpness.** P99.5 falls on star pixels, so softer stars lower `scale`
+  and raise `noise_frac` a little: +2.1 % for FWHM 3.0 to 3.6 (+2.4 % under -1), and +14 % for 3.0 to 4.5,
+  with the same noise. Read `noise_frac` together with `star_fwhm_px`.
+- **Per-pixel noise depends on binning.** A super-pixelled (2x2) Bayer stack averages four pixels per output
+  pixel, so its noise is not comparable with a debayered full-size stack of the same data. Compare like with
+  like, and use the "same method" label only between images of the same kind.
+- **The background model has a scale.** It follows structure larger than a tile (1/8 of the frame). Smaller
+  background structure, such as nebula, stays in the residual, and the sigma clipping removes only its bright
+  part.
+- **Super-pixelling widens stars.** The FWHM of a super-pixelled image is slightly widened by the 2x2 binning
+  (within 0.6 px of the truth in the test).
+- **Saturation uses the maximum.** The saturation rule compares against the maximum, so one hot pixel brighter
+  than every star lets saturated stars through.
