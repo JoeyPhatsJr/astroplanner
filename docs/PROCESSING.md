@@ -163,3 +163,86 @@ states script 2's upper bound (`stack_max_bytes`, an aligned copy of every frame
 (2026-11-03) each written frame was 24,888,960 bytes (the S30 header with Siril's history needs two header blocks),
 so the estimate ran 0.01 % low per frame; `du` of the whole coach folder (1,015 + 654 frames, the stack, star lists)
 was 39 GiB against an estimate of 41.5 GB (38.7 GiB).
+
+## Stack measurement (coach-measure-1)
+
+_`backend/app/processing/measure.py`, `measure_stack(data, filename) -> (StackMeasurement, preview JPEG, thumb
+JPEG)`; Phase 4 Task 9._ One fixed method, applied identically to any finished stack FITS (Siril's, the
+Seestar's, the coach's), so two stacks can be put side by side as "same method, relative". It is a measurement,
+not a score: nothing is ranked and no winner is named. Pixels are measured in memory only; the module stores
+nothing.
+
+**Header facts (allow-list).** Only `STACKCNT` (frames), `LIVETIME` (s), `EXPTIME` (s), `PROGRAM`, `BAYERPAT`
+and `ROWORDER` are read; astropy applies `BZERO`/`BSCALE` when it decodes the pixels. A missing or malformed
+value is `None` ("not in file"). No other header value, in particular no site (`SITELAT`, `SITELONG`) or sky
+coordinate, is read into the result. The first image HDU with at least two axes is measured.
+
+**Orientation and Bayer phase.** Rows are flipped for display only when the file declares
+`ROWORDER = 'BOTTOM-UP'`; without the keyword, stored row 0 is shown at the top. This departs from the FITS
+default (row 0 at the bottom) on purpose, from the real S30 night (2026-11-03): the S30 lights and Siril 1.4.5's
+`siril-cli` stack of them carry no `ROWORDER`; Siril 1.4.4's stack of the same 654 frames says `BOTTOM-UP` and
+holds exactly the same pixels with the rows reversed (maximum difference 0 after a row flip); and Siril 1.4.4's
+own TIFF export (orientation tag 1, top-left) matches the `BOTTOM-UP` stack flipped (binned rank correlation 0.72
+against 0.23 unflipped). With this rule both stacks give byte-identical previews, the same picture Siril
+exported, and the field is not mirrored (a rough check of the Bubble, M52 and NGC 7538 against their catalogue positions gives the sky's handedness). The
+FITS-default rule would have shown the 1.4.5 stack upside down. `ROWORDER = 'TOP-DOWN'` is not flipped.
+`BAYERPAT` (RGGB, BGGR, GRBG, GBRG) is the pattern at stored pixel (0, 0), applied before any flip: on an S30
+light this reproduces Siril 1.4.5's own debayer (per-channel correlation 0.80 / 0.97 / 0.80 and the same channel
+ratios; the vertically shifted reading does not). Not checked on a real 2-D file that declares `ROWORDER`. The
+measured numbers are whole-image statistics, so orientation changes only the preview.
+
+**Pixels.** A 2-D image with a recognised `BAYERPAT` is reduced to colour by a 2x2 super-pixel (R, mean of the
+two G, B; no interpolation; an odd last row or column is dropped), so its stars are measured at half size.
+Luminance `L` = mean of the channels (the single channel for mono). Non-finite pixels are left out of every
+statistic.
+
+| quantity | definition |
+| --- | --- |
+| signal scale | `scale = P99.5(L) - median(L)`; every fraction below is divided by it, so multiplying the image by a constant or adding an offset changes nothing |
+| background pixels | `L` strictly below its 60th percentile |
+| `noise_frac` | `1.4826 x MAD(L over background pixels) / scale` |
+| `gradient_frac` | fit a plane `a + b x + c y` (least squares) to the medians of an 8 x 8 grid of tiles of `L` (tile centres as x, y); (max - min) of the plane over the image's four corners / `scale` |
+| `gradient_residual_frac` | `1.4826 x MAD` of the tile medians minus the plane / `scale` (structure a plane does not explain: nebula, vignetting, uneven sky) |
+| `bg_rgb_ratio` | median of each channel over the background pixels, divided by the mean of the three; `None` for mono |
+| `star_fwhm_px` | median of the fitted FWHMs (below); `None` when fewer than 5 stars fit |
+
+**Stars.** Detection: `photutils.detection.DAOStarFinder` (kernel FWHM 3 px, `min_separation=0`, default
+sharpness/roundness limits) on `L - median` with threshold 5 sigma, where median and sigma come from
+`astropy.stats.sigma_clipped_stats` (3 sigma, 5 iterations) over the whole of `L`. (The `noise_frac` sigma is
+not used here: taken from the lower 60 % of pixels only, it reads about 0.66 of the true sigma for Gaussian
+noise, which would put the threshold near 3.3 sigma and let noise peaks in; with it, a star-free synthetic image
+gave 99 false detections, with the clipped sigma none.) Kept: detections whose peak is below 90 % of the
+image's maximum above the median (unsaturated), whose fit window plus a 2-px ring lies inside the image, and
+with no other detection within one window width (isolated); the 200 brightest by flux. Fit: each star's window
+minus the median of the 2-px ring around it (local background), then `photutils.psf.fit_fwhm` (circular Gaussian
+PRF) with a 9 x 9 window; if the median FWHM asks for a wider window (`3 x FWHM`, odd, 9-25 px), select and fit
+again once with it. Fits that are non-finite, below 0.5 px or wider than the window are dropped. For a
+super-pixelled image the FWHM is doubled back to the file's pixels.
+
+**Preview stretch (`coach_stretch`).** Per channel (unlinked): sigma = 1.4826 MAD; black point = max(median -
+2.8 sigma, channel minimum); white point = channel maximum; then the midtones transfer
+`y = (m - 1) x / ((2m - 1) x - m)` with `m` chosen so the median lands at 0.25. The same stretch is used for
+every stack, so previews differ only where the data differ. Preview 1,600 px and thumbnail 400 px on the long
+edge, re-encoded JPEGs with no EXIF/ICC (the AstroLog preview writer).
+
+**Checked on synthetic images (`tests/test_processing_measure.py`).** Pixel-integrated Gaussian stars of FWHM
+3.0 px on a flat background with noise measure 3.000 px (tolerance 0.15); `noise_frac` is unchanged (ratio
+0.99997) when the image is multiplied by 7 and offset by 500, and doubles (ratio 2.005) when the noise doubles;
+a linear ramp gives `gradient_frac` 0.74 and `gradient_residual_frac` 0.0007; a green-biased background gives
+`bg_rgb_ratio` (0.96, 1.08, 0.96); a 2-D GRBG uint16 frame with `BZERO = 32768` returns the channel ratios it
+was built with; a star-free image reports no FWHM. A full-size 1080 x 1920 x 3 float32 image measures in about
+1 s on a laptop.
+
+**Real-night check (local only, 2026-11-03).** Siril 1.4.4's stack of the tutorial night and the coach's
+Siril 1.4.5 stack of the same 654 frames measure identically (they hold the same pixels): 654 frames, 6,540 s,
+FWHM 2.19 px from 200 stars (Siril's per-frame FWHM of the 654 kept frames: 1.97-3.10, median 2.21),
+`noise_frac` 0.0335, `gradient_frac` 0.156, `gradient_residual_frac` 0.026, `bg_rgb_ratio` (0.999, 1.000, 1.001)
+(Siril's "equalized RGB"); about 1-1.6 s each.
+
+**Limitations.** `noise_frac` is a relative index, not a sigma: it is consistent between stacks measured the
+same way, but it reads low for pure Gaussian noise (lower-60 % truncation) and a background gradient raises it,
+because the MAD is taken over the background pixels as they are, gradient included (a synthetic ramp of 0.74
+`scale` raised it 35-fold; on the real stack, removing the fitted plane first would give 0.0294 instead of
+0.0335). Read it together with `gradient_frac`. The FWHM of a super-pixelled image is slightly widened by the
+2x2 binning (within 0.6 px of the truth in the test). The saturation rule uses the image maximum, so one hot
+pixel brighter than every star lets saturated stars through.
