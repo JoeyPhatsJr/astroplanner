@@ -19,7 +19,7 @@ from .astrolog.library import capture_info, session_capture_info
 from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
 from .db import Database, EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
-from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, target_score, tonight_score
+from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, night_clear, target_score, tonight_score
 from .visibility import DEFAULT_MIN_ALT_DEG, analyse_target, visibility_payload
 from .weather import OpenMeteoProvider, align_to_grid, forecast_payload
 
@@ -189,6 +189,7 @@ def tonight(
         "night": night_summary(ctx, darkness),
         "forecast": forecast_payload(fc, start.timestamp(), end.timestamp(), _now(), _lead_ref(ctx, darkness)),
         "score": tonight_score(ctx, grid, darkness),
+        "night_clear": night_clear(ctx, grid, darkness),
     }
 
 

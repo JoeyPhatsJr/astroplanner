@@ -252,6 +252,35 @@ def fit_notes(target: dict[str, Any], equipment: dict[str, Any] | None) -> list[
     return []
 
 
+def night_clear(ctx: SkyContext, weather: dict[str, np.ndarray] | None, darkness: str) -> dict | None:
+    """Longest run of darkness samples whose forecast is clear (the rule of ``_favorable_window``).
+
+    Missing (NaN) forecast values never count as clear. None when there is no forecast,
+    no darkness, or no clear sample.
+    """
+    if weather is None:
+        return None
+    dark = ctx.sun_alt < DARKNESS_THRESHOLDS[darkness]
+    clear = (
+        dark
+        & (weather["cloud_cover"] <= FAVORABLE_CLOUD_PCT)
+        & (weather["precipitation_probability"] <= FAVORABLE_PRECIP_PCT)
+    )
+    rs = runs(clear)
+    if not rs:
+        return None
+    s, e = max(rs, key=lambda r: r[1] - r[0])
+    step = float(ctx.t[1] - ctx.t[0])
+    dark_idx = np.nonzero(dark)[0]
+    start = float(ctx.t[s])
+    end = min(float(ctx.t[e]) + step, float(ctx.t[dark_idx[-1]]) + step)
+    return {
+        "start_utc": iso_utc(start), "end_utc": iso_utc(end),
+        "minutes": round((end - start) / 60, 1),
+        "rule": f"cloud ≤ {FAVORABLE_CLOUD_PCT:.0f}% and precipitation probability ≤ {FAVORABLE_PRECIP_PCT:.0f}%",
+    }
+
+
 def _favorable_window(ctx: SkyContext, vis: TargetVisibility, cloud: np.ndarray, precip: np.ndarray) -> dict | None:
     fav = vis.window_mask & (cloud <= FAVORABLE_CLOUD_PCT) & (precip <= FAVORABLE_PRECIP_PCT)
     rs = runs(fav)

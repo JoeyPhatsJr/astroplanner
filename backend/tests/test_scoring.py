@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from app import catalog
-from app.astronomy import sky_context
+from app.astronomy import iso_utc, sky_context
 from app.scoring import (
     TONIGHT_WEIGHTS,
     airmass,
@@ -19,6 +19,7 @@ from app.scoring import (
     duration_points,
     moon_interference,
     moon_sky_points,
+    night_clear,
     precip_points,
     target_moon_points,
     target_score,
@@ -179,3 +180,59 @@ def test_fov_notes_are_advisory_and_flag_unverified_axis(ctx):
     assert any("exceeds" in c and "unverified" in c for c in s["cautions"])
     s2 = target_score(ctx, v, t, flat_weather(ctx), None, 30.0)
     assert s["total"] == s2["total"]  # framing never changes the score
+
+
+# ---- night_clear -----------------------------------------------------------------
+
+
+def _dark_idx(ctx):
+    return np.nonzero(ctx.sun_alt < -18.0)[0]
+
+
+def test_night_clear_all_clear(ctx):
+    nc = night_clear(ctx, flat_weather(ctx, 0, 0), "astronomical")
+    step = float(ctx.t[1] - ctx.t[0]) / 60
+    dark_minutes = len(_dark_idx(ctx)) * step
+    assert nc is not None and abs(nc["minutes"] - dark_minutes) <= step
+    assert nc["rule"] == "cloud ≤ 40% and precipitation probability ≤ 30%"
+
+
+def test_night_clear_none_when_overcast(ctx):
+    assert night_clear(ctx, flat_weather(ctx, 100, 0), "astronomical") is None
+
+
+def test_night_clear_none_without_weather(ctx):
+    assert night_clear(ctx, None, "astronomical") is None
+
+
+def test_night_clear_nan_is_not_clear(ctx):
+    w = flat_weather(ctx, 0, 0)
+    idx = _dark_idx(ctx)
+    half = idx[len(idx) // 2]
+    w["cloud_cover"][: half] = np.nan
+    nc = night_clear(ctx, w, "astronomical")
+    assert nc is not None
+    assert nc["start_utc"] >= iso_utc(float(ctx.t[half]))
+
+
+def test_night_clear_thresholds_inclusive(ctx):
+    assert night_clear(ctx, flat_weather(ctx, 40, 30), "astronomical") is not None
+    assert night_clear(ctx, flat_weather(ctx, 40.1, 30), "astronomical") is None
+
+
+def test_night_clear_longest_run(ctx):
+    w = flat_weather(ctx, 0, 0)
+    idx = _dark_idx(ctx)
+    a, b = idx[0], idx[-1]
+    cut = a + (b - a) // 3  # clear run one is the first third, run two the rest
+    w["cloud_cover"][cut] = 100.0
+    nc = night_clear(ctx, w, "astronomical")
+    step = float(ctx.t[1] - ctx.t[0])
+    assert nc is not None
+    assert nc["start_utc"] == iso_utc(float(ctx.t[cut + 1]))
+    assert nc["minutes"] == round((b - cut) * step / 60, 1)
+
+
+def test_night_clear_no_darkness():
+    c = sky_context(*TROMSO, 0.0, date(2026, 6, 21), "Europe/Oslo")
+    assert night_clear(c, flat_weather(c), "astronomical") is None

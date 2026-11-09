@@ -145,11 +145,19 @@ export interface TonightScore {
   summary: string;
 }
 
+export interface NightClear {
+  start_utc: string;
+  end_utc: string;
+  minutes: number;
+  rule: string;
+}
+
 export interface TonightResponse {
   computed_at_utc: string;
   night: NightSummary;
   forecast: ForecastPayload;
   score: TonightScore;
+  night_clear: NightClear | null;
 }
 
 export type VisibilityStatus =
