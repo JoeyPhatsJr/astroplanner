@@ -61,6 +61,12 @@
 :root {
   --star-rgb: 255 255 255;
   --star-k: 1;
+  /* night strip: sky bands and cloud fill */
+  --strip-day: #3a4d72;
+  --strip-civil: #26324c;
+  --strip-nautical: #161e31;
+  --strip-dark: #070a12;
+  --cloud: #c3cad6;
   --sky-glow-top: radial-gradient(120% 60% at 50% -12%, rgb(45 70 140 / 0.3), transparent 62%);
   --sky-glow-corner: radial-gradient(70% 55% at 100% 110%, rgb(80 55 140 / 0.14), transparent 60%);
 }
@@ -92,6 +98,11 @@
   --color-sky-dark: #070101;
   --star-rgb: 255 60 45;
   --star-k: 0.5;
+  --strip-day: #3d0a08;
+  --strip-civil: #2b0706;
+  --strip-nautical: #190403;
+  --strip-dark: #080101;
+  --cloud: #9c2c23;
   --sky-glow-top: radial-gradient(120% 60% at 50% -12%, rgb(90 10 8 / 0.25), transparent 62%);
   --sky-glow-corner: none;
 }
