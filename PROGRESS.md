@@ -1,17 +1,27 @@
 # PROGRESS
 
-_Last updated: 2026-11-05 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
+_Last updated: 2026-11-09 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
-## Current phase: Phase 4, Processing Coach: merged and tagged
+## Current work: polish pass
+
+Design approved 2026-11-09. Spec: `docs/superpowers/specs/2026-11-09-polish-pass-design.md`; prototype: `docs/superpowers/mockups/2026-11-09-polish/tonight.html`.
+Built on branch `worktree-polish-pass` in `.claude/worktrees/polish-pass`, so the main checkout stays free for other work.
+Baseline before any change (2026-11-09, in the worktree): `pytest -q` 416 passed, 12 skipped; `npm run typecheck` ok; `npm test` 129 passed.
+
+**Exact next step:** write the implementation plan, then build milestone 1 (foundations and press states).
+
+Audit finding still to confirm on the live app: the night-vision image filter (`index.css:115`) turned bright image areas yellow-green in the prototype; the local library had no images to test it on.
+
+## Previous phase: Phase 4, Processing Coach: merged and tagged
 
 Merged to `main` on 2026-11-04 (PR #3, merge commit `20bb73d`) and tagged `phase-4`. Spec:
 `docs/superpowers/specs/2026-11-03-processing-coach-design.md`; plan: `docs/superpowers/plans/2026-11-03-processing-coach.md`;
 methods and sources: `docs/PROCESSING.md`. Phase 3 was merged on 2026-11-03 (PR #2) and tagged `phase-3`.
 
-## Exact next step
+## Phase 4 open items
 
 1. Supply the Seestar's own stacked FITS for the Bubble Nebula night (`Stacked_1015_NGC 7635_…fit`, on the Seestar): it closes gate G2 (the measured Seestar-vs-Siril comparison is validated on synthetic data only). The Seestar JPEG supplied on 2026-11-04 is a Lightroom iOS edit, so it serves "Final pictures" only.
-2. Start Phase 5 Design (scientific image analysis: FITS photometry, user-generated light curves; see `ROADMAP.md`), beginning from a real S30 night as with earlier phases.
+2. After the polish pass, start Phase 5 Design (scientific image analysis: FITS photometry, user-generated light curves; see `ROADMAP.md`), beginning from a real S30 night as with earlier phases.
 
 Housekeeping (2026-11-04): `process-coach/` (39 GB, coach-generated) and the coach's temp test files were deleted at the developer's request; the merged branches `phase-2-astrolog`, `phase-3-variable-hunter` and `phase-4-processing-coach` still exist locally and on GitHub (deleting them needs the developer's own command). `aavso-live-layer` is unmerged and kept on purpose.
 
