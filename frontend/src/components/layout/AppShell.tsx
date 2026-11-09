@@ -111,7 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line-soft bg-night-deep/95 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line-soft md:hidden bottom-nav"
       >
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
