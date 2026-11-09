@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, ExternalLink, Plus } from "lucide-react";
+import { Check, ExternalLink, Plus } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useCurrentEquipment, useObserver } from "../api/hooks";
 import { useStar, useStarVisibility, type StarResponse } from "../api/variables";
@@ -8,13 +8,14 @@ import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { useActiveSession } from "../state/activeSession";
 import { vsxRange } from "./VariableHunterPage";
+import { PageHeader } from "../components/ui/PageHeader";
 
 export function StarPage() {
   const { slug } = useParams();
   const q = useStar(slug);
   if (q.isLoading)
     return (
-      <div className="mx-auto flex max-w-[1100px] flex-col gap-3">
+      <div className="page-wide flex flex-col gap-3">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-48" />
       </div>
@@ -75,20 +76,20 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
   const eq = useCurrentEquipment();
   const { star } = data;
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-5">
-      <Link to="/variables" className="inline-flex items-center gap-1.5 self-start text-sm text-ice hover:underline">
-        <ArrowLeft className="size-4" aria-hidden /> Variable Hunter
-      </Link>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-semibold tracking-tight text-3xl md:text-[2.4rem]">{star.name}</h1>
-          <p className="mt-1 text-sm text-ink-2">
-            {data.type_label} · {star.constellation} · {vsxRange(data.vsx)}
-          </p>
-          {data.period_note && <p className="mt-0.5 text-xs text-muted">{data.period_note}</p>}
-        </div>
-        <AddToPlan starId={star.id} slug={slug} />
-      </div>
+    <div className="page-wide flex flex-col gap-5">
+      <PageHeader
+        title={star.name}
+        back={{ to: "/variables", label: "Variable Hunter" }}
+        subtitle={
+          <>
+            <p>
+              {data.type_label} · {star.constellation} · {vsxRange(data.vsx)}
+            </p>
+            {data.period_note && <p className="mt-0.5 text-xs text-muted">{data.period_note}</p>}
+          </>
+        }
+        actions={<AddToPlan starId={star.id} slug={slug} />}
+      />
 
       <dl className="grid gap-3 sm:grid-cols-2">
         <div className="panel p-4">

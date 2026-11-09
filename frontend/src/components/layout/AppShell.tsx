@@ -119,7 +119,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 py-2.5 text-[0.68rem] font-medium ${isActive ? "text-ink" : "text-muted"}`
+              `flex flex-col items-center gap-1 py-2.5 text-micro font-medium ${isActive ? "text-ink" : "text-muted"}`
             }
           >
             {({ isActive }) => (

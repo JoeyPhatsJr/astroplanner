@@ -1,6 +1,6 @@
 import { FolderOpen, MapPin, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   astrologApi,
   type CommitResponse,
@@ -15,6 +15,7 @@ import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/State
 import { batch, classifyFile, readExifSlice, readFitsHeader } from "../lib/headerSlice";
 import { mergeGroups } from "../lib/importMerge";
 import { formatCalendarDate, formatDateTime, formatIntegration, nightLabel } from "../lib/time";
+import { PageHeader } from "../components/ui/PageHeader";
 
 type PickedFile = { file: File; path: string };
 
@@ -350,17 +351,12 @@ export function AstroLogImportPage() {
   const pct = progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
-    <div className="mx-auto flex max-w-[960px] flex-col gap-6">
-      <div>
-        <Link to="/astrolog" className="text-sm text-ice hover:underline">
-          Back to AstroLog
-        </Link>
-        <h1 className="mt-2 font-semibold tracking-tight text-3xl md:text-[2.4rem]">Import a folder</h1>
-        <p className="mt-1 text-sm text-ink-2">
-          Pick a folder of Seestar FITS or Canon CR2 files. Only the file headers are read in your browser and sent; the image data never leaves
-          your computer.
-        </p>
-      </div>
+    <div className="page-reading flex flex-col gap-6">
+      <PageHeader
+        title="Import a folder"
+        back={{ to: "/astrolog", label: "Back to AstroLog" }}
+        subtitle="Pick a folder of Seestar FITS or Canon CR2 files. Only the file headers are read in your browser and sent; the image data never leaves your computer."
+      />
 
       <section
         aria-labelledby="pick-h"

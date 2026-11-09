@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAstroLogTarget, useLinkVariable, useUpdateLibraryTarget, type TargetPage } from "../api/astrolog";
@@ -8,13 +7,14 @@ import { headlineLabel, imageSrc } from "../components/astrolog/TargetTile";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate, formatExposures, formatIntegration, formatLocalSpan } from "../lib/time";
+import { PageHeader } from "../components/ui/PageHeader";
 
 export function TargetLogPage() {
   const { targetId } = useParams();
   const q = useAstroLogTarget(targetId);
   if (q.isLoading)
     return (
-      <div className="mx-auto flex max-w-[1100px] flex-col gap-3">
+      <div className="page-wide flex flex-col gap-3">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-72" />
       </div>
@@ -41,14 +41,12 @@ function TargetBody({ data }: { data: TargetPage }) {
       : null;
 
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-5">
-      <Link to="/astrolog" className="inline-flex items-center gap-1.5 self-start text-sm text-ice hover:underline">
-        <ArrowLeft className="size-4" aria-hidden /> Library
-      </Link>
-      <div>
-        <h1 className="font-semibold tracking-tight text-3xl md:text-[2.4rem]">{t.display_name}</h1>
-        {t.category && <p className="mt-1 text-sm capitalize text-ink-2">{t.category}</p>}
-      </div>
+    <div className="page-wide flex flex-col gap-5">
+      <PageHeader
+        title={t.display_name}
+        subtitle={t.category ? <span className="capitalize">{t.category}</span> : undefined}
+        back={{ to: "/astrolog", label: "Library" }}
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="flex flex-col gap-3">

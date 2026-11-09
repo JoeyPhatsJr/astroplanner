@@ -15,6 +15,7 @@ import { formatLatLon } from "../lib/format";
 import { nightLabel } from "../lib/time";
 import { useActiveSession } from "../state/activeSession";
 import { usePrefs } from "../state/prefs";
+import { PageHeader } from "../components/ui/PageHeader";
 
 const TOP_N = 9;
 
@@ -44,25 +45,27 @@ export function TonightPage() {
   const shown = (observableOnly ? results.filter((r) => r.visibility.can_observe) : results).slice(0, TOP_N);
 
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-semibold tracking-tight text-3xl  text-ink md:text-[2.4rem]">Tonight</h1>
-          <p className="mt-1 text-sm text-ink-2">
+    <div className="page-wide flex flex-col gap-6">
+      <PageHeader
+        title="Tonight"
+        subtitle={
+          <>
             {nightDate ? nightLabel(nightDate) : ""} at {location.label}
             <span className="text-muted"> · {formatLatLon(location.latitude_deg, location.longitude_deg)} · {tz}</span>
-          </p>
-        </div>
-        {location.is_sample && (
-          <Notice>
-            You are viewing the editable sample location.{" "}
-            <Link to="/settings" className="text-ice hover:underline">
-              Set your own location
-            </Link>
-            .
-          </Notice>
-        )}
-      </div>
+          </>
+        }
+        actions={
+          location.is_sample ? (
+            <Notice>
+              You are viewing the editable sample location.{" "}
+              <Link to="/settings" className="text-ice hover:underline">
+                Set your own location
+              </Link>
+              .
+            </Notice>
+          ) : undefined
+        }
+      />
 
       {tonight.isLoading && <PageSkeleton />}
       {tonight.error && <ErrorState error={tonight.error} onRetry={() => tonight.refetch()} title="Couldn't compute tonight" />}

@@ -13,7 +13,7 @@ export function ScoreChip({ total, max }: { total: number | null; max: number | 
         {Math.round(total)}
         <span className="font-sans text-xs text-muted">/{max}</span>
       </p>
-      {max < 100 && <p className="mt-0.5 text-[0.68rem] text-warn">weather excluded</p>}
+      {max < 100 && <p className="mt-0.5 text-micro text-warn">weather excluded</p>}
     </div>
   );
 }
@@ -80,7 +80,7 @@ export function TargetCard({
         </ul>
       )}
       {score.cautions.length > 0 && (
-        <ul className="flex flex-col gap-1 text-[0.78rem] leading-snug text-warn/90">
+        <ul className="flex flex-col gap-1 text-label leading-snug text-warn/90">
           {score.cautions.slice(0, 2).map((x) => (
             <li key={x} className="flex gap-2">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />

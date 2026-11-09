@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useVariables, type VariableListItem } from "../api/variables";
 import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Skeleton } from "../components/ui/States";
+import { PageHeader } from "../components/ui/PageHeader";
 
 export function vsxRange(v: VariableListItem["vsx"]): string {
   if (v.max_mag === null || v.min_mag === null) return "range not listed";
@@ -12,13 +13,11 @@ export function vsxRange(v: VariableListItem["vsx"]): string {
 export function VariableHunterPage() {
   const q = useVariables();
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-5">
-      <div>
-        <h1 className="font-semibold tracking-tight text-3xl md:text-[2.4rem]">Variable Hunter</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-2">
-          A short, curated list of variable stars that a Seestar can follow. Tonight&apos;s windows are calculated for your saved location.
-        </p>
-      </div>
+    <div className="page-wide flex flex-col gap-5">
+      <PageHeader
+        title="Variable Hunter"
+        subtitle="A short, curated list of variable stars that a Seestar can follow. Tonight's windows are calculated for your saved location."
+      />
       {q.isLoading ? (
         <div className="grid gap-3 md:grid-cols-2" aria-busy="true">
           {[0, 1, 2, 3].map((i) => (

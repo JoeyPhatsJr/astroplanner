@@ -12,6 +12,15 @@
 @theme {
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
 
+  /* named type scale: nothing under 11 px */
+  --text-micro: 11px;
+  --text-micro--letter-spacing: 0.02em;
+  --text-label: 12.5px;
+  --text-label--letter-spacing: 0.01em;
+  --text-display: 2.4rem;
+  --text-display--line-height: 1.08;
+  --text-display--letter-spacing: -0.025em;
+
   --color-night: #02030a;
   --color-night-deep: #05070d;
   --color-panel: rgb(10 13 19 / 0.92);
@@ -136,6 +145,14 @@
   :root[data-vision="night"] .vision-img {
     filter: grayscale(1) sepia(1) saturate(5) hue-rotate(-50deg) brightness(0.55);
   }
+  /* Two page widths only: wide 1120 px, reading 860 px. */
+  .page-wide,
+  .page-reading {
+    margin-inline: auto;
+    width: 100%;
+  }
+  .page-wide { max-width: 1120px; }
+  .page-reading { max-width: 860px; }
   .panel {
     background: var(--color-panel);
     border: 1px solid var(--color-line-soft);

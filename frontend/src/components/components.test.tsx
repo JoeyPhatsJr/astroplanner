@@ -10,6 +10,8 @@ import type { SessionTarget, TonightScore } from "../api/types";
 import { pickSessionForNight, sessionTitleForNight } from "../state/activeSession";
 import { moveId, SessionTargetList } from "./session/SessionTargetList";
 import { ScoreHero } from "./tonight/ScoreHero";
+import { PageHeader } from "./ui/PageHeader";
+import { BasisBadge } from "./ui/States";
 
 const base: Omit<TonightScore, "status" | "total" | "components"> = {
   kind: "heuristic",
@@ -162,5 +164,41 @@ describe("TargetCard history badge", () => {
     mockHistory.data = {};
     card();
     expect(screen.queryByText(/You have/)).toBeNull();
+  });
+});
+
+describe("PageHeader", () => {
+  it("renders one h1, a back link with an icon, subtitle and actions", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <PageHeader title="Nights" subtitle="Every night" back={{ to: "/astrolog", label: "Library" }} actions={<button type="button">Act</button>} />
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1, name: "Nights" })).toBeTruthy();
+    const back = screen.getByRole("link", { name: "Library" });
+    expect(back.getAttribute("href")).toBe("/astrolog");
+    expect(back.querySelector("svg")).not.toBeNull();
+    expect(screen.getByText("Every night")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Act" })).toBeTruthy();
+    expect(container.querySelectorAll("h1")).toHaveLength(1);
+  });
+
+  it("omits the back link when none is given", () => {
+    render(
+      <MemoryRouter>
+        <PageHeader title="Settings" />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+});
+
+describe("BasisBadge", () => {
+  it("styles forecast and heuristic differently", () => {
+    const { container: a } = render(<BasisBadge basis="forecast" />);
+    const { container: b } = render(<BasisBadge basis="heuristic" />);
+    expect(a.firstElementChild?.className).not.toBe(b.firstElementChild?.className);
+    expect(b.firstElementChild?.className).toContain("border-dashed");
   });
 });
