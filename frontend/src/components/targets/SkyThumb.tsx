@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Target } from "../../api/types";
+import { loadSkyImageUrl } from "../../lib/skyImageQueue";
 import { FramingDiagram, framingNote } from "./FramingDiagram";
 
 /**
- * Picture slot of a card or drawer: a lazily loaded Digitized Sky Survey cutout over the framing diagram.
+ * Picture slot of a card or drawer: a Digitized Sky Survey cutout over the framing diagram.
  * The diagram is the fallback, shown until the image loads and kept when it fails (the backend answers 503
- * when the survey is unreachable). A cold fetch can take up to a minute, hence lazy loading and the diagram meanwhile.
+ * when the survey is unreachable). A cold fetch can take many seconds, so images load only once the slot is
+ * near the viewport, through a shared queue that runs at most two at a time (see lib/skyImageQueue).
+ * A target without sky_field_arcmin (images switched off on the server) requests nothing.
  * With fallback=false the diagram is not drawn here (the drawer shows it beside the image).
  */
 export function SkyThumb({
@@ -19,24 +22,54 @@ export function SkyThumb({
   size: number;
   fallback?: boolean;
 }) {
+  const [src, setSrc] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
   const field = target.sky_field_arcmin ?? null;
-  const hasImage = field != null && !failed;
+  const url = field != null ? `/api/targets/${encodeURIComponent(target.id)}/sky-image` : null;
+  const hasImage = url != null && !failed;
   const note = framingNote(target.angular_major_arcmin, fovDeg);
   const showDiagram = fallback && note != null;
+
+  useEffect(() => {
+    if (!url) return;
+    const ctl = new AbortController();
+    const start = () =>
+      void loadSkyImageUrl(url, ctl.signal).then((u) => {
+        if (ctl.signal.aborted) return;
+        if (u) setSrc(u);
+        else setFailed(true);
+      });
+    let io: IntersectionObserver | undefined;
+    if (typeof IntersectionObserver === "function" && box.current) {
+      io = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((e) => e.isIntersecting)) return;
+          io?.disconnect();
+          start();
+        },
+        { rootMargin: "400px" },
+      );
+      io.observe(box.current);
+    } else start();
+    return () => {
+      io?.disconnect();
+      ctl.abort();
+    };
+  }, [url]);
+
   if (!hasImage && !showDiagram) return null;
   const width = field != null ? Number((field / 60).toFixed(2)) : null;
   return (
-    <div className="relative flex-none self-start overflow-hidden rounded-[10px] bg-night-deep" style={{ width: size, height: size }}>
+    <div ref={box} className="relative flex-none self-start overflow-hidden rounded-[10px] bg-night-deep" style={{ width: size, height: size }}>
       {showDiagram && (
         <FramingDiagram major={target.angular_major_arcmin} minor={target.angular_minor_arcmin} fovDeg={fovDeg} size={size} />
       )}
-      {hasImage && (
+      {hasImage && src && (
         <img
-          src={`/api/targets/${encodeURIComponent(target.id)}/sky-image`}
+          src={src}
           alt={`Digitized Sky Survey image of ${target.name}`}
-          loading="lazy"
           decoding="async"
           width={size}
           height={size}

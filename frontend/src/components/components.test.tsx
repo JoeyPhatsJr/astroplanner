@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -320,13 +320,18 @@ describe("TargetCard layout", () => {
   });
 });
 
+const mockSky = vi.hoisted(() => ({ load: vi.fn((_url: string, _signal?: AbortSignal): Promise<string | null> => Promise.resolve("blob:sky")) }));
+vi.mock("../lib/skyImageQueue", () => ({ loadSkyImageUrl: mockSky.load }));
+
 describe("SkyThumb", () => {
   const target = { id: "ngc7635", name: "Bubble Nebula", angular_major_arcmin: 15, angular_minor_arcmin: 8, sky_field_arcmin: 40 } as unknown as Target;
   const diagram = (c: HTMLElement) => c.querySelector("svg[viewBox='0 0 112 112']");
-  it("shows the diagram until the image loads, then marks the image loaded with the width", () => {
+  it("shows the diagram until the image loads, then marks the image loaded with the width", async () => {
     const { container } = render(<SkyThumb target={target} fovDeg={2.46} size={112} />);
-    const img = container.querySelector("img")!;
     expect(diagram(container)).not.toBeNull();
+    const img = await screen.findByAltText("Digitized Sky Survey image of Bubble Nebula");
+    expect(mockSky.load).toHaveBeenCalledWith("/api/targets/ngc7635/sky-image", expect.any(AbortSignal));
+    expect(img.getAttribute("src")).toBe("blob:sky");
     expect(img.hasAttribute("data-loaded")).toBe(false);
     expect(screen.queryByText("0.67°")).toBeNull();
     fireEvent.load(img);
@@ -334,22 +339,37 @@ describe("SkyThumb", () => {
     expect(screen.getByText("0.67°")).toBeTruthy();
     expect(diagram(container)).not.toBeNull();
   });
-  it("is lazy and carries the night-vision picture class", () => {
-    const { container } = render(<SkyThumb target={target} fovDeg={2.46} size={112} />);
-    const img = container.querySelector("img")!;
-    expect(img.getAttribute("loading")).toBe("lazy");
+  it("carries the night-vision picture class", async () => {
+    render(<SkyThumb target={target} fovDeg={2.46} size={112} />);
+    const img = await screen.findByAltText(/Digitized Sky Survey/);
     expect(img.className).toContain("vision-img");
   });
-  it("removes the image on error and keeps the diagram", () => {
+  it("removes the image on error and keeps the diagram", async () => {
     const { container } = render(<SkyThumb target={target} fovDeg={2.46} size={112} />);
-    fireEvent.error(container.querySelector("img")!);
+    fireEvent.error(await screen.findByAltText(/Digitized Sky Survey/));
     expect(container.querySelector("img")).toBeNull();
     expect(diagram(container)).not.toBeNull();
   });
-  it("still shows the image when the field of view is unknown", () => {
+  it("keeps the diagram when no image is available", async () => {
+    mockSky.load.mockResolvedValueOnce(null);
+    const { container } = render(<SkyThumb target={target} fovDeg={2.46} size={112} />);
+    await waitFor(() => expect(mockSky.load).toHaveBeenCalled());
+    await act(async () => {});
+    expect(container.querySelector("img")).toBeNull();
+    expect(diagram(container)).not.toBeNull();
+  });
+  it("still shows the image when the field of view is unknown", async () => {
     const { container } = render(<SkyThumb target={target} fovDeg={null} size={112} />);
-    expect(container.querySelector("img")).not.toBeNull();
+    expect(await screen.findByAltText(/Digitized Sky Survey/)).toBeInTheDocument();
     expect(diagram(container)).toBeNull();
+  });
+  it("requests no image when the server has sky images off", async () => {
+    mockSky.load.mockClear();
+    const { container } = render(<SkyThumb target={{ ...target, sky_field_arcmin: null }} fovDeg={2.46} size={112} />);
+    await act(async () => {});
+    expect(mockSky.load).not.toHaveBeenCalled();
+    expect(container.querySelector("img")).toBeNull();
+    expect(diagram(container)).not.toBeNull();
   });
   it("renders nothing when there is neither an image nor a diagram", () => {
     const { container } = render(<SkyThumb target={{ ...target, sky_field_arcmin: undefined }} fovDeg={null} size={112} />);

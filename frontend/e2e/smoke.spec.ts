@@ -6,13 +6,15 @@ import { expect, test, type Page } from "@playwright/test";
 async function collectErrors(page: Page) {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  // A survey image that cannot load is a handled state (the diagram stays); the browser still logs its 503.
-  page.on("console", (m) => m.type() === "error" && !m.location().url.includes("/sky-image") && errors.push(m.text()));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
   return errors;
 }
 
 test("Tonight renders computed night, score state and recommendations", async ({ page }) => {
   const errors = await collectErrors(page);
+  // The e2e backend runs with sky images off: targets say so, and the page asks for none.
+  const skyRequests: string[] = [];
+  page.on("request", (r) => r.url().includes("/sky-image") && skyRequests.push(r.url()));
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Tonight", level: 1 })).toBeVisible();
   await expect(page.getByText("Tonight’s Score").first()).toBeVisible();
@@ -22,6 +24,8 @@ test("Tonight renders computed night, score state and recommendations", async ({
   await expect(page.getByRole("heading", { name: "Best targets tonight" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Add .* to session$/ }).first()).toBeVisible();
   await expect(page.getByText(/Open-Meteo/).first()).toBeVisible();
+  await expect(page.getByText(/Sky images: Digitized Sky Survey/)).toHaveCount(0);
+  expect(skyRequests).toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -296,18 +300,45 @@ const TINY_JPEG = Buffer.from(
   "base64",
 );
 
+/** The e2e backend runs with sky images off; pretend the server has them on, as targets would then say. */
+async function withSkyImagesOn(page: Page) {
+  await page.route(/\/api\/recommendations(\?|$)/, async (route) => {
+    const res = await route.fetch();
+    const json = await res.json();
+    for (const r of json.results) r.target.sky_field_arcmin = 40;
+    await route.fulfill({ response: res, json });
+  });
+}
+
 test("A target card shows its sky image when the survey answers", async ({ page }) => {
+  await withSkyImagesOn(page);
   await page.route("**/sky-image", (route) => route.fulfill({ status: 200, contentType: "image/jpeg", body: TINY_JPEG }));
   await page.goto("/");
+  // Images load as their cards near the viewport; on a phone the cards start below the fold.
+  await page.locator("article").first().scrollIntoViewIfNeeded();
   const img = page.locator("article img[data-loaded]").first();
   await expect(img).toBeAttached();
   await expect(page.getByText(/Sky images: Digitized Sky Survey/)).toBeVisible();
 });
 
 test("A target card keeps the framing diagram when the survey is unavailable", async ({ page }) => {
-  await page.route("**/sky-image", (route) => route.fulfill({ status: 503, body: "unavailable" }));
+  await withSkyImagesOn(page);
+  // A slow survey: each answer takes 300 ms, so the queue's limit of two requests in flight is visible.
+  let asked = 0;
+  let inFlight = 0;
+  let peak = 0;
+  await page.route("**/sky-image", async (route) => {
+    asked++;
+    peak = Math.max(peak, ++inFlight);
+    await new Promise((r) => setTimeout(r, 300));
+    inFlight--;
+    await route.fulfill({ status: 503, body: "unavailable" });
+  });
   await page.goto("/");
   await expect(page.getByRole("button", { name: /^Add .* to session$/ }).first()).toBeVisible();
+  await page.locator("article").first().scrollIntoViewIfNeeded();
+  await expect.poll(() => asked).toBeGreaterThan(2);
+  expect(peak).toBeLessThanOrEqual(2);
   await expect(page.locator("article img")).toHaveCount(0);
   await expect(page.locator("article svg[viewBox='0 0 112 112']").first()).toBeVisible();
 });

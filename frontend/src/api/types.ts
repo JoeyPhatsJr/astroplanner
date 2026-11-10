@@ -25,8 +25,8 @@ export interface Target {
   source: string;
   source_id: string;
   source_url: string;
-  /** Side of the survey cutout in arcminutes (backend-chosen). */
-  sky_field_arcmin?: number;
+  /** Side of the survey cutout in arcminutes (backend-chosen); null when the server has sky images switched off. */
+  sky_field_arcmin?: number | null;
 }
 
 export interface CatalogMeta {
