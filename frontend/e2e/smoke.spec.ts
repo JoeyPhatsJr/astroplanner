@@ -183,18 +183,34 @@ test("Night vision: the location and date popups show only red", async ({ page }
     await page.getByRole("button", { name: /·/ }).filter({ has: page.locator("span.truncate") }).click();
   }
 
-  // Every visible element in the popup: no green or blue channel above red in text, background, border,
-  // focus outline, shadow, or SVG stroke and fill.
+  // Every visible element in the popup: only red light in text, background, border, focus outline, shadow,
+  // or SVG stroke and fill. A colour fails when green or blue exceeds 0.45 x red + 4 (the screenshot check's
+  // rule), so white and grey fail too. Each colour is normalised through a canvas, so any CSS colour syntax
+  // (rgb(), color(srgb ...), oklch(), exponents) reads as 0-255 channels; one the canvas cannot read fails.
+  await page.evaluate(() => {
+    const ctx = document.createElement("canvas").getContext("2d", { willReadFrequently: true })!;
+    const SENTINEL = "#010203";
+    (window as unknown as { __offends: (c: string) => boolean }).__offends = (c: string) => {
+      ctx.fillStyle = SENTINEL;
+      ctx.fillStyle = c;
+      if (ctx.fillStyle === SENTINEL && c.trim().toLowerCase() !== SENTINEL) return true; // unreadable: not provably red
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillRect(0, 0, 1, 1);
+      const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+      return a > 0 && (g > 0.45 * r + 4 || b > 0.45 * r + 4);
+    };
+  });
+  const COLOUR = /(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\((?:[^()]|\([^()]*\))*\)|#[0-9a-fA-F]{3,8}\b/g;
+  // The checker itself must catch white, grey and wide-gamut forms, and pass the night palette's red.
+  const selfTest = await page.evaluate((samples) => samples.map((s) => (window as unknown as { __offends: (c: string) => boolean }).__offends(s)), [
+    "rgb(255, 255, 255)", "rgb(128, 128, 128)", "color(srgb 1 1 1)", "rgba(200, 0, 0, 0.5)", "rgb(255 60 40)", "color(srgb 1 1e-1 0)", "rgba(0, 0, 0, 0)",
+  ]);
+  expect(selfTest).toEqual([true, true, true, false, false, false, false]);
   const offenders = () =>
-    page.evaluate(() => {
+    page.evaluate((colourSource) => {
       const bad: string[] = [];
-      const check = (c: string) => {
-        const m = c.match(/[\d.]+/g)?.map(Number);
-        if (!m || m.length < 3) return false;
-        const [r, g, b, a = 1] = m;
-        return a > 0 && (g > r || b > r);
-      };
-      const checkAll = (v: string) => (v.match(/rgba?\([^)]*\)/g) ?? []).some(check);
+      const check = (c: string) => (window as unknown as { __offends: (c: string) => boolean }).__offends(c);
+      const checkAll = (v: string) => (v.match(new RegExp(colourSource, "g")) ?? []).some(check);
       for (const root of document.querySelectorAll(".pop")) {
         for (const el of [root, ...root.querySelectorAll("*")]) {
           const box = el.getBoundingClientRect();
@@ -215,7 +231,7 @@ test("Night vision: the location and date popups show only red", async ({ page }
         }
       }
       return bad;
-    });
+    }, COLOUR.source);
 
   // Location select: open, focus an option by keyboard (so the focus ring is scanned), then Esc returns focus.
   const location = page.getByLabel("Observing location");
