@@ -104,6 +104,26 @@ describe("Overlay", () => {
     expect(dialog(container).dataset.state).toBe("closing");
   });
 
+  it("a tap on a select's own full-screen backdrop beside the panel does not dismiss it", () => {
+    const onDismiss = vi.fn();
+    const { container } = render(ui(true, () => {}, onDismiss));
+    const backdrop = document.createElement("div");
+    backdrop.setAttribute("role", "presentation"); // Base UI's modal Select backdrop, outside .pop-positioner
+    dialog(container).appendChild(backdrop);
+    fireEvent.click(backdrop);
+    expect(onDismiss).not.toHaveBeenCalled();
+    expect(dialog(container).dataset.state).toBe("open");
+  });
+
+  it("a text selection dragged from the panel onto the scrim does not dismiss it", () => {
+    const onDismiss = vi.fn();
+    const { container } = render(ui(true, () => {}, onDismiss));
+    // A drag that ends outside where it began fires click on the common ancestor: the dialog itself.
+    fireEvent.click(dialog(container));
+    expect(onDismiss).not.toHaveBeenCalled();
+    expect(dialog(container).dataset.state).toBe("open");
+  });
+
   it("a click inside a themed popup portaled into the dialog does not dismiss it", () => {
     const onDismiss = vi.fn();
     const { container } = render(ui(true, () => {}, onDismiss));

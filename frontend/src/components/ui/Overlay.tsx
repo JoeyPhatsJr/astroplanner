@@ -144,10 +144,10 @@ export function Overlay({ open, onClosed, onDismiss, onReopen, variant, labelled
         dismiss();
       }}
       onClick={(e) => {
-        const target = e.target as Element;
-        // Select and date popups portal into this dialog (outside the panel); a click in one is not a scrim click.
-        if (target.closest?.(".pop-positioner")) return;
-        if (!panelEl.current?.contains(target)) dismiss();
+        // Only a click that lands on the scrim itself dismisses. Select and date popups (and a modal
+        // select's full-screen backdrop) portal into this dialog beside the panel, and a text selection
+        // dragged out of the panel fires its click on the dialog; neither is a scrim click.
+        if (e.target === scrimEl.current) dismiss();
       }}
       onTransitionEnd={(e) => {
         if (e.target === panelEl.current && ref.current?.dataset.state === "closing") finish();

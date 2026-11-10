@@ -117,6 +117,34 @@ test("Phone: one-row header chip opens the controls sheet; details is a bottom s
   await expect(page.locator("dialog[open]")).toHaveCount(0);
 });
 
+test("Phone: tapping outside an open select in the header sheet closes the select, not the sheet", async ({ page }, info) => {
+  test.skip(info.project.name !== "mobile", "phone layout only");
+  await page.goto("/");
+  await page.getByRole("button", { name: /·/ }).filter({ has: page.locator("span.truncate") }).click();
+  const location = page.getByLabel("Observing location");
+  await expect(location).toBeVisible();
+  await location.click();
+  const popup = page.locator(".pop").first();
+  await expect(popup).toBeVisible();
+  await expect(page.getByRole("listbox")).toHaveCount(1);
+  // A point inside the sheet panel but outside the popup: the modal select's own backdrop covers it.
+  const panel = (await page.locator("dialog[open] .overlay-panel").boundingBox())!;
+  const pop = (await popup.boundingBox())!;
+  const y = pop.y + pop.height + 12 < panel.y + panel.height - 8 ? panel.y + panel.height - 8 : panel.y + 8;
+  expect(y < pop.y || y > pop.y + pop.height).toBe(true);
+  await page.touchscreen.tap(panel.x + panel.width / 2, y);
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  // The sheet's exit takes 200 ms, so a dismissed sheet would still look open at once: wait past it.
+  await page.waitForTimeout(500);
+  await expect(page.locator("dialog.overlay[open]")).toHaveCount(1);
+  await expect(page.locator("dialog.overlay[open]")).toHaveAttribute("data-state", "open");
+  await expect(location).toBeVisible();
+
+  // Tapping the scrim itself, with no popup open, still closes the sheet.
+  await page.touchscreen.tap(panel.x + panel.width / 2, panel.y / 2);
+  await expect(page.locator("dialog.overlay[open]")).toHaveCount(0);
+});
+
 test("Night vision turns the palette red and survives a reload", async ({ page }) => {
   await page.goto("/");
   const html = page.locator("html");
