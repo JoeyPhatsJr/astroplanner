@@ -41,7 +41,7 @@ a { color: inherit; touch-action: manipulation; }
 .skip:focus-visible { top: 12px; }
 
 /* ---------- mockup chrome (not part of the design) ---------- */
-.mock-bar { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+.mock-bar { position: relative; z-index: 50; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
   padding: 10px 16px; background: #fff; color: #111; font: 500 13px/1.2 Inter, system-ui, sans-serif; border-bottom: 1px solid #ddd; }
 .mock-bar strong { margin-right: 6px; }
 .mock-bar .grp { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
@@ -50,7 +50,7 @@ a { color: inherit; touch-action: manipulation; }
 .mock-bar button[aria-pressed="true"] { background: #111; color: #fff; border-color: #111; }
 .mock-note { max-width: 1160px; margin: 14px auto 0; padding: 0 16px; color: #9aa3b2; font-size: 13px; }
 .stage { padding: 16px; }
-.frame { margin: 0 auto; max-width: 1440px; background: var(--night); border-radius: 14px; overflow: hidden; outline: 1px solid #222; transition: max-width 300ms var(--ease); }
+.frame { margin: 0 auto; max-width: 1440px; background: var(--night); border-radius: 14px; overflow: clip; outline: 1px solid #222; transition: max-width 300ms var(--ease); }
 .frame.phone { max-width: 390px; }
 
 /* ---------- shared site layout ---------- */
@@ -68,7 +68,7 @@ a { color: inherit; touch-action: manipulation; }
 .nav a { text-decoration: none; }
 .nav a[aria-current="page"] { color: var(--ink); }
 .actions { display: flex; justify-content: flex-end; align-items: center; gap: 18px; }
-.signin { font-weight: 500; font-size: 15px; color: var(--ink-2); text-decoration: none; }
+.signin { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 500; font-size: 15px; color: var(--ink-2); text-decoration: none; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--line); display: grid; place-items: center; font-weight: 600; font-size: 14px; }
 .pill { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0 1.25rem; border-radius: 999px; background: var(--pill-bg); color: var(--pill-ink);
   font-weight: 600; font-size: .9375rem; text-decoration: none; white-space: nowrap; transition: transform 160ms var(--ease), filter 150ms ease; }
@@ -157,27 +157,44 @@ p { text-wrap: pretty; color: var(--ink-2); margin: 0 0 14px; max-width: 68ch; }
 
 /* phone */
 .phone .site-header { grid-template-columns: 1fr auto; padding: 0 16px; height: 60px; }
-.phone .nav { display: none; }
-.phone .signin, .phone .slot-ghost { display: none; }
-.phone .pill { padding: 0 1rem; font-size: .875rem; }
-.phone .page { padding: 44px 16px 16px; }
-.phone h1 { font-size: 38px; }
-.phone h2 { font-size: 25px; margin-top: 48px; }
-.phone .lede { font-size: 18px; }
-.phone .foot { grid-template-columns: 1fr 1fr; padding: 32px 16px 20px; }
-.phone .foot .brand { grid-column: 1 / -1; }
-.phone .fine { padding: 16px 16px 32px; }
-.phone .board, .phone .cards { grid-template-columns: 1fr; }
-.phone .state { grid-template-columns: 1fr; }
-.phone .state .mini { justify-content: flex-start; }
+/* Phone layout. One rule set, used twice: by the "Phone width" toggle (.phone) and by real narrow screens. */
+.phone .site-header { grid-template-columns: 1fr auto; padding: 0 1rem; height: 3.75rem; }
+.phone .nav, .phone .slot-ghost { display: none; }
+.phone .actions { gap: .75rem; }
+.phone .pill { padding: 0 .875rem; font-size: .875rem; }
+.phone .site-header:not([data-auth="now"]) .wm { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.phone .page { padding: 2.75rem 1rem 1rem; }
+.phone h1 { font-size: 2.375rem; }
+.phone h2 { font-size: 1.5625rem; margin-top: 3rem; }
+.phone .lede { font-size: 1.125rem; }
+.phone .figure { padding: 1.125rem; }
 .phone .row { grid-template-columns: 14px 1fr auto; }
 .phone .row .badge { grid-column: 2; justify-self: start; }
-.phone .credit { grid-template-columns: 1fr; }
+.phone .plain .row { grid-template-columns: 1fr auto; }
+.phone .plain .row .badge { grid-column: 1; }
+.phone .board, .phone .cards, .phone .credit { grid-template-columns: 1fr; }
 .phone .credit .lic { text-align: left; }
+.phone .state { grid-template-columns: 1fr; }
+.phone .state .mini { justify-content: flex-start; }
+.phone .foot { grid-template-columns: 1fr 1fr; padding: 2rem 1rem 1.25rem; }
+.phone .foot .brand { grid-column: 1 / -1; }
+.phone .fine { padding: 1rem 1rem 2rem; }
 @media (max-width: 700px) {
-  .site-header { grid-template-columns: 1fr auto; padding: 0 16px; } .nav, .signin { display: none; }
-  .page { padding: 44px 16px 16px; } .foot { grid-template-columns: 1fr 1fr; padding: 32px 16px 20px; } .foot .brand { grid-column: 1 / -1; }
-  .board, .cards { grid-template-columns: 1fr; } .state { grid-template-columns: 1fr; } .fine { padding: 16px; }
+  .stage { padding: 0; } .frame { border-radius: 0; outline: 0; }
+  .site-header { grid-template-columns: 1fr auto; padding: 0 1rem; height: 3.75rem; }
+  .nav, .slot-ghost { display: none; }
+  .actions { gap: .75rem; }
+  .pill { padding: 0 .875rem; font-size: .875rem; }
+  .site-header:not([data-auth="now"]) .wm { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .page { padding: 2.75rem 1rem 1rem; }
+  h1 { font-size: 2.375rem; } h2 { font-size: 1.5625rem; margin-top: 3rem; } .lede { font-size: 1.125rem; }
+  .figure { padding: 1.125rem; }
+  .row { grid-template-columns: 14px 1fr auto; } .row .badge { grid-column: 2; justify-self: start; }
+  .plain .row { grid-template-columns: 1fr auto; } .plain .row .badge { grid-column: 1; }
+  .board, .cards, .credit { grid-template-columns: 1fr; } .credit .lic { text-align: left; }
+  .state { grid-template-columns: 1fr; } .state .mini { justify-content: flex-start; }
+  .foot { grid-template-columns: 1fr 1fr; padding: 2rem 1rem 1.25rem; } .foot .brand { grid-column: 1 / -1; }
+  .fine { padding: 1rem 1rem 2rem; }
 }
 [hidden] { display: none !important; }
 </style>
@@ -212,8 +229,8 @@ p { text-wrap: pretty; color: var(--ink-2); margin: 0 0 14px; max-width: 68ch; }
 <div class="stage">
 <div class="frame" id="frame">
 
-  <header class="site-header">
-    <a class="logo" href="#"><i aria-hidden="true"></i>AstroPlanner</a>
+  <header class="site-header" data-auth="now">
+    <a class="logo" href="#" aria-label="AstroPlanner home"><i aria-hidden="true"></i><span class="wm">AstroPlanner</span></a>
     <nav class="nav" aria-label="Site">
       <a class="press" href="#">Explore</a><a class="press" href="#">AstroLog</a><a class="press" href="#">Variable stars</a>
     </nav>
@@ -229,7 +246,7 @@ p { text-wrap: pretty; color: var(--ink-2); margin: 0 0 14px; max-width: 68ch; }
   <main class="page" id="content" data-view="how">
     <div class="doc">
       <p class="eyebrow">How it works</p>
-      <h1>Every number shows its working.</h1>
+      <h1>Every number shows its work.</h1>
       <p class="lede">Where the sky positions come from, how the two scores add up, and what AstroPlanner will never claim.</p>
       <ul class="toc">
         <li><a class="press" href="#">The sky</a></li><li><a class="press" href="#">Tonight’s Score</a></li><li><a class="press" href="#">Ranking targets</a></li><li><a class="press" href="#">What it won’t claim</a></li>
@@ -408,6 +425,7 @@ $$("#signin button").forEach((b) =>
   b.addEventListener("click", () => {
     $$("#signin button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
     $$(".site-header [data-when]").forEach((el) => (el.hidden = el.dataset.when !== b.dataset.auth));
+    $(".site-header").dataset.auth = b.dataset.auth;
   }),
 );
 $("#phone").addEventListener("click", (e) => {
