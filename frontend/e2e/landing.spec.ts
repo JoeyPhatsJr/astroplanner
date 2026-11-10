@@ -47,13 +47,13 @@ test("landing page tells the story first, with real pictures, and hands off to T
 test("the story clock follows the scroll and starts over at the top", async ({ page }) => {
   await page.goto("/");
   const clock = page.locator(".landing-clock-time");
-  await expect(clock).toHaveText("16:57");
+  await expect(clock).toHaveText("16:48");
   await page.locator('[data-chapter="astrolog"]').evaluate((el) => el.scrollIntoView({ block: "center" }));
-  await expect(clock).toHaveText("06:32");
+  await expect(clock).toHaveText("06:41");
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await expect(clock).toHaveText("Next");
   await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(clock).toHaveText("16:57");
+  await expect(clock).toHaveText("16:48");
 });
 
 test("night vision turns the landing pictures red only", async ({ page }) => {
