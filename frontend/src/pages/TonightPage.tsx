@@ -178,7 +178,7 @@ export function TonightPage() {
   );
 }
 
-function TonightPanels({ data, tz, fetching }: { data: TonightResponse; tz: string; fetching: boolean }) {
+export function TonightPanels({ data, tz, fetching }: { data: TonightResponse; tz: string; fetching: boolean }) {
   const { night, forecast, score } = data;
   const hasForecast = forecast.status === "ok";
   const dark = night.dark_intervals;

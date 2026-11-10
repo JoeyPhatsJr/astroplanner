@@ -5,7 +5,7 @@ import { useElementWidth } from "../../lib/useElementWidth";
 
 const HOUR = 3600_000;
 const QUARTER = 900_000;
-const LABEL_H = 26;
+const LABEL_H = 20; // room for the clear bar (y 13 to 16) above the sky bar
 const MOON_GAP = 4;
 const MOON_H = 5;
 const AXIS_H = 24;

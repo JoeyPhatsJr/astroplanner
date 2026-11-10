@@ -34,7 +34,7 @@ export function FactsRow({ night, forecast }: { night: NightSummary; forecast: F
   const first = night.dark_intervals[0];
   const last = night.dark_intervals[night.dark_intervals.length - 1];
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line-soft pt-4 md:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-4">
       <Fact
         label="Cloud, average"
         value={cloud ? `${Math.round(cloud.mean)} %` : "No data"}
