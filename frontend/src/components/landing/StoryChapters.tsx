@@ -33,14 +33,12 @@ export function StoryChapters({ onSky }: { onSky: (sky: Sky) => void }) {
             className="landing-chapter"
             aria-labelledby={`chapter-${c.id}`}
           >
-            <p className="landing-eyebrow">
-              <span className="sr-only">
-                {c.moment}
-                {/^\d/.test(c.time) ? `, ${c.time}` : ""}:{" "}
-              </span>
-              {c.eyebrow}
+            {/* The sticky clock shows the moment visually (and is aria-hidden); screen readers get it here. */}
+            <p className="sr-only">
+              {c.moment}
+              {/^\d/.test(c.time) ? `, ${c.time}` : ""}
             </p>
-            <h3 id={`chapter-${c.id}`} className="landing-h2 mt-2.5 mb-3.5 max-w-[18ch]">
+            <h3 id={`chapter-${c.id}`} className="landing-h2 mb-3.5 max-w-[18ch]">
               {c.title}
             </h3>
             <p className="landing-lede mb-6 max-w-[52ch]">{c.body}</p>

@@ -112,6 +112,14 @@ describe("LandingPage content", () => {
     }
   });
 
+  it("uses one label for every way into Tonight, and has no scroll-only call to action", () => {
+    renderLanding();
+    const intoTonight = screen.getAllByRole("link").filter((a) => a.getAttribute("href") === "/tonight");
+    expect(intoTonight.length).toBeGreaterThan(0);
+    for (const a of intoTonight) expect(a).toHaveAccessibleName("See tonight’s sky");
+    expect(screen.queryByRole("link", { name: /Follow one night/ })).not.toBeInTheDocument();
+  });
+
   it("shows every gallery photo with alt text and the object's name", () => {
     renderLanding();
     for (const p of GALLERY) {

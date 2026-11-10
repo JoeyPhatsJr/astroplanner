@@ -31,7 +31,9 @@ describe("routes", () => {
 
   it("sends the main call to action to Tonight at /tonight", () => {
     renderAt("/");
-    expect(screen.getByRole("link", { name: "See tonight’s sky" })).toHaveAttribute("href", "/tonight");
+    const ctas = screen.getAllByRole("link", { name: "See tonight’s sky" });
+    expect(ctas.length).toBeGreaterThan(0);
+    for (const a of ctas) expect(a).toHaveAttribute("href", "/tonight");
   });
 
   it("keeps the app shell, with Tonight at /tonight, on app routes", async () => {

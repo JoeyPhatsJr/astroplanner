@@ -27,8 +27,8 @@ export function usePageSky(sky: Sky) {
 
 /**
  * Index of the active chapter: the last one whose top has passed the middle of the viewport, else the
- * first. Derived from positions on every scroll, so it stays right however the reader gets there
- * (wheel, keyboard, a jump back to the top, an anchor link).
+ * first. Derived from live positions, so it stays right however the reader gets there (wheel, keyboard,
+ * a jump back to the top, an anchor link).
  */
 export function activeIndex(tops: number[], viewportHeight: number): number {
   let idx = 0;
@@ -45,29 +45,26 @@ export function useChapterProgress(ids: string[]) {
   const nodes = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
-    let frame = 0;
+    const els = nodes.current.filter((n): n is HTMLElement => n !== null);
+    if (els.length === 0) return;
     const measure = () => {
-      frame = 0;
-      const els = nodes.current;
-      if (els.length === 0 || els.some((n) => !n)) return;
       const i = activeIndex(
-        els.map((n) => n!.getBoundingClientRect().top),
+        els.map((n) => n.getBoundingClientRect().top),
         window.innerHeight,
       );
       setActive(i);
       setReached((r) => Math.max(r, i));
     };
-    const onScroll = () => {
-      if (!frame) frame = requestAnimationFrame(measure);
-    };
     measure();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (frame) cancelAnimationFrame(frame);
-    };
+    if (typeof IntersectionObserver === "undefined") return;
+    // The root runs from far above the page down to the middle of the viewport, so a chapter intersects it
+    // exactly when its top has passed the middle: the same test activeIndex applies. Every change of the
+    // active chapter flips at least one chapter's state, so the observer fires for all of them, including a
+    // jump from the bottom of the page straight back to the top (a middle-line-only root misses that: no
+    // chapter is on the line before or after). Positions are re-read only then, never per scroll frame.
+    const io = new IntersectionObserver(measure, { rootMargin: "1000000px 0px -50% 0px" });
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
   }, []);
 
   const register = (index: number) => (el: HTMLElement | null) => {

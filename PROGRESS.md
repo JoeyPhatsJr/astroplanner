@@ -18,15 +18,18 @@ Decisions made while the developer was away are marked "my call" in the spec.
 | Reduced motion, 390 px with no horizontal scroll, all images load | done | `e2e/landing.spec.ts` (desktop + Pixel 7), browser check |
 | Independent code review | done, no blockers | 2 minor items fixed (save reported as failed if only the list refresh failed; mobile clock 5.5 px under the header) |
 | README section and screenshots | done | `README.md` "Homescreen", `docs/screenshots/landing-desktop.png`, `landing-mobile.png` |
+| Design pass 1 (2026-11-10, developer asked for the Apple design guidance): press feedback, Inter optical-size Display cut for headings with size-specific tracking, rem layout, frosted header, reduce-transparency / increase-contrast fallbacks, gentler reduced motion, clock bar on `transform` | done | `landing.css`, browser check of computed styles under each media setting |
+| Design pass 2 (2026-11-10, anti-slop checklist): hero lede cut to 18 words, one CTA, no scroll cue, one label ("See tonight’s sky") for every way into Tonight, one eyebrow on the page, gallery header stacked, footer as sentences, tinted shadows, story clock on IntersectionObserver (no scroll listener) | done | `LandingPage.test.tsx` (one-label test), `e2e/landing.spec.ts` (clock incl. jump to top), Lighthouse mobile: Accessibility 100, Best Practices 100; trace LCP 1.7 s, CLS 0.00 (4× CPU, Fast 4G) |
 
-### Commands last run (all passing, 2026-11-09)
+### Commands last run (all passing, 2026-11-10)
 
 ```bash
 cd backend && .venv/bin/python -m pytest -q           # 416 passed, 12 skipped (skips are the existing local real-data and Postgres checks)
-cd frontend && npx tsc -b --noEmit && npx vitest run  # typecheck clean; 160 passed (16 files)
+cd frontend && npx tsc -b --noEmit && npx vitest run  # typecheck clean; 161 passed (16 files)
 cd frontend && npm run build                          # built
-cd frontend && E2E_API_PORT=8110 E2E_WEB_PORT=5190 npx playwright test   # 26 passed, desktop + mobile (other ports because the polish-pass worktree was using 8100/5180)
+cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 26 passed after the clock fix, desktop + mobile (other ports so another worktree's servers are untouched)
 ```
+(pytest was last run 2026-11-09; design passes changed no backend code.)
 
 ### Known limitations (landing page)
 
@@ -38,6 +41,11 @@ cd frontend && E2E_API_PORT=8110 E2E_WEB_PORT=5190 npx playwright test   # 26 pa
 - **Old `/` bookmarks** now open the homescreen; Tonight is one click away (`/tonight`).
 - **No night-vision toggle on the landing page.** It honours the saved setting; the toggle lives in the app header.
 - The city-box e2e test uses live Open-Meteo geocoding and skips, with a reason, when it is unreachable.
+- **Images are full JPEGs.** Lighthouse estimates ~675 kB could be saved with WebP/AVIF and tighter sizes; LCP is
+  already 1.7 s on a throttled phone, so this is a later optimisation, not a blocker.
+- **`robots.txt` / SEO files do not exist yet** (Lighthouse SEO 92). That belongs with deployment, which is deferred.
+- **`prefers-reduced-transparency` is untested in automation** (Playwright cannot emulate it); it reuses the
+  increase-contrast rules, which are tested.
 
 ### Exact next step (landing page)
 

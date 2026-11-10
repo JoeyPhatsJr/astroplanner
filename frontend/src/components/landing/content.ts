@@ -16,7 +16,6 @@ export interface Chapter {
   /** Clock face: a local time from the example night, or a word once the night is over. */
   time: string;
   moment: string;
-  eyebrow: string;
   title: string;
   body: string;
   shot: { src: string; alt: string };
@@ -31,14 +30,14 @@ export const CHAPTERS: Chapter[] = [
     id: "tonight",
     time: "16:57",
     moment: "Sunset",
-    eyebrow: "Before it’s dark",
     title: "Know if tonight is worth it.",
     body: "Clouds, rain, the Moon and real darkness for your exact spot, each one shown and each one labelled forecast or calculated. No mystery score.",
     shot: {
       src: "/landing/tonight-desktop.jpg",
       alt: "The Tonight screen: a score with its four parts, cards for clouds, rain, the Moon and darkness, and a dusk-to-dawn chart.",
     },
-    link: { to: "/tonight", label: "Open Tonight" },
+    // One label per destination across the page: every way into Tonight reads "See tonight’s sky".
+    link: { to: "/tonight", label: "See tonight’s sky" },
     sky: "civil",
     progress: 8,
   },
@@ -46,9 +45,8 @@ export const CHAPTERS: Chapter[] = [
     id: "targets",
     time: "18:28",
     moment: "Astronomical darkness",
-    eyebrow: "The sky goes dark",
     title: "Know what to point at, and when.",
-    body: "58 deep-sky targets ranked for your sky tonight, with the hours each one is high enough to shoot and how it fits the Seestar S30’s field.",
+    body: "58 deep-sky targets ranked for your sky tonight, with the hours each is high enough to shoot and how it fits the Seestar S30’s field.",
     shot: {
       src: "/landing/target-detail-desktop.jpg",
       alt: "Explore with a target open: its altitude through the night, rise and set times, and why it scored as it did.",
@@ -61,7 +59,6 @@ export const CHAPTERS: Chapter[] = [
     id: "astrolog",
     time: "06:32",
     moment: "Sunrise, pack up",
-    eyebrow: "The morning after",
     title: "Every night, remembered.",
     body: "Drop in the Seestar’s folder. AstroLog reads the file headers, not your pictures, and files the night under each target you shot.",
     shot: {
@@ -76,7 +73,6 @@ export const CHAPTERS: Chapter[] = [
     id: "processing",
     time: "Later",
     moment: "At your desk",
-    eyebrow: "At your desk",
     title: "Learn to process it yourself.",
     body: "A ten-step coach for Siril, written for your exact files, that ends with your stack beside the Seestar’s own, measured the same way.",
     shot: {
@@ -90,7 +86,6 @@ export const CHAPTERS: Chapter[] = [
     id: "variables",
     time: "Next",
     moment: "Your next clear night",
-    eyebrow: "What’s next",
     title: "Then watch a star change.",
     body: "Four curated variable stars a Seestar can follow, with tonight’s window for each and links to AAVSO’s records.",
     shot: {
@@ -125,11 +120,11 @@ export const GALLERY: Photo[] = [
   { src: "/landing/eagle.jpg", alt: "The Eagle Nebula, a red cloud of gas with dark pillars at its centre.", name: "Eagle Nebula", detail: "M16 · Serpens", focus: "55% 62%" },
   { src: "/landing/veil.jpg", alt: "The Eastern Veil Nebula, a long curved thread of red and teal gas.", name: "Eastern Veil Nebula", detail: "NGC 6992 · Cygnus", focus: "62% 58%" },
   { src: "/landing/dumbbell.jpg", alt: "The Dumbbell Nebula, a blue-green glowing cloud with red edges.", name: "Dumbbell Nebula", detail: "M27 · Vulpecula", focus: "50% 50%" },
-  { src: "/landing/ngc7000.jpg", alt: "The North America Nebula region, faint red clouds across a dense star field.", name: "North America Nebula", detail: "NGC 7000 · Cygnus · mosaic", focus: "60% 55%" },
+  { src: "/landing/ngc7000.jpg", alt: "The North America Nebula region, faint red clouds across a dense star field.", name: "North America Nebula", detail: "NGC 7000 · Cygnus, a mosaic", focus: "60% 55%" },
 ];
 
+/** Tonight is not listed: the header's "See tonight’s sky" button already goes there. */
 export const NAV_LINKS = [
-  { to: "/tonight", label: "Tonight" },
   { to: "/explore", label: "Explore" },
   { to: "/astrolog", label: "AstroLog" },
   { to: "/variables", label: "Variable stars" },

@@ -40,29 +40,25 @@ export function LandingPage() {
             ))}
           </ul>
           <Link to="/tonight" className="btn landing-pill landing-cta-primary !py-2 text-[0.8125rem]">
-            Open the app
+            See tonight’s sky
           </Link>
         </nav>
       </header>
 
       <main id="landing-main">
         {/* 1 · Header first */}
-        <section className="mx-auto max-w-[1160px] px-4 pt-14 text-center sm:px-10 sm:pt-28" aria-labelledby="landing-title">
+        <section className="mx-auto max-w-[1160px] px-4 pt-14 text-center sm:px-10 sm:pt-24" aria-labelledby="landing-title">
           <p className="landing-eyebrow landing-rise">Astrophotography, made easy</p>
           <h1 id="landing-title" className="landing-h1 landing-rise mx-auto mt-4 mb-6 max-w-[24ch]" style={delay(80)}>
             <span>One night. One picture.</span> <span>Everything in between.</span>
           </h1>
-          <p className="landing-lede landing-rise mx-auto mb-8 max-w-[44ch]" style={delay(160)}>
-            From sunset to a finished image: what to point at, when to point it, and how to turn a thousand frames into
-            something you’re proud of.
+          <p className="landing-lede landing-rise mx-auto mb-8 max-w-[40ch]" style={delay(160)}>
+            What to point at, when, and how to turn a night of frames into something you’re proud of.
           </p>
-          <div className="landing-rise flex flex-wrap justify-center gap-2.5" style={delay(240)}>
+          <div className="landing-rise flex justify-center" style={delay(240)}>
             <Link to="/tonight" className="btn landing-pill landing-cta-primary">
               See tonight’s sky
             </Link>
-            <a href="#story" className="btn landing-pill">
-              Follow one night ↓
-            </a>
           </div>
         </section>
 
@@ -89,8 +85,7 @@ export function LandingPage() {
           {/* 3 · One night, scrolled */}
           <section aria-labelledby="story-title">
             <div id="story" className="scroll-mt-16 pt-32 pb-5 text-center sm:pt-36">
-              <p className="landing-eyebrow">How a night goes</p>
-              <h2 id="story-title" className="landing-h2 mx-auto mt-3 max-w-[20ch]">
+              <h2 id="story-title" className="landing-h2 mx-auto max-w-[20ch]">
                 Here’s what happens between sunset and that picture.
               </h2>
             </div>
@@ -99,14 +94,11 @@ export function LandingPage() {
 
           {/* 4 · Real results */}
           <section className="pt-28" aria-labelledby="gallery-title">
-            <div className="mb-7 flex flex-wrap items-end justify-between gap-5">
-              <div>
-                <p className="landing-eyebrow">Real nights</p>
-                <h2 id="gallery-title" className="landing-h2 mt-2.5">
-                  What one night can look like.
-                </h2>
-              </div>
-              <p className="landing-lede m-0 max-w-[40ch]">Every picture on this page is a real capture, not a stock photo.</p>
+            <div className="mb-8">
+              <h2 id="gallery-title" className="landing-h2">
+                What one night can look like.
+              </h2>
+              <p className="landing-lede mt-3 mb-0 max-w-[52ch]">Every picture on this page is a real capture, not a stock photo.</p>
             </div>
             <ul className="m-0 grid list-none grid-cols-2 gap-3.5 p-0 lg:grid-cols-4">
               {GALLERY.map((p) => (
@@ -136,17 +128,20 @@ export function LandingPage() {
       </main>
 
       <footer className="mx-auto mt-28 max-w-[1160px] border-t border-line-soft px-4 pt-7 pb-16 text-xs leading-relaxed text-muted sm:px-10">
-        <p>
+        <p className="m-0">
           Photos are the developer’s own captures. App screens show a saved example night (Philadelphia, 2 Nov), not live
-          data. Targets:{" "}
+          data.
+        </p>
+        <p className="mt-2 mb-0">
+          Targets from{" "}
           <a className="underline decoration-line underline-offset-2 hover:text-ink" href="https://github.com/mattiaverga/OpenNGC" target="_blank" rel="noreferrer">
             OpenNGC
           </a>{" "}
-          (CC BY-SA 4.0) · Weather:{" "}
+          (CC BY-SA 4.0). Weather from{" "}
           <a className="underline decoration-line underline-offset-2 hover:text-ink" href="https://open-meteo.com/" target="_blank" rel="noreferrer">
             Open-Meteo
           </a>{" "}
-          (CC BY 4.0, non-commercial) · Positions computed with Astropy.
+          (CC BY 4.0, non-commercial). Positions computed with Astropy.
         </p>
       </footer>
     </div>

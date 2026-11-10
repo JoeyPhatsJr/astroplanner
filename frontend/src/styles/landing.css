@@ -153,14 +153,19 @@ body.landing-sky {
   }
 }
 
-/* App screenshots */
+/*
+ * Shape rule for the whole page: everything you press is a full pill; every picture is a 16px tile,
+ * except the hero photo, which is 24px (18px on phones) because the radius grows with the surface.
+ */
+
+/* App screenshots. The shadow is tinted with the night colour, not pure black, so it reads as depth. */
 .landing-shot {
   overflow: hidden;
   aspect-ratio: 16 / 10;
   border-radius: 16px;
   border: 1px solid var(--color-line);
   background: var(--color-night-deep);
-  box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.9);
+  box-shadow: 0 30px 80px -30px color-mix(in srgb, var(--color-night-deep) 92%, transparent);
 }
 .landing-shot img {
   width: 100%;

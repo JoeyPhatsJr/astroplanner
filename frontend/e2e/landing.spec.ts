@@ -32,7 +32,8 @@ test("landing page tells the story first, with real pictures, and hands off to T
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 
-  await page.getByRole("link", { name: "See tonight’s sky" }).click();
+  // The hero's call to action (the header and the first chapter use the same label for the same place)
+  await page.getByRole("main").getByRole("link", { name: "See tonight’s sky" }).first().click();
   await expect(page).toHaveURL(/\/tonight$/);
   await expect(page.getByRole("heading", { name: "Tonight", level: 1 })).toBeVisible();
 
