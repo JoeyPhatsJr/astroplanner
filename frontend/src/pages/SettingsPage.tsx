@@ -10,14 +10,12 @@ import { useConfirm } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatLatLon } from "../lib/format";
 import { usePrefs } from "../state/prefs";
+import { PageHeader } from "../components/ui/PageHeader";
 
 export function SettingsPage() {
   return (
-    <div className="mx-auto flex max-w-[960px] flex-col gap-8">
-      <div>
-        <h1 className="font-semibold tracking-tight text-3xl  md:text-[2.4rem]">Settings</h1>
-        <p className="mt-1 text-sm text-ink-2">Locations, equipment and observing preferences are saved on this AstroPlanner server.</p>
-      </div>
+    <div className="page-reading flex flex-col gap-8">
+      <PageHeader title="Settings" subtitle="Locations, equipment and observing preferences are saved on this AstroPlanner server." />
       <LocationsSection />
       <EquipmentSection />
       <PreferencesSection />
@@ -658,6 +656,12 @@ function AboutSection() {
                   {s.license}
                   {s.version ? ` · version ${s.version.slice(0, 12)}` : ""}
                 </span>
+                {s.acknowledgment && (
+                  <details className="mt-1.5 text-xs text-muted">
+                    <summary className="cursor-pointer text-ink-2">Required acknowledgment</summary>
+                    <p className="mt-1.5 whitespace-pre-line leading-relaxed">{s.acknowledgment}</p>
+                  </details>
+                )}
               </li>
             ))}
           </ul>

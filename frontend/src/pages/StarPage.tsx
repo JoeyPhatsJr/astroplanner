@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, ExternalLink, Plus } from "lucide-react";
+import { Check, ExternalLink, Plus } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useCurrentEquipment, useObserver } from "../api/hooks";
 import { useStar, useStarVisibility, type StarResponse } from "../api/variables";
@@ -8,13 +8,14 @@ import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { useActiveSession } from "../state/activeSession";
 import { vsxRange } from "./VariableHunterPage";
+import { PageHeader } from "../components/ui/PageHeader";
 
 export function StarPage() {
   const { slug } = useParams();
   const q = useStar(slug);
   if (q.isLoading)
     return (
-      <div className="mx-auto flex max-w-[1100px] flex-col gap-3">
+      <div className="page-wide flex flex-col gap-3">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-48" />
       </div>
@@ -75,32 +76,38 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
   const eq = useCurrentEquipment();
   const { star } = data;
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-5">
-      <Link to="/variables" className="inline-flex items-center gap-1.5 self-start text-sm text-ice hover:underline">
-        <ArrowLeft className="size-4" aria-hidden /> Variable Hunter
-      </Link>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-semibold tracking-tight text-3xl md:text-[2.4rem]">{star.name}</h1>
-          <p className="mt-1 text-sm text-ink-2">
-            {data.type_label} · {star.constellation} · {vsxRange(data.vsx)}
-          </p>
-          {data.period_note && <p className="mt-0.5 text-xs text-muted">{data.period_note}</p>}
-        </div>
-        <AddToPlan starId={star.id} slug={slug} />
-      </div>
+    <div className="page-wide flex flex-col gap-5">
+      <PageHeader
+        title={star.name}
+        back={{ to: "/variables", label: "Variable Hunter" }}
+        subtitle={
+          <>
+            <p>
+              {data.type_label} · {star.constellation} · {vsxRange(data.vsx)}
+            </p>
+            {data.period_note && <p className="mt-0.5 text-xs text-muted">{data.period_note}</p>}
+          </>
+        }
+        actions={<AddToPlan starId={star.id} slug={slug} />}
+      />
 
-      <dl className="grid gap-3 sm:grid-cols-2">
-        <div className="panel p-4">
-          <dt className="label">Tonight</dt>
-          <dd className="mt-1">
-            <TonightWindow slug={slug} bare />
-          </dd>
-        </div>
-        <div className="panel p-4">
-          <dt className="label">Your nights</dt>
-          <dd className="mt-1 text-sm text-ink">{data.nights.length === 0 ? "None yet" : data.nights.length}</dd>
-        </div>
+      <dl className="panel grid gap-x-6 gap-y-3 p-4 sm:grid-cols-[auto_1fr]" aria-label="Summary">
+        <dt className="label sm:pt-0.5">Tonight</dt>
+        <dd className="m-0">
+          <TonightWindow slug={slug} bare />
+        </dd>
+        {data.nights.length > 0 && (
+          <>
+            <dt className="label sm:pt-0.5">Your nights</dt>
+            <dd className="m-0 text-sm text-ink">{data.nights.length}</dd>
+          </>
+        )}
+        {data.seestar_fit && (
+          <>
+            <dt className="label sm:pt-0.5">Seestar fit{eq ? ` · ${eq.name}` : ""}</dt>
+            <dd className="m-0 text-sm text-ink-2">{data.seestar_fit.text}</dd>
+          </>
+        )}
       </dl>
 
       <section className="panel flex flex-col gap-2 p-4" aria-labelledby="vh-curve">
@@ -130,23 +137,7 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
         </section>
       )}
 
-      {data.seestar_fit && (
-        <section className="panel flex flex-col gap-1 p-4" aria-labelledby="vh-fit">
-          <h2 id="vh-fit" className="label">
-            Seestar fit{eq ? ` · ${eq.name}` : ""}
-          </h2>
-          <p className="text-sm text-ink-2">{data.seestar_fit.text}</p>
-        </section>
-      )}
-
       <StarExplainer sourceUrl={data.source_url} starName={star.primary_designation} />
-
-      <section className="panel p-4" aria-labelledby="vh-p4">
-        <h2 id="vh-p4" className="label">
-          Planned for a later phase
-        </h2>
-        <p className="mt-1 text-sm text-ink-2">Your own brightness measurements from your frames, plotted on the light curve with error bars.</p>
-      </section>
 
       <div className="flex flex-col gap-0.5 text-xs text-muted">
         {data.attribution.map((a) => (

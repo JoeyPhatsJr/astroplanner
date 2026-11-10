@@ -94,10 +94,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="z-30 border-b md:sticky md:top-0 border-line-soft bg-night/90">
-          <div className="flex items-center gap-3 px-4 py-3 md:px-6">
-            <Link to="/" aria-label="AstroPlanner home" className="flex items-center gap-2 md:hidden">
+          <div className="flex items-center gap-3 px-4 py-2 md:px-6 md:py-3">
+            <Link to="/" aria-label="AstroPlanner home" className="flex shrink-0 items-center gap-2 md:hidden">
               <Logo />
-              <span className="font-semibold tracking-tight text-lg text-ink">AstroPlanner</span>
+              <span className="sr-only font-semibold tracking-tight text-lg text-ink sm:not-sr-only">AstroPlanner</span>
             </Link>
             <HeaderControls />
           </div>
@@ -117,7 +117,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <nav
         aria-label="Primary"
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line-soft bg-night-deep/95 md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line-soft md:hidden bottom-nav"
       >
         {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
@@ -125,7 +125,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 py-2.5 text-[0.68rem] font-medium ${isActive ? "text-ink" : "text-muted"}`
+              `flex flex-col items-center gap-1 py-2.5 text-micro font-medium ${isActive ? "text-ink" : "text-muted"}`
             }
           >
             {({ isActive }) => (

@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useAstroLogLibrary } from "../api/astrolog";
 import { TargetTile } from "../components/astrolog/TargetTile";
 import { EmptyState, ErrorState, Skeleton } from "../components/ui/States";
+import { PageHeader } from "../components/ui/PageHeader";
 
 export function LibraryPage() {
   const lib = useAstroLogLibrary();
@@ -17,21 +18,21 @@ export function LibraryPage() {
   const shown = rows.filter((r) => (filter === "all" ? true : filter === "unsorted" ? r.kind === "unsorted" : r.category === filter && r.kind !== "unsorted"));
 
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-semibold tracking-tight text-3xl md:text-[2.4rem]">AstroLog</h1>
-          <p className="mt-1 max-w-prose text-sm text-ink-2">Your astrophotography library, by target.</p>
-        </div>
-        <div className="flex gap-2">
-          <Link to="/astrolog/nights" className="btn">
-            Nights
-          </Link>
-          <Link to="/astrolog/import" className="btn btn-primary">
-            <Upload className="size-4" aria-hidden /> Import files
-          </Link>
-        </div>
-      </div>
+    <div className="page-wide flex flex-col gap-5">
+      <PageHeader
+        title="AstroLog"
+        subtitle="Your astrophotography library, by target."
+        actions={
+          <div className="flex gap-2">
+            <Link to="/astrolog/nights" className="btn">
+              Nights
+            </Link>
+            <Link to="/astrolog/import" className="btn btn-primary">
+              <Upload className="size-4" aria-hidden /> Import files
+            </Link>
+          </div>
+        }
+      />
 
       {lib.isLoading ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-busy="true">

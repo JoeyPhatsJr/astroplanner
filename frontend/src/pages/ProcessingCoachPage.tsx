@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { usePatchRun, useRun, useStartRun, type RunOut } from "../api/processing";
@@ -12,6 +11,7 @@ import { StackUpload } from "../components/processing/StackUpload";
 import { StepPanel } from "../components/processing/StepPanel";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate } from "../lib/time";
+import { PageHeader } from "../components/ui/PageHeader";
 
 const CLEARED_TEXT = "Your frame choice was cleared because the Siril folder was re-read; the counts may have changed. Choose again in step 4.";
 
@@ -47,7 +47,7 @@ export function ProcessingCoachPage() {
   const data = run.data ?? start.data;
   if (!data || start.isPending)
     return (
-      <div className="mx-auto flex max-w-[1100px] flex-col gap-3" role="status" aria-label="Loading the coach">
+      <div className="page-wide flex flex-col gap-3" role="status" aria-label="Loading the coach">
         <Skeleton className="h-10 w-64" />
         <Skeleton className="h-72" />
       </div>
@@ -77,19 +77,21 @@ function Coach({ run, loadError }: { run: RunOut; loadError: unknown }) {
   };
 
   return (
-    <div className="mx-auto flex max-w-[1100px] flex-col gap-4">
-      <Link to={targetPath} className="inline-flex items-center gap-1.5 self-start text-sm text-ice hover:underline">
-        <ArrowLeft className="size-4" aria-hidden /> {run.target.name}
-      </Link>
-      <div>
-        <p className="text-xs text-muted">
-          AstroLog › {run.target.name} › Night of {formatCalendarDate(run.night.night_date, true)}
-        </p>
-        <h1 className="font-semibold tracking-tight text-3xl">Processing coach</h1>
-        <p className="mt-1 text-sm text-ink-2">
-          {run.frames.toLocaleString()} frames{run.exptime_s !== null ? ` of ${run.exptime_s} s` : ""} · written for Siril {run.siril_target}
-        </p>
-      </div>
+    <div className="page-wide flex flex-col gap-4">
+      <PageHeader
+        title="Processing coach"
+        back={{ to: targetPath, label: run.target.name }}
+        subtitle={
+          <>
+            <p className="text-xs text-muted">
+              AstroLog › {run.target.name} › Night of {formatCalendarDate(run.night.night_date, true)}
+            </p>
+            <p className="mt-1">
+              {run.frames.toLocaleString()} frames{run.exptime_s !== null ? ` of ${run.exptime_s} s` : ""} · written for Siril {run.siril_target}
+            </p>
+          </>
+        }
+      />
       {loadError ? <Notice tone="warn">Couldn&apos;t refresh the run; showing the last saved state.</Notice> : null}
       {patch.error ? <Notice tone="warn">{patch.error instanceof Error ? patch.error.message : String(patch.error)}</Notice> : null}
       <div className="flex flex-col gap-4 min-[720px]:flex-row min-[720px]:items-start">

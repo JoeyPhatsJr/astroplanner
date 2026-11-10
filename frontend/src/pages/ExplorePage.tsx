@@ -12,6 +12,7 @@ import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/State
 import { formatDeg, formatSize } from "../lib/format";
 import { formatTime } from "../lib/time";
 import { usePrefs } from "../state/prefs";
+import { PageHeader } from "../components/ui/PageHeader";
 
 const STATUS_TONE: Record<string, string> = {
   observable: "border-ice/40 text-ice",
@@ -64,14 +65,16 @@ export function ExplorePage() {
   const results = recs.data?.results ?? [];
 
   return (
-    <div className="mx-auto flex max-w-[1200px] flex-col gap-5">
-      <div>
-        <h1 className="font-semibold tracking-tight text-3xl  md:text-[2.4rem]">Explore</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-2">
-          {recs.data ? `${recs.data.observable_count} of ${results.length} matching targets` : "Targets"} are observable for the selected night above {prefs.minAltitudeDeg}°. Every target
-          shows why it is or isn’t.
-        </p>
-      </div>
+    <div className="page-wide flex flex-col gap-5">
+      <PageHeader
+        title="Explore"
+        subtitle={
+          <>
+            {recs.data ? `${recs.data.observable_count} of ${results.length} matching targets` : "Targets"} are observable for the selected night above {prefs.minAltitudeDeg}°. Every target
+            shows why it is or isn’t.
+          </>
+        }
+      />
 
       <div className="panel flex flex-wrap items-end gap-3 p-4">
         <div className="min-w-[220px] flex-1">
@@ -114,12 +117,12 @@ export function ExplorePage() {
           ))}
         </ul>
       )}
-      <TargetDetail targetId={openId} onClose={() => setOpen(null)} />
+      <TargetDetail targetId={openId} onClose={() => setOpen(null)} onReopen={setOpen} />
     </div>
   );
 }
 
-function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: string; minAlt: number; onOpen: () => void }) {
+export function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: string; minAlt: number; onOpen: () => void }) {
   const { target: t, visibility: v, score } = rec;
   return (
     <li>
@@ -131,12 +134,13 @@ function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: string; min
         <span className="min-w-0">
           <span className="block truncate font-medium text-ink">{t.name}</span>
           <span className="block truncate text-xs text-muted">
-            {t.primary_designation} · {t.kind} · {t.constellation} · {formatSize(t.angular_major_arcmin, t.angular_minor_arcmin)}
+            {t.primary_designation.toLowerCase() !== t.name.toLowerCase() && `${t.primary_designation} · `}
+            {t.kind} · {t.constellation} · {formatSize(t.angular_major_arcmin, t.angular_minor_arcmin)}
           </span>
         </span>
         <span className="order-3 col-span-2 min-w-0 text-xs md:order-none md:col-span-1">
-          <span className={`badge ${STATUS_TONE[v.status]}`}>{v.status_text}</span>
-          <span className="ml-2 text-ink-2">
+          {v.status !== "observable" && <span className={`badge ${STATUS_TONE[v.status]}`}>{v.status_text}</span>}
+          <span className={v.status !== "observable" ? "ml-2 text-ink-2" : "text-ink-2"}>
             {v.best_window
               ? `${formatTime(v.best_window.start_utc, tz)}–${formatTime(v.best_window.end_utc, tz)}, peak ${formatDeg(v.max_alt_dark_deg)}`
               : v.status_detail}

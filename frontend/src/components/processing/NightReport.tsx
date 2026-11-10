@@ -9,7 +9,7 @@ const dur = formatIntegration; // floored, the same rule and format as AstroLog,
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div>
-      <dt className="text-[10.5px] uppercase tracking-wider text-muted">{label}</dt>
+      <dt className="text-micro uppercase tracking-wider text-muted">{label}</dt>
       <dd className="m-0">
         <b className="text-[17px] text-ink">{value}</b>
         {note && <span className="ml-1.5 text-xs text-muted">{note}</span>}
@@ -59,7 +59,7 @@ export function NightReport({ report, folder }: { report: NightReportData; folde
       )}
 
       <div className="grid gap-4 min-[900px]:grid-cols-2">
-        <section aria-labelledby="frames-h" className="rounded-lg border border-line p-3.5">
+        <section aria-labelledby="frames-h" className="self-start rounded-lg border border-line p-3.5">
           <h3 id="frames-h" className="font-semibold text-ink">
             Frames through the night
           </h3>
@@ -92,7 +92,7 @@ export function NightReport({ report, folder }: { report: NightReportData; folde
           )}
         </section>
 
-        <section aria-labelledby="stands-h" className="rounded-lg border border-line p-3.5">
+        <section aria-labelledby="stands-h" className="self-start rounded-lg border border-line p-3.5">
           <h3 id="stands-h" className="font-semibold text-ink">
             What stands out
           </h3>

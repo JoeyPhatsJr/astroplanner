@@ -1,20 +1,22 @@
 import { MapPin, MoonStar, Telescope } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useCurrentLocation, useNightDate, useRecommendations, useTonight } from "../api/hooks";
-import type { Category } from "../api/types";
-import { NightTimeline } from "../components/charts/LazyCharts";
+import { useCurrentEquipment, useCurrentLocation, useNightDate, useRecommendations, useTonight } from "../api/hooks";
+import type { Category, TonightResponse } from "../api/types";
 import { SessionPlanPanel } from "../components/session/SessionPlanPanel";
 import { TargetCard } from "../components/targets/TargetCard";
 import { TargetDetail } from "../components/targets/TargetDetail";
 import { TargetFilters } from "../components/targets/TargetFilters";
-import { ConditionTiles, ForecastMeta } from "../components/tonight/Conditions";
+import { FactsRow, ForecastMeta } from "../components/tonight/Conditions";
+import { NightStrip } from "../components/tonight/NightStrip";
 import { ScoreHero } from "../components/tonight/ScoreHero";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatLatLon } from "../lib/format";
-import { nightLabel } from "../lib/time";
+import { darkForecastGaps, nightHeadline } from "../lib/nightHeadline";
+import { nightLabel, nightPageTitle, tzAbbrev } from "../lib/time";
 import { useActiveSession } from "../state/activeSession";
 import { usePrefs } from "../state/prefs";
+import { PageHeader } from "../components/ui/PageHeader";
 
 const TOP_N = 9;
 
@@ -22,12 +24,13 @@ export function TonightPage() {
   const { prefs, update } = usePrefs();
   const { location, isLoading: locLoading, error: locError, refetch } = useCurrentLocation();
   const tonight = useTonight();
-  const { nightDate } = useNightDate();
+  const { nightDate, isAuto } = useNightDate();
   const [category, setCategory] = useState<Category>("all");
   const [observableOnly, setObservableOnly] = useState(true);
   const recs = useRecommendations({ category });
   const [openId, setOpenId] = useState<string | null>(null);
   const active = useActiveSession();
+  const equipment = useCurrentEquipment();
 
   if (locLoading) return <PageSkeleton />;
   if (locError) return <ErrorState error={locError} onRetry={refetch} title="Couldn't load your locations" />;
@@ -43,26 +46,31 @@ export function TonightPage() {
   const results = recs.data?.results ?? [];
   const shown = (observableOnly ? results.filter((r) => r.visibility.can_observe) : results).slice(0, TOP_N);
 
+  // A reason that holds for every card shown (for example "Moon stays below the horizon") is said once.
+  const shared = shown.length > 1 ? shown[0].score.why.filter((x) => shown.every((r) => r.score.why.includes(x))) : [];
+
   return (
-    <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-semibold tracking-tight text-3xl  text-ink md:text-[2.4rem]">Tonight</h1>
-          <p className="mt-1 text-sm text-ink-2">
+    <div className="page-wide flex flex-col gap-6">
+      <PageHeader
+        title={nightPageTitle(nightDate, isAuto)}
+        subtitle={
+          <>
             {nightDate ? nightLabel(nightDate) : ""} at {location.label}
             <span className="text-muted"> · {formatLatLon(location.latitude_deg, location.longitude_deg)} · {tz}</span>
-          </p>
-        </div>
-        {location.is_sample && (
-          <Notice>
-            You are viewing the editable sample location.{" "}
-            <Link to="/settings" className="text-ice hover:underline">
-              Set your own location
-            </Link>
-            .
-          </Notice>
-        )}
-      </div>
+          </>
+        }
+        actions={
+          location.is_sample ? (
+            <Notice>
+              You are viewing the editable sample location.{" "}
+              <Link to="/settings" className="text-ice hover:underline">
+                Set your own location
+              </Link>
+              .
+            </Notice>
+          ) : undefined
+        }
+      />
 
       {tonight.isLoading && <PageSkeleton />}
       {tonight.error && <ErrorState error={tonight.error} onRetry={() => tonight.refetch()} title="Couldn't compute tonight" />}
@@ -89,22 +97,7 @@ export function TonightPage() {
             </Notice>
           )}
 
-          <div className={`grid grid-cols-1 gap-5 lg:grid-cols-[minmax(320px,400px)_1fr] ${tonight.isFetching ? "opacity-70" : ""}`}>
-            <ScoreHero score={data.score} tz={tz} />
-            <div className="flex min-w-0 flex-col gap-4">
-              <ConditionTiles night={data.night} forecast={data.forecast} />
-              <section className="panel flex min-w-0 flex-col gap-3 p-4 md:p-5" aria-labelledby="timeline-heading">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 id="timeline-heading" className="font-semibold tracking-tight text-xl">
-                    Dusk to dawn
-                  </h2>
-                  <ForecastMetaInline />
-                </div>
-                <NightTimeline night={data.night} forecast={data.forecast} />
-                <ForecastMeta forecast={data.forecast} tz={tz} />
-              </section>
-            </div>
-          </div>
+          <TonightPanels data={data} tz={tz} fetching={tonight.isFetching} />
         </>
       )}
 
@@ -125,9 +118,9 @@ export function TonightPage() {
           </div>
           {active.error && <Notice tone="warn">{active.error}</Notice>}
           {recs.isLoading && (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-60" />
+                <Skeleton key={i} className="h-36" />
               ))}
             </div>
           )}
@@ -143,13 +136,16 @@ export function TonightPage() {
             </EmptyState>
           )}
           {shown.length > 0 && (
-            <div className={`grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3 ${recs.isFetching ? "opacity-70" : ""}`}>
+            <>
+            {shared.length > 0 && <p className="text-sm text-ink-2">For every target below: {shared.join("; ")}.</p>}
+            <div className={`grid grid-cols-1 gap-3 md:grid-cols-2 ${recs.isFetching ? "opacity-70" : ""}`}>
               {shown.map((r) => (
                 <TargetCard
                   key={r.target.id}
                   rec={r}
                   tz={tz}
                   minAlt={prefs.minAltitudeDeg}
+                  fovDeg={equipment?.fov_deg ?? null}
                   onOpen={() => setOpenId(r.target.id)}
                   onAdd={() => active.addTarget(r.target.id, r.score.forecast_window ?? r.visibility.best_window)}
                   inSession={active.inSession(r.target.id)}
@@ -157,6 +153,12 @@ export function TonightPage() {
                 />
               ))}
             </div>
+            {shown.some((r) => r.target.sky_field_arcmin != null) && (
+              <p className="text-label text-muted">
+                Sky images: Digitized Sky Survey, red plates, scaled to each object with the width marked on the picture. © AURA and the plate copyright holders; used for non-profit purposes.
+              </p>
+            )}
+            </>
           )}
           {recs.data && (
             <Link to="/explore" className="inline-flex items-center gap-2 self-start text-sm text-ice hover:underline">
@@ -169,27 +171,49 @@ export function TonightPage() {
         </aside>
       </div>
 
-      <TargetDetail targetId={openId} onClose={() => setOpenId(null)} />
+      <TargetDetail targetId={openId} onClose={() => setOpenId(null)} onReopen={setOpenId} />
     </div>
   );
 }
 
-function ForecastMetaInline() {
-  return <span className="text-xs text-muted">Hover the chart for exact values</span>;
+function TonightPanels({ data, tz, fetching }: { data: TonightResponse; tz: string; fetching: boolean }) {
+  const { night, forecast, score } = data;
+  const hasForecast = forecast.status === "ok";
+  const dark = night.dark_intervals;
+  const gaps = darkForecastGaps(night, forecast.hourly, data.night_clear);
+  const headline = nightHeadline({
+    clear: data.night_clear,
+    darkMinutes: night.dark_minutes,
+    darkStartUtc: dark.length ? dark[0].start_utc : null,
+    darkEndUtc: dark.length ? dark[dark.length - 1].end_utc : null,
+    hasDarkness: night.has_darkness,
+    darkness: score.darkness,
+    hasForecast,
+    scoreStatus: score.status,
+    missingDarkMinutes: gaps.missingDarkMinutes,
+    clearEndsAtMissing: gaps.clearEndsAtMissing,
+    forecastMessage: forecast.status === "ok" ? null : forecast.message,
+    tz,
+  });
+  const stripTip = `${hasForecast ? "Each block is one forecast hour. Solid means overcast. " : ""}Thin band is the Moon above the horizon. Hours are ${tzAbbrev(night.display_start_utc, tz)}.`;
+  return (
+    <div className={`grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(280px,360px)_1fr] ${fetching ? "opacity-70" : ""}`}>
+      <ScoreHero score={score} tz={tz} headline={headline} />
+      <section className="panel flex min-w-0 flex-col gap-4 p-4 md:p-5" aria-label="Night from dusk to dawn">
+        <NightStrip night={night} forecast={forecast} clear={data.night_clear} bestWindow={score.total !== null ? score.window : null} tz={tz} />
+        <FactsRow night={night} forecast={forecast} />
+        <p className="text-label text-muted">{stripTip}</p>
+        <ForecastMeta forecast={forecast} tz={tz} />
+      </section>
+    </div>
+  );
 }
 
 function PageSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(320px,400px)_1fr]">
-      <Skeleton className="h-[420px]" label="Loading score" />
-      <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28" />
-          ))}
-        </div>
-        <Skeleton className="h-[300px]" label="Loading timeline" />
-      </div>
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(280px,360px)_1fr]">
+      <Skeleton className="h-[300px]" label="Loading score" />
+      <Skeleton className="h-[340px]" label="Loading night" />
     </div>
   );
 }

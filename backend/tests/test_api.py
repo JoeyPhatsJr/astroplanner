@@ -41,6 +41,9 @@ def test_tonight_with_forecast(client):
     s = j["score"]
     assert s["kind"] == "heuristic" and s["total"] is not None
     assert abs(s["total"] - sum(c["points"] for c in s["components"])) <= 0.051
+    nc = j["night_clear"]
+    assert nc is None or set(nc) == {"start_utc", "end_utc", "minutes", "rule"}
+    assert "night_clear" in j
 
 
 def test_tonight_when_provider_fails(make_client, failing_provider):
@@ -48,6 +51,7 @@ def test_tonight_when_provider_fails(make_client, failing_provider):
         j = c.get("/api/tonight", params=PHILLY_PARAMS).json()
         assert j["forecast"]["status"] == "error" and j["forecast"]["hourly"] == []
         assert j["score"]["total"] is None and j["score"]["status"] == "no_weather"
+        assert j["night_clear"] is None
         recs = c.get("/api/recommendations", params=PHILLY_PARAMS).json()
         scored = [r for r in recs["results"] if r["score"]["total"] is not None]
         assert scored and all(r["score"]["max_total"] == 75 for r in scored)

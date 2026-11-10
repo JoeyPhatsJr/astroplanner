@@ -1,6 +1,6 @@
 # AstroPlanner Roadmap
 
-_Last updated: 2026-11-03 · Owner: project developer · Maintained alongside `PROGRESS.md`_
+_Last updated: 2026-11-09 · Owner: project developer · Maintained alongside `PROGRESS.md`_
 
 AstroPlanner is developed **collaboratively, one phase at a time**. A phase's detailed
 requirements are defined only when that phase begins, after the previous phase is
@@ -16,7 +16,8 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 | 2 | AstroLog | Observing sessions as logs, image uploads, equipment history, personal astrophotography library | ✅ **Complete**: signed off 2026-11-02 (PR #1, git tag `phase-2`; spec `docs/superpowers/specs/2026-11-02-astrolog-design.md`) |
 | 3 | Variable Hunter | Curated variable stars, visibility, AstroMissions (no AAVSO observations) | ✅ **Complete**: merged 2026-11-03 (PR #2, git tag `phase-3`; spec `docs/superpowers/specs/2026-11-02-variable-hunter-design.md`) |
 | 4 | Processing Coach | Step-by-step Siril processing guide for a night's Seestar frames, built from Siril's own measurements; Siril scripts; Seestar vs your stack side by side | ✅ **Complete**: merged 2026-11-04 (PR #3, git tag `phase-4`; spec `docs/superpowers/specs/2026-11-03-processing-coach-design.md`). Open: Seestar stacked FITS for the measured comparison (G2) |
-| **5** | Scientific image analysis | FITS photometry, user-generated light curves | **Next**: not started |
+| **Polish** | Polish pass | Foundations, redesigned Tonight, sky images, motion, phone, night vision, consistency | **Built and validated, awaiting developer review**: design approved 2026-11-09 (spec `docs/superpowers/specs/2026-11-09-polish-pass-design.md`); real-phone and dark-room tests pending; merge and `polish-1` tag on the developer's instruction |
+| 5 | Scientific image analysis | FITS photometry, user-generated light curves | Planned, after the polish pass |
 | 6 | Advanced features | Personalization, collaboration, 3D visualization, telescope integrations | Not started |
 
 > The original build brief (`ASTROPLANNER_SPEC.md`) numbered AstroLog "Phase 1.1",
@@ -102,6 +103,8 @@ for later phases' needs (e.g. image storage in Phase 2, FITS processing in Phase
   verification in FastAPI (owner-only writes), production CORS, secrets in environment variables.
 - Variable Hunter prerequisite before going public: the four stars' VSX catalog facts are used under VSX's
   "personal, non-commercial use only" terms, so a public site needs AAVSO's permission for them (or drop them).
+- Sky image prerequisite before going public: DSS is copyrighted and free only for non-profit use, and its terms do not address
+  caching, so re-check with STScI or set `ASTROPLANNER_SKY_IMAGES=off`. Survey images are never committed to this public repository.
 - To re-check at that time: Vercel Python function size/cold start with Astropy, whether
   Phase 4 processing needs a different compute target, Open-Meteo terms for the use case.
 - Meanwhile every phase must keep the `DATABASE_URL` seam working (no SQLite-only SQL).
@@ -192,4 +195,7 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-03 | **Finished stacks (not raws) may be sent to the local backend**, measured in memory and not stored; only previews and numbers are kept | Developer decision; extends the Phase 2 "image data never leaves the disk" rule for stacks only. Re-check against hosting limits before deployment |
 | 2026-11-03 | **Phase 4 complete pending developer review** on branch `phase-4-processing-coach` | Suites green (379 backend, 121 unit, 18 e2e); local Siril 1.4.5 run on the real night passed. Open: Seestar stacked FITS for the measured comparison (G2) |
 | 2026-11-04 | **Phase 4 merged** (PR #3, `20bb73d`) and tagged `phase-4` | Developer review; CI green on the merged commit (backend incl. Postgres migration, frontend, e2e). Final suites: 416 backend (12 skipped), 129 unit, 18 e2e |
-| 2026-11-09 | **Homescreen landing page at `/`; Tonight moves to `/tonight`** (branch `worktree-landing-page`, pending review) | Developer wants newcomers, beginner or experienced, to get the story and see the app first ("like the OpenAI homepage"). Chose mockup B v2: headline first, then their own Andromeda photo, one night scrolled through the app, real captures, city box. Suites: 416 backend (12 skipped), 160 unit, 26 e2e |
+| 2026-11-09 | **Polish pass comes before Phase 5**; Tonight leads with the score tied to what it covers plus a plain statement of the whole night | Developer direction after a whole-app audit: 100/100 on a night going overcast misled at a glance. Direction B chosen from a clickable prototype |
+| 2026-11-09 | **Target cards use DSS red-plate sky images**, fetched once and cached locally, with a framing diagram as the fallback | Developer choice. Terms read 2026-11-09 allow non-profit use with acknowledgment; colour DSS needs a separate request; no openly licensed colour survey covers all 58 targets |
+| 2026-11-09 | **No new motion or sheet dependency**; the phone sheet is built on the native `<dialog>` | Vaul's README says it is unmaintained; CSS transitions and direct transform writes cover what the design needs |
+| 2026-11-10 | **Homescreen landing page at `/`; Tonight moves to `/tonight`** (branch `worktree-landing-page`, merged after the polish pass) | Developer wants newcomers, beginner or experienced, to get the story and see the app first ("like the OpenAI homepage"). Chose mockup B v2: headline first, then their own Andromeda photo, one night scrolled through the app, real captures, city box. Suites after merging the polish pass: 453 backend (12 skipped), 276 unit, 36 e2e (2 skipped) |

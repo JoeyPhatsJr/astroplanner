@@ -321,7 +321,7 @@ export function CompareStep({ run }: { run: RunOut }) {
       type="button"
       aria-pressed={mode === m}
       onClick={() => setMode(m)}
-      className={`px-3 py-1.5 text-[12.5px] font-semibold ${mode === m ? "bg-panel-2 text-ink" : "text-muted hover:text-ink"}`}
+      className={`px-3 py-1.5 text-label font-semibold ${mode === m ? "bg-panel-2 text-ink" : "text-muted hover:text-ink"}`}
     >
       {label}
     </button>

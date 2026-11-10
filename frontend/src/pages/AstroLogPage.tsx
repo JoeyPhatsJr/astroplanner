@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpen, Trash2 } from "lucide-react";
+import { BookOpen, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useLocations, useSessionMutations, useSessions } from "../api/hooks";
@@ -8,6 +8,7 @@ import { useConfirm } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate, formatExposures, formatIntegration, formatLocalSpan, nightLabel } from "../lib/time";
 import { usePrefs } from "../state/prefs";
+import { PageHeader } from "../components/ui/PageHeader";
 
 const STATUS_LABEL: Record<SessionStatus, string> = { planned: "Planned", completed: "Completed", cancelled: "Cancelled" };
 
@@ -16,7 +17,7 @@ export function AstroLogPage() {
   const sessions = useSessions();
   if (sessions.isLoading)
     return (
-      <div className="mx-auto flex max-w-[960px] flex-col gap-3">
+      <div className="page-reading flex flex-col gap-3">
         <Skeleton className="h-10 w-48" />
         <Skeleton className="h-20" />
         <Skeleton className="h-20" />
@@ -39,14 +40,8 @@ export function AstroLogPage() {
 
 function SessionList({ sessions }: { sessions: ObservingSession[] }) {
   return (
-    <div className="mx-auto flex max-w-[960px] flex-col gap-5">
-      <div>
-        <Link to="/astrolog" className="inline-flex items-center gap-1.5 text-sm text-ice hover:underline">
-          <ArrowLeft className="size-4" aria-hidden /> Library
-        </Link>
-        <h1 className="mt-1 font-semibold tracking-tight text-3xl  md:text-[2.4rem]">Nights</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-2">Every night you planned or imported, newest first.</p>
-      </div>
+    <div className="page-reading flex flex-col gap-5">
+      <PageHeader title="Nights" subtitle="Every night you planned or imported, newest first." back={{ to: "/astrolog", label: "Library" }} />
       {sessions.length === 0 ? (
         <EmptyState icon={<BookOpen className="size-6" />} title="No saved sessions yet" action={<Link to="/tonight" className="btn btn-primary">Plan tonight</Link>}>
           Add a target from Tonight or Explore and a session plan is created and saved automatically.
@@ -116,18 +111,17 @@ function SessionDetail({ session }: { session: ObservingSession }) {
   const hasCaptures = (session.capture_sets ?? []).length > 0;
 
   return (
-    <div className="mx-auto flex max-w-[860px] flex-col gap-5">
-      <Link to="/astrolog/nights" className="inline-flex items-center gap-1.5 self-start text-sm text-ice hover:underline">
-        <ArrowLeft className="size-4" aria-hidden /> All nights
-      </Link>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-semibold tracking-tight text-3xl ">{session.title}</h1>
-          <p className="mt-1 text-sm text-ink-2">
+    <div className="page-reading flex flex-col gap-5">
+      <PageHeader
+        title={session.title}
+        back={{ to: "/astrolog/nights", label: "All nights" }}
+        subtitle={
+          <>
             {nightLabel(session.local_night_date)}
             {loc ? ` · ${loc.label}` : ""}
-          </p>
-        </div>
+          </>
+        }
+        actions={
         <div className="flex gap-2">
           {prefs.nightDate !== session.local_night_date && (
             <button
@@ -151,7 +145,8 @@ function SessionDetail({ session }: { session: ObservingSession }) {
             <Trash2 className="size-4" aria-hidden /> Delete
           </button>
         </div>
-      </div>
+        }
+      />
       {err && <Notice tone="warn">{err instanceof Error ? err.message : String(err)}</Notice>}
 
       <section className="panel flex flex-col gap-4 p-5" aria-labelledby="sd-details">
