@@ -34,7 +34,29 @@ Task 12 (remaining screens): two Phase 3 tests in `frontend/src/components/varia
 - `improve-animations` audit (read-only): five LOW findings (cohesion nits and one pre-existing shimmer that animates `background-position`), nothing feel-breaking. Output kept in the sdd folder, not in the repository.
 - The `review-animations` pass is assigned to the final whole-branch reviewer.
 
-**Exact next step:** developer tests on a real phone and in a dark room (sheet drag, card press, night vision, native select popups), reviews the branch, and says whether to merge and tag `polish-1`. Then Phase 5 Design.
+**Final-review fix wave (2026-11-10)**
+- Night headline no longer claims cloud it cannot know: no darkness has its own title; a forecast with no usable values in darkness reads "No forecast yet"; a partial forecast says how much darkness has no forecast (no "through all"); a clear run that ends where the forecast stops reads "Forecast clear until about HH:MM; no forecast after". A Moon-only window is no longer marked best on the night strip.
+- Score panel names the real window length ("for the best 1 h 15 min").
+- Overlays close only on a click whose target is the scrim itself. On a phone, a tap outside an open select in the header sheet used to close the whole sheet (the select's full-screen backdrop takes the pointerdown, then the click lands on the dialog); an e2e step on the mobile project covers it, and a text selection dragged out of the panel no longer closes it either.
+- Library tiles and the target-log final picture go through the night-vision red filter.
+- The night-vision popup e2e uses the screenshot rule (green or blue above 0.45 × red + 4) with colours normalised through a canvas; a self-test pins white, grey and `color(srgb 1 1 1)` as failures. In normal mode the same scan reports 15 non-red colours, so it is reading real styles.
+- Sky images: the route waits at most 1 s for the fetch lock, then answers 503 with `Retry-After: 5`. The client loads at most two at a time through a shared queue (`lib/skyImageQueue.ts`), retries a busy 503 once after its Retry-After, starts each one only as its card nears the viewport, and keeps the framing diagram meanwhile. With images off, targets carry `sky_field_arcmin: null`, the page requests no images and hides the DSS credit; the e2e console filters for `/sky-image` are removed.
+- Small items: drawer scrim on `--ease-drawer`; "Why this score" summary is `w-fit`; night-vision scrollbars use the palette; native date icons use `url(#vision-red)`; the chosen night is `aria-selected` only; `.btn`/`.press` colour transitions use `--dur-press` and `--ease-out`; stale `theme.ts` comment.
+
+**Live sky-image check (2026-11-10, scratch servers on ports 8210/5190, scratch database and `ASTROPLANNER_SKY_CACHE_DIR` in the session scratchpad, nothing committed).** Request: `https://archive.stsci.edu/cgi-bin/dss_search?v=poss2ukstu_red&r=<ra>&d=<dec>&e=J2000&h=<field>&w=<field>&f=gif`. One connectivity probe (a 1′ field, M42) went straight to STScI by curl first.
+
+| Target | r, d (deg) | Field | Cold fetch through the app | Output | Edge trimming |
+|---|---|---|---|---|---|
+| M31 (first Tonight card) | 10.684792, 41.269056 | 120′ | 17.5 s | 23.9 kB JPEG | **did not behave**: a white plate-edge band about 10 px wide stays near the right edge, because a 1-px black column sits outside it and the outside-in scan stops at the first non-white column |
+| NGC 7789 | 359.350250, 56.708278 | 40′ | 2.3 s | 75.0 kB | nothing to trim (brightest edge row or column mean 31) |
+| NGC 7000 | 314.821417, 44.528778 | 120′ | 19.0 s | 40.4 kB | nothing to trim (brightest edge mean 95) |
+
+- On Tonight, NGC 7789 was asked for while M31 was fetching: both tries (the first and the one retry 5 s later) got the busy 503 in about 1.02 s, so its card kept the framing diagram on that visit. Other API calls (target details and visibility) answered normally throughout; a cached image is served in about 23 ms.
+- Backend memory: about 134 MB resting, 566 MB peak sampled every 0.5 s during the Tonight run, and 645 MB maximum resident set size over the whole run (from `/usr/bin/time -l`, all three fetches included). The 120′ plates are decoded at full size before reduction.
+
+**Suites after the fix wave (2026-11-10, worktree):** `cd backend && .venv/bin/python -m pytest -q` 453 passed, 12 skipped; `cd frontend && npm run typecheck` ok; `npm test` 244 passed in 21 files; `npm run build` ok; `npx playwright test` 28 passed, 2 skipped (both projects; the skips are the two phone-only tests on desktop). On the first full Playwright run, "Themed select works from the keyboard" (desktop) failed once on its final text check. It passed alone, 8 of 8 with `--repeat-each=8`, and in a second full run, so it is recorded as a timing flake, not fixed.
+
+**Exact next step:** developer reviews the fix wave and decides on the two sky-image findings above (the M31 white band left by edge trimming, and a cold Tonight showing only one or two pictures per visit because a busy fetch is retried only once). Then the developer tests on a real phone and in a dark room (sheet drag, card press, night vision, native select popups), reviews the branch, and says whether to merge and tag `polish-1`. Then Phase 5 Design.
 
 Audit finding about the night-vision image filter (yellow-green bright areas in the prototype) is closed: pictures now go through a red-channel-only SVG filter (`#vision-red`); it is covered by tests, but it has not been looked at on a real sky image in a dark room.
 
@@ -44,7 +66,9 @@ Audit finding about the night-vision image filter (yellow-green bright areas in 
 - Base UI (`@base-ui/react`) added for themed selects and popups: main bundle 289.15 kB to 435.22 kB (gzip 89.99 to 139.02) in Task 11. Accepted for now; no code splitting of it yet.
 - Browser-only checks still owed: real-phone touch behaviour of the bottom sheet (drag, flick, catching a closing sheet, iOS Safari address bar and safe areas), press-scale feel on cards, and any frame-rate measurement. These were checked in desktop Chromium with an emulated 390 px viewport only.
 - Real-phone and dark-room tests are pending; nothing here claims them.
-- Survey pictures need the network on first view per target (STScI DSS, cached on disk afterwards); with `ASTROPLANNER_SKY_IMAGES=off` the framing diagram is shown instead.
+- Survey pictures need the network on first view per target (STScI DSS, cached on disk afterwards); with `ASTROPLANNER_SKY_IMAGES=off` targets carry no field width, no image is requested and the framing diagram is shown instead.
+- On a cold cache the server fetches one survey image at a time (a 120′ field took 17 to 19 s live), and a card whose request finds it busy retries only once, so the first visit to Tonight shows few pictures; later visits fill in from the cache. A white plate-edge band can survive edge trimming when a thin black column lies outside it (seen on M31 at 120′).
+- Feel checks owed on a phone (card press while scrolling, flick threshold), dark-room contrast, the remaining native selects and the bundle size are left for later, as above.
 - Documentation screenshots of AstroLog (library, target) and Processing Coach were not re-shot: they need the developer's own or synthetic imported data, and carry the previous look.
 
 ## Previous phase: Phase 4, Processing Coach: merged and tagged
