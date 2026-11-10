@@ -1,4 +1,4 @@
-import { FolderOpen, MapPin, Upload } from "lucide-react";
+import { ChevronDown, FolderOpen, MapPin, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -569,9 +569,12 @@ export function AstroLogImportPage() {
           {images > 0 && <Notice tone="info">{imagesNote(images)}</Notice>}
           {(skipped.length > 0 || ignored > 0) && (
             <details className="panel p-5" open={skipped.length > 0 && skipped.length <= 8}>
-              <summary className="cursor-pointer font-semibold tracking-tight text-lg">
-                Skipped ({skipped.length}
-                {ignored > 0 ? `, plus ${ignored} working files ignored` : ""})
+              <summary className="disclosure-summary cursor-pointer font-semibold tracking-tight text-lg">
+                <span>
+                  Skipped ({skipped.length}
+                  {ignored > 0 ? `, plus ${ignored} working files ignored` : ""})
+                </span>
+                <ChevronDown className="disclosure-chevron size-4 text-muted" aria-hidden />
               </summary>
               {skipped.length > 0 && (
                 <ul className="mt-2 flex max-h-64 flex-col gap-1 overflow-y-auto text-sm">

@@ -291,8 +291,146 @@
   }
 }
 
+/* Overlays: one timing per variant, shared by scrim and panel so they move as one object. Exit is shorter. */
+.overlay {
+  --ov-in: var(--dur-in);
+  --ov-out: var(--dur-out);
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  overflow: hidden;
+}
+.overlay[data-variant="modal"] {
+  --ov-in: 180ms;
+  --ov-out: 120ms;
+}
+.overlay::backdrop {
+  background: transparent;
+}
+.overlay-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.6);
+  opacity: 0;
+  transition: opacity var(--ov-out) var(--ease-out);
+}
+.overlay[data-variant="modal"] .overlay-scrim {
+  background: color-mix(in srgb, var(--color-night-deep) 75%, transparent);
+}
+.overlay-panel {
+  position: absolute;
+  transition: transform var(--ov-out) var(--ease-drawer), opacity var(--ov-out) var(--ease-out);
+}
+.overlay[data-variant="drawer"] .overlay-panel {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(640px, 100%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transform: translate3d(100%, 0, 0);
+}
+.overlay[data-variant="modal"] .overlay-panel {
+  inset: 0;
+  margin: auto;
+  width: min(28rem, calc(100vw - 2rem));
+  height: fit-content;
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  opacity: 0;
+  transform: scale(0.96);
+  transition-timing-function: var(--ease-out);
+}
+.overlay[data-state="open"] .overlay-scrim {
+  opacity: 1;
+  transition-duration: var(--ov-in);
+}
+.overlay[data-state="open"] .overlay-panel {
+  transition-duration: var(--ov-in);
+}
+.overlay[data-variant="drawer"][data-state="open"] .overlay-panel {
+  transform: none;
+}
+.overlay[data-variant="modal"][data-state="open"] .overlay-panel {
+  opacity: 1;
+  transform: none;
+}
+
+/* Disclosures: height and opacity animate the content; the chevron turns over 180 ms. */
+:root {
+  interpolate-size: allow-keywords;
+}
+details::details-content {
+  block-size: 0;
+  opacity: 0;
+  overflow: clip;
+  transition: block-size 200ms var(--ease-out), opacity 150ms var(--ease-out), content-visibility 200ms allow-discrete;
+}
+details[open]::details-content {
+  block-size: auto;
+  opacity: 1;
+}
+.disclosure-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  list-style: none;
+}
+.disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure-chevron {
+  flex: none;
+  transition: transform var(--dur-small) var(--ease-out);
+}
+details[open] > .disclosure-summary .disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+/* Night-vision switch: crossfade the whole page over 200 ms (see applyVision). */
+::view-transition-group(root) {
+  animation-duration: 200ms;
+  animation-timing-function: var(--ease-out);
+}
+
+/* Route loading skeleton */
+.page-loading {
+  animation: page-loading-in var(--dur-small) var(--ease-out) both;
+}
+@keyframes page-loading-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* Reduced motion: drop the press movement; opacity and colour transitions stay. */
 @media (prefers-reduced-motion: reduce) {
+  .overlay[data-variant="drawer"] .overlay-panel {
+    transform: none;
+    opacity: 0;
+    transition-property: opacity;
+  }
+  .overlay[data-variant="drawer"][data-state="open"] .overlay-panel {
+    opacity: 1;
+  }
+  .overlay[data-variant="modal"] .overlay-panel {
+    transform: none;
+    transition-property: opacity;
+  }
+  details::details-content {
+    transition-property: opacity, content-visibility;
+    block-size: auto;
+  }
+  .disclosure-chevron {
+    transition: none;
+  }
   .skeleton { animation: none; }
   .btn:active:not(:disabled),
   .press:active {

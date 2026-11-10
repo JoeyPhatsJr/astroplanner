@@ -60,7 +60,7 @@ export function PrefsProvider({ children, initial }: { children: ReactNode; init
   });
   const update = useCallback((patch: Partial<Prefs>) => {
     // Apply before re-render so components reading computed colours see the new palette.
-    if (patch.nightVision !== undefined) applyVision(patch.nightVision);
+    if (patch.nightVision !== undefined) applyVision(patch.nightVision, { animate: true });
     setPrefs((prev) => {
       const next = { ...prev, ...patch };
       savePrefs(next);

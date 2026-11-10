@@ -1,5 +1,5 @@
 import { AlertTriangle, Check, ExternalLink, Plus, X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import { useCurrentEquipment, useVisibility } from "../../api/hooks";
 import { formatDec, formatDeg, formatRA, formatSize } from "../../lib/format";
 import { formatDateTime, formatDuration, formatTime, tzAbbrev } from "../../lib/time";
@@ -8,28 +8,20 @@ import { usePrefs } from "../../state/prefs";
 import { AltitudeChart } from "../charts/LazyCharts";
 import { HistoryBadge } from "../astrolog/HistoryBadge";
 import { SegmentedScoreBar, ScoreBreakdown } from "../tonight/ScoreHero";
+import { Overlay } from "../ui/Overlay";
 import { ErrorState, Notice, Skeleton } from "../ui/States";
 import { FramingDiagram, framingNote } from "./FramingDiagram";
 import { ScoreChip } from "./TargetCard";
 import { SkyThumb } from "./SkyThumb";
 
 export function TargetDetail({ targetId, onClose }: { targetId: string | null; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
   const { prefs } = usePrefs();
-  const q = useVisibility(targetId);
+  // Keep showing the last target while the drawer animates out.
+  const [shownId, setShownId] = useState<string | null>(targetId);
+  if (targetId && targetId !== shownId) setShownId(targetId);
+  const q = useVisibility(shownId);
   const eq = useCurrentEquipment();
   const active = useActiveSession();
-
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (targetId && !d.open) {
-      if (typeof d.showModal === "function") d.showModal();
-      else d.setAttribute("open", "");
-    } else if (!targetId && d.open) {
-      d.close();
-    }
-  }, [targetId]);
 
   const data = q.data;
   const tz = data?.night.timezone ?? "UTC";
@@ -38,14 +30,13 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
   const inSession = t ? active.inSession(t.id) : false;
 
   return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      onClick={(e) => {
-        if (e.target === ref.current) onClose();
-      }}
-      aria-labelledby="target-detail-title"
-      className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-[640px] overflow-y-auto border-l border-line bg-night p-0 text-ink backdrop:bg-black/60 sm:w-[min(640px,92vw)]"
+    <Overlay
+      open={targetId !== null}
+      onDismiss={onClose}
+      onClosed={() => setShownId(null)}
+      variant="drawer"
+      labelledBy="target-detail-title"
+      panelClassName="border-l border-line bg-night text-ink"
     >
       <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-line-soft bg-night px-5 py-3.5">
         <h2 id="target-detail-title" className="min-w-0 flex-1 truncate font-semibold tracking-tight text-xl">
@@ -176,7 +167,7 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
           </>
         )}
       </div>
-    </dialog>
+    </Overlay>
   );
 }
 

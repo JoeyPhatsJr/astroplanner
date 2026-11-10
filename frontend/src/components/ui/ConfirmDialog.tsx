@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Overlay } from "./Overlay";
 
 export type ConfirmOptions = {
   title: string;
@@ -19,7 +20,7 @@ const ConfirmContext = createContext<ConfirmFn | null>(null);
  */
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<Pending | null>(null);
-  const ref = useRef<HTMLDialogElement>(null);
+  const [open, setOpen] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const okRef = useRef<HTMLButtonElement>(null);
 
@@ -30,42 +31,31 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
           prev?.resolve(false); // a newer request supersedes an unanswered one
           return { ...opts, resolve };
         });
+        setOpen(true);
       }),
     [],
   );
 
   useEffect(() => {
-    const d = ref.current;
-    if (!d || !pending) return;
-    if (!d.open) {
-      if (typeof d.showModal === "function") d.showModal();
-      else d.setAttribute("open", ""); // jsdom / very old browsers
-    }
-    (pending.destructive ? cancelRef : okRef).current?.focus();
-  }, [pending]);
+    if (pending && open) (pending.destructive ? cancelRef : okRef).current?.focus();
+  }, [pending, open]);
 
   const settle = (ok: boolean) => {
-    const d = ref.current;
-    if (d?.open) {
-      if (typeof d.close === "function") d.close();
-      else d.removeAttribute("open");
-    }
     pending?.resolve(ok);
-    setPending(null);
+    setOpen(false); // the content stays until the exit animation ends (onClosed)
   };
 
   return (
     <ConfirmContext.Provider value={confirm}>
       {children}
-      <dialog
-        ref={ref}
-        aria-labelledby="confirm-title"
-        aria-describedby={pending?.body ? "confirm-body" : undefined}
-        onCancel={(e) => {
-          e.preventDefault();
-          settle(false);
-        }}
-        className="panel m-auto w-[min(28rem,calc(100vw-2rem))] p-0 text-ink backdrop:bg-night-deep/75"
+      <Overlay
+        open={open}
+        variant="modal"
+        labelledBy="confirm-title"
+        describedBy={pending?.body ? "confirm-body" : undefined}
+        onDismiss={() => settle(false)}
+        onClosed={() => setPending(null)}
+        panelClassName="panel p-0 text-ink"
       >
         {pending && (
           <div className="flex flex-col gap-4 p-5">
@@ -92,7 +82,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             </div>
           </div>
         )}
-      </dialog>
+      </Overlay>
     </ConfirmContext.Provider>
   );
 }

@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import type { ScoreComponent, TonightScore } from "../../api/types";
 import { formatPoints } from "../../lib/format";
 import { formatTime, tzAbbrev } from "../../lib/time";
@@ -105,7 +106,10 @@ export function ScoreHero({ score, tz, headline }: { score: TonightScore; tz: st
       )}
 
       <details className="group text-sm text-ink-2">
-        <summary className="press min-h-11 cursor-pointer select-none py-2.5 text-ice hover:underline">Why this score</summary>
+        <summary className="disclosure-summary press min-h-11 cursor-pointer select-none py-2.5 text-ice hover:underline">
+          Why this score
+          <ChevronDown className="disclosure-chevron size-4" aria-hidden />
+        </summary>
         <div className="flex flex-col gap-4 pt-2">
           <SegmentedScoreBar components={score.components} />
           <ScoreBreakdown components={score.components} />
