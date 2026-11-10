@@ -67,7 +67,7 @@ An audit of the merged app found that the first polish pass fixed motion, phone 
 
 - `PageHeader` subtitle: the location label plus coordinates (`Philadelphia, PA (sample) · 39.95° N, 75.17° W`). The date stays in the title and the header's night control. The time zone is dropped from the subtitle, because every time already shows its zone abbreviation.
 - The sample-location notice becomes a plain line under the subtitle (`PageHeader` gains a `notice` slot) instead of a floating box on the right.
-- One conditions panel: score, window line, headline and "Why this score" on the left; the night strip on the right; the four facts and the forecast source across the bottom. The strip drops its visible "forecast clear · 10 h 45 min" label (the headline says it); the clear bar stays, and its text stays for screen readers.
+- One conditions panel: score, window line, headline and "Why this score" on the left; the night strip on the right; the four facts and the forecast source under the strip at `lg` (ScoreHero spans both rows, so opening "Why this score" never moves them); stacked below on narrow screens (amended 2026-11-10 after the final review). The strip drops its visible "forecast clear · 10 h 45 min" label (the headline says it); the clear bar stays, and its text stays for screen readers.
 - Strip hint: "Hover over the strip for hourly values." on hover devices; "Tap the strip for hourly values." on touch devices (`@media (hover: none)`). Both strings exist today or are new copy; the strip already reads values on `pointerdown`.
 - Target cards:
   - The add button becomes a tinted button (`btn-tinted`: accent text on an accent tint, no fill) labelled "+ Add" from `sm` up and icon-only below, keeping its `aria-label` and a 44 × 36 px minimum target.

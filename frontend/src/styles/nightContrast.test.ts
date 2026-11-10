@@ -29,7 +29,7 @@ function contrast(a: string, b: string): number {
 
 const t = nightTokens();
 const grounds = ["--color-night", "--color-night-deep", "--color-panel-2"];
-const texts = ["--color-ink", "--color-ink-2", "--color-muted", "--color-ice"];
+const texts = ["--color-ink", "--color-ink-2", "--color-muted", "--color-ice", "--color-warn", "--color-ok"];
 
 describe("night vision contrast", () => {
   for (const text of texts) {
@@ -48,6 +48,24 @@ describe("night vision contrast", () => {
     const ink = contrast(t["--color-ink"], t["--color-night"]);
     const ink2 = contrast(t["--color-ink-2"], t["--color-night"]);
     expect(ink / ink2).toBeGreaterThanOrEqual(1.2);
+  });
+
+  it("every colour token in the night block is red only (green and blue at most 0.45 x red + 4)", () => {
+    // Hex tokens are checked directly; rgb() tokens (the translucent panel) are parsed too. Anything else fails.
+    const channels = (v: string): number[] => {
+      const hex = v.match(/^#([0-9a-f]{6})$/i);
+      if (hex) return [0, 2, 4].map((i) => parseInt(hex[1].slice(i, i + 2), 16));
+      const rgb = v.match(/^rgb\(\s*(\d+)\s+(\d+)\s+(\d+)/);
+      if (rgb) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+      throw new Error(`unparsed colour: ${v}`);
+    };
+    const colourTokens = Object.entries(t).filter(([k, v]) => k.startsWith("--color-") && /^(#|rgb\()/.test(v));
+    expect(colourTokens.length).toBeGreaterThan(10);
+    for (const [k, v] of colourTokens) {
+      const [r, g, b] = channels(v);
+      expect(g, `${k} green`).toBeLessThanOrEqual(0.45 * r + 4);
+      expect(b, `${k} blue`).toBeLessThanOrEqual(0.45 * r + 4);
+    }
   });
 
   it("underlines inline accent links", () => {

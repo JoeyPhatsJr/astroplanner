@@ -42,4 +42,17 @@ describe("TonightPanels", () => {
     expect(ruled[0].contains(facts)).toBe(true);
     expect(ruled[0].contains(screen.getByTestId("strip"))).toBe(false);
   });
+
+  it("keeps the facts under the strip at lg, with the score spanning both rows", () => {
+    render(
+      <MemoryRouter>
+        <TonightPanels data={data} tz="America/New_York" fetching={false} />
+      </MemoryRouter>,
+    );
+    const scoreCell = screen.getByTestId("score").parentElement as HTMLElement;
+    expect(scoreCell.classList.contains("lg:row-span-2")).toBe(true);
+    const factsBlock = screen.getByTestId("facts-block");
+    expect(factsBlock.classList.contains("lg:col-start-2")).toBe(true);
+    expect(factsBlock.querySelector("dl")).not.toBeNull();
+  });
 });

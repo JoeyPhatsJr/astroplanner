@@ -66,6 +66,7 @@ export function TonightPage() {
               <Link to="/settings" className="text-ice hover:underline">
                 Set your own location
               </Link>
+              .
             </>
           ) : undefined
         }
@@ -199,12 +200,14 @@ export function TonightPanels({ data, tz, fetching }: { data: TonightResponse; t
   });
   const stripTip = `${hasForecast ? "Each block is one forecast hour. Solid means overcast. " : ""}Thin band is the Moon above the horizon. Hours are ${tzAbbrev(night.display_start_utc, tz)}.`;
   return (
-    <section className={`panel grid grid-cols-1 gap-5 p-5 md:p-6 lg:grid-cols-[minmax(260px,320px)_1fr] ${fetching ? "opacity-70" : ""}`} aria-label="Tonight’s conditions">
-      <ScoreHero score={score} tz={tz} headline={headline} />
-      <div className="min-w-0 self-start" role="group" aria-label="Night from dusk to dawn">
+    <section className={`panel grid grid-cols-1 gap-5 p-5 md:p-6 lg:grid-cols-[minmax(260px,320px)_1fr] lg:grid-rows-[auto_1fr] ${fetching ? "opacity-70" : ""}`} aria-label="Tonight’s conditions">
+      <div className="min-w-0 lg:row-span-2" data-testid="score-cell">
+        <ScoreHero score={score} tz={tz} headline={headline} />
+      </div>
+      <div className="min-w-0 self-start lg:col-start-2" role="group" aria-label="Night from dusk to dawn">
         <NightStrip night={night} forecast={forecast} clear={data.night_clear} bestWindow={score.total !== null ? score.window : null} tz={tz} />
       </div>
-      <div className="flex min-w-0 flex-col gap-4 border-t border-line-soft pt-4 lg:col-span-2">
+      <div className="flex min-w-0 flex-col gap-4 self-start border-t border-line-soft pt-4 lg:col-start-2" data-testid="facts-block">
         <FactsRow night={night} forecast={forecast} />
         <p className="text-label text-muted">{stripTip}</p>
         <ForecastMeta forecast={forecast} tz={tz} />

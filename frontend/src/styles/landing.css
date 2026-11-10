@@ -8,22 +8,6 @@
   --landing-header-h: 4.375rem; /* the sticky site header: rem, so it tracks the user's text size */
 }
 
-/*
- * Optical sizing for display type. Inter's opsz axis switches to its Display design at large sizes
- * (tighter fit, finer joins), the way SF Pro moves from Text to Display. Loaded under its own family
- * name so only the landing headings use it; the rest of the app keeps the standard Inter build.
- */
-@font-face {
-  font-family: "Inter Optical";
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 900;
-  src: url("@fontsource-variable/inter/files/inter-latin-opsz-normal.woff2") format("woff2-variations");
-  unicode-range:
-    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
-    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
 /* The page sky shifts through the twilight bands as the story scrolls (set inline on <body>). */
 body.landing-sky {
   transition: background-color 900ms ease;
@@ -43,7 +27,7 @@ body.landing-sky {
 .landing-h1,
 .landing-h2,
 .landing-clock-time {
-  font-family: "Inter Optical", var(--font-sans);
+  font-family: "Inter Variable", var(--font-sans);
   font-optical-sizing: auto;
 }
 .landing-h1 {

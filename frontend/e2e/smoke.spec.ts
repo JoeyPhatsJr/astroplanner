@@ -172,8 +172,8 @@ test("Night vision turns the palette red and survives a reload", async ({ page }
   // Body text must be red-dominant (no white/blue light): R well above G and B
   const [r, g, b] = (await ink()).match(/\d+/g)!.map(Number);
   expect(r).toBeGreaterThan(150);
-  expect(g).toBeLessThan(100);
-  expect(b).toBeLessThan(100);
+  expect(g).toBeLessThanOrEqual(0.45 * r + 4);
+  expect(b).toBeLessThanOrEqual(0.45 * r + 4);
   expect(await ink()).not.toBe(normalInk);
 
   await page.reload();
