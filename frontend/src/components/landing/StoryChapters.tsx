@@ -1,5 +1,5 @@
 import { ArrowRight } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { CHAPTERS, EXAMPLE_NIGHT_LABEL, type Sky } from "./content";
 import { useChapterProgress } from "./useChapterProgress";
@@ -18,7 +18,7 @@ export function StoryChapters({ onSky }: { onSky: (sky: Sky) => void }) {
         <div className="landing-clock-time">{current.time}</div>
         <div className="landing-clock-moment">{current.moment}</div>
         <div className="landing-clock-bar">
-          <i style={{ height: `${current.progress}%` }} />
+          <i style={{ "--landing-progress": current.progress / 100 } as CSSProperties} />
         </div>
         <p className="landing-clock-note">{EXAMPLE_NIGHT_LABEL}</p>
       </div>
@@ -45,7 +45,7 @@ export function StoryChapters({ onSky }: { onSky: (sky: Sky) => void }) {
             </h3>
             <p className="landing-lede mb-6 max-w-[52ch]">{c.body}</p>
             {c.link && (
-              <Link to={c.link.to} className="mb-7 inline-flex items-center gap-1.5 text-sm font-semibold text-ice hover:underline">
+              <Link to={c.link.to} className="landing-press mb-7 inline-flex items-center gap-1.5 text-sm font-semibold text-ice hover:underline">
                 {c.link.label}
                 <ArrowRight className="size-4" aria-hidden />
               </Link>

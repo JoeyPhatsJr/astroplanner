@@ -142,7 +142,7 @@ export function CitySearch() {
                   <button
                     type="button"
                     onClick={() => choose(r)}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-panel-2 focus-visible:bg-panel-2"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left [-webkit-tap-highlight-color:transparent] hover:bg-panel-2 focus-visible:bg-panel-2 active:bg-line-soft"
                   >
                     <MapPin className="size-4 shrink-0 text-muted" aria-hidden />
                     <span className="min-w-0 flex-1 truncate text-ink">{r.label}</span>

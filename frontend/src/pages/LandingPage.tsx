@@ -23,16 +23,17 @@ export function LandingPage() {
         Skip to content
       </a>
 
-      <header className="sticky top-0 z-20 bg-night/45 backdrop-blur-md">
+      <header className="landing-header sticky top-0 z-20">
         <nav aria-label="Site" className="flex items-center justify-between gap-4 px-4 py-4 sm:px-10">
-          <Link to="/" aria-label="AstroPlanner home" className="flex items-center gap-2.5">
+          <Link to="/" aria-label="AstroPlanner home" className="landing-press flex items-center gap-2.5">
             <Logo />
             <span className="text-[1.1rem] font-semibold tracking-tight">AstroPlanner</span>
           </Link>
-          <ul className="m-0 hidden list-none gap-7 p-0 text-sm text-ink-2 md:flex">
+          {/* Text over the blurred header is a step heavier so it stays legible as photos pass under it. */}
+          <ul className="m-0 hidden list-none gap-7 p-0 text-sm font-medium text-ink-2 md:flex">
             {NAV_LINKS.map((l) => (
               <li key={l.to}>
-                <Link to={l.to} className="hover:text-ink">
+                <Link to={l.to} className="landing-press hover:text-ink">
                   {l.label}
                 </Link>
               </li>

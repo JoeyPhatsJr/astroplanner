@@ -5,6 +5,23 @@
 
 :root {
   --landing-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --landing-header-h: 4.375rem; /* the sticky site header: rem, so it tracks the user's text size */
+}
+
+/*
+ * Optical sizing for display type. Inter's opsz axis switches to its Display design at large sizes
+ * (tighter fit, finer joins), the way SF Pro moves from Text to Display. Loaded under its own family
+ * name so only the landing headings use it; the rest of the app keeps the standard Inter build.
+ */
+@font-face {
+  font-family: "Inter Optical";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/inter/files/inter-latin-opsz-normal.woff2") format("woff2-variations");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F,
+    U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
 /* The page sky shifts through the twilight bands as the story scrolls (set inline on <body>). */
@@ -12,16 +29,27 @@ body.landing-sky {
   transition: background-color 900ms ease;
 }
 
+/*
+ * Tracking is size-specific (Inter's dynamic-metrics curve): small labels slightly open, body text a
+ * touch tight, display text tighter still. The Display cut already fits tighter, so headings need
+ * less negative tracking than the standard cut would.
+ */
 .landing-eyebrow {
   font-size: 0.8125rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   color: var(--color-muted);
+}
+.landing-h1,
+.landing-h2,
+.landing-clock-time {
+  font-family: "Inter Optical", var(--font-sans);
+  font-optical-sizing: auto;
 }
 .landing-h1 {
   font-size: clamp(2.6rem, 6.4vw, 5.5rem);
-  line-height: 0.98;
-  letter-spacing: -0.038em;
+  line-height: 1;
+  letter-spacing: -0.028em;
   font-weight: 650;
   text-wrap: balance;
 }
@@ -30,21 +58,40 @@ body.landing-sky {
 }
 .landing-h2 {
   font-size: clamp(1.9rem, 4.4vw, 3.25rem);
-  line-height: 1.04;
-  letter-spacing: -0.03em;
+  line-height: 1.06;
+  letter-spacing: -0.022em;
   font-weight: 650;
   text-wrap: balance;
 }
 .landing-lede {
   font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
   line-height: 1.5;
+  letter-spacing: -0.012em;
   color: var(--color-ink-2);
   text-wrap: pretty;
 }
 
+/* The sticky header is a translucent layer the page scrolls under, not an opaque bar. */
+.landing-header {
+  background: color-mix(in srgb, var(--color-night) 55%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(160%);
+}
+
+/* Feedback lives on the press and is instant; the commit still happens on release. */
 .landing-pill {
   border-radius: 999px;
   padding: 0.75rem 1.25rem;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    filter 120ms ease,
+    transform 160ms var(--landing-ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.landing-pill:active:not(:disabled) {
+  transform: scale(0.97);
+  transition-duration: 120ms, 120ms, 120ms, 80ms;
 }
 .landing-cta-primary {
   background: var(--color-ink);
@@ -54,6 +101,12 @@ body.landing-sky {
 .landing-cta-primary:hover:not(:disabled) {
   filter: brightness(0.9);
   border-color: transparent;
+}
+.landing-press {
+  -webkit-tap-highlight-color: transparent;
+}
+.landing-press:active {
+  opacity: 0.65;
 }
 
 /* Header first: the text rises in, then the photo fades up a beat later. */
@@ -119,12 +172,12 @@ body.landing-sky {
 /* One night, scrolled */
 .landing-story {
   display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 40px;
+  grid-template-columns: 11.25rem 1fr;
+  gap: 2.5rem;
 }
 .landing-clock {
   position: sticky;
-  top: 110px;
+  top: calc(var(--landing-header-h) + 2.5rem);
   align-self: start;
 }
 .landing-clock-time {
@@ -141,24 +194,27 @@ body.landing-sky {
 }
 .landing-clock-bar {
   position: relative;
-  margin-top: 18px;
-  height: 160px;
+  margin-top: 1.125rem;
+  height: 10rem;
   width: 2px;
   border-radius: 2px;
   background: var(--color-line);
 }
+/* The fill scales on the compositor (transform), never by animating height, which re-lays out the page. */
 .landing-clock-bar i {
   position: absolute;
-  inset: 0 auto auto 0;
-  width: 2px;
+  inset: 0;
   border-radius: 2px;
   background: var(--color-ink);
-  transition: height 600ms var(--landing-ease);
+  transform-origin: top;
+  transform: scaleY(var(--landing-progress, 0));
+  transition: transform 600ms var(--landing-ease);
 }
 .landing-clock-note {
-  margin-top: 16px;
+  margin-top: 1rem;
   font-size: 0.72rem;
   line-height: 1.45;
+  letter-spacing: 0.005em;
   color: var(--color-muted);
 }
 .landing-chapter {
@@ -167,7 +223,7 @@ body.landing-sky {
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
-  padding: 60px 0;
+  padding: 3.75rem 0;
 }
 .landing-chapter .landing-shot {
   width: 100%;
@@ -185,14 +241,15 @@ body.landing-sky {
     gap: 0;
   }
   .landing-clock {
-    top: 70px; /* just under the sticky site header (69.5px at 390px wide) */
+    top: var(--landing-header-h); /* just under the sticky site header */
     z-index: 5;
     display: flex;
     align-items: baseline;
-    gap: 12px;
-    padding: 10px 0;
+    gap: 0.75rem;
+    padding: 0.625rem 0;
     background: color-mix(in srgb, var(--color-night) 80%, transparent);
-    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
   }
   .landing-clock-time {
     font-size: 1.625rem;
@@ -203,7 +260,7 @@ body.landing-sky {
   }
   .landing-chapter {
     min-height: auto;
-    padding: 48px 0;
+    padding: 3rem 0;
   }
 }
 
@@ -249,15 +306,58 @@ body.landing-sky {
   mix-blend-mode: multiply;
 }
 
+/*
+ * Reduced motion is gentler motion, not none: entrances become short opacity cross-fades with no
+ * travel or zoom, and the sky keeps easing between colours (overriding the app-wide transition kill)
+ * so the page never jumps abruptly from one brightness to the next.
+ */
+@keyframes landing-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .landing-rise,
   .landing-hero-photo img {
-    animation: none;
-    opacity: 1;
     transform: none;
+    animation: landing-fade 300ms ease-out var(--landing-delay, 0ms) both;
   }
   .landing-chapter .landing-shot {
     opacity: 1;
     transform: none;
+  }
+  .landing-pill:active:not(:disabled) {
+    transform: none;
+    filter: brightness(0.85);
+  }
+  body.landing-sky {
+    transition: background-color 900ms ease !important;
+  }
+}
+
+/* Reduce transparency: the floating layers turn solid, with no blur behind them. */
+@media (prefers-reduced-transparency: reduce) {
+  .landing-header,
+  .landing-clock {
+    background: var(--color-night);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Increase contrast: solid layers with a defined edge, and full-strength secondary text. */
+@media (prefers-contrast: more) {
+  .landing-header {
+    background: var(--color-night);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-bottom: 1px solid var(--color-line);
+  }
+  .landing-lede,
+  .landing-eyebrow {
+    color: var(--color-ink);
   }
 }
