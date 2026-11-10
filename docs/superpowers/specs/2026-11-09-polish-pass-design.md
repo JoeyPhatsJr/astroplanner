@@ -133,7 +133,7 @@ Standard: Emil Kowalski's and Apple's guidance as packaged in the installed skil
 | 3 | `ConfirmDialog.tsx:60` | Snaps open | Preventing a jarring change | Occasional | `opacity 0, scale(0.96)` to settled, 180 ms `--ease-out`, centred; exit 120 ms |
 | 4 | `ScoreHero.tsx:114`, `AstroLogImportPage.tsx:575` | Disclosure snaps | State indication | Occasional | `::details-content` height and opacity 200 ms; chevron rotates 180 ms; instant where unsupported |
 | 5 | Target card image | n/a | Preventing a jarring change | Once per target | Opacity 0 to 1, 200 ms |
-| 6 | `lib/vision.ts` night-vision switch | Instant full-screen colour change | Preventing a jarring change | Occasional | View Transition crossfade 200 ms; instant where unsupported |
+| 6 | `lib/vision.ts` night-vision switch | Instant full-screen colour change | Preventing a jarring change | Occasional | View Transition crossfade 200 ms only when leaving night vision (red to normal), where it softens the brightness jump; switching into night vision is always instant because a crossfade would show non-red pixels, which the night-vision rule forbids; instant where unsupported or motion is reduced |
 
 **Rejected:**
 - Route changes: core navigation, tens of times a day. Replace the "Loading…" flash (`App.tsx:27`) with a page-shaped skeleton shown only after 200 ms.

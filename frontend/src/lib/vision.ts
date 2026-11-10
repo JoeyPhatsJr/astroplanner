@@ -11,14 +11,15 @@ function set(nightVision: boolean): void {
 
 /**
  * Applies the palette. The first paint (index.html and initial prefs) must stay instant; only a
- * user's switch passes `animate`, which crossfades over 200 ms via a view transition when the
- * browser supports it and motion is not reduced.
+ * user's switch passes `animate`. Leaving night vision crossfades over 200 ms via a view transition
+ * (when supported and motion is not reduced) to soften the brightness jump. Entering night vision is
+ * always instant: a crossfade would show non-red pixels.
  */
 export function applyVision(nightVision: boolean, opts: { animate?: boolean } = {}): void {
   try {
     const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
     const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (opts.animate && !reduced && typeof doc.startViewTransition === "function") {
+    if (opts.animate && !nightVision && !reduced && typeof doc.startViewTransition === "function") {
       doc.startViewTransition(() => set(nightVision));
     } else {
       set(nightVision);
