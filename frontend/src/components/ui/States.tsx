@@ -55,11 +55,6 @@ export function Notice({ tone = "info", children }: { tone?: "info" | "warn"; ch
 
 export function BasisBadge({ basis }: { basis: "forecast" | "calculated" | "heuristic" }) {
   const label = { forecast: "Forecast", calculated: "Calculated", heuristic: "Heuristic" }[basis];
-  const tone =
-    basis === "forecast"
-      ? "badge-accent"
-      : basis === "calculated"
-        ? "border-line text-ink-2"
-        : "border-dashed border-ink-2 text-ink-2";
-  return <span className={`badge ${tone}`}>{label}</span>;
+  const cls = basis === "forecast" ? "badge badge-accent" : "badge";
+  return <span className={cls}>{label}</span>;
 }

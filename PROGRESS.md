@@ -11,7 +11,7 @@ No score, calculation or data-source change.
 
 | Area | What changed |
 |---|---|
-| Type | Inter optical-size file (`opsz`); one scale in `@theme` with a line height and tracking per size; no `tracking-tight`/`tracking-[]` or `leading-*` overrides left in components; digits that must align use `tabular-nums`, `body` keeps only `cv11` |
+| Type | Inter optical-size file (`opsz`); one scale in `@theme` with a line height and tracking per size; no `tracking-tight`/`tracking-[]` and no `leading-tight`, `leading-snug` or `leading-none` overrides in components; digits that must align use `tabular-nums`, `body` keeps only `cv11` |
 | Night vision | Two red text levels (ink `#ee5a4b`, ink-2 and muted `#d24c3f`) and accent `#ff5a47`, each at least 4.5:1 on night, night-deep and panel-2 (contrast test); links underlined in night vision |
 | Tonight | One conditions panel; date shown once; notice slot in the page header; touch hint for the strip on phones, hover hint on desktop; one divider above the facts; score hero no longer boxed |
 | Target cards | Framing notes shorter, with the S30 FOV-axis caveat stated once per surface; tinted "+ Add" button that keeps its accessible name; the score leads the card; thumbnails show the field width only |
@@ -39,9 +39,11 @@ cd frontend && npx playwright test            # 41 passed, 3 skipped (desktop + 
 - **Settings, AstroLog, Import and the processing coach were not mocked.** They got only the shared rules (type
   scale, badges, copy, night levels).
 - **`landing.css` was not audited against the new type scale** (it keeps its own sizes and tracking).
+- **Mid-size targets (ratio 0.07 to 0.75) show no fit text**, because the backend emits no note for them (per spec).
+- **The frontend `framingNote` thresholds (0.75 and 0.15) differ slightly from the backend's `fit_notes`** (above 0.75, below 1/15); pre-existing.
+- **The Tonight e2e tests need live weather** and fail offline.
 - **The pass 2 audit's claim that phones got no strip hint was wrong.** The tap hint has existed since pass 1; the
   audit used desktop emulation (`hover: hover`).
-- `BasisBadge` still draws "Heuristic" with a dashed border (existing test); it is not one of the two badge styles.
 
 ### Exact next step (polish pass 2)
 

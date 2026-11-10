@@ -242,11 +242,12 @@ describe("PageHeader", () => {
 });
 
 describe("BasisBadge", () => {
-  it("styles forecast and heuristic differently", () => {
-    const { container: a } = render(<BasisBadge basis="forecast" />);
-    const { container: b } = render(<BasisBadge basis="heuristic" />);
-    expect(a.firstElementChild?.className).not.toBe(b.firstElementChild?.className);
-    expect(b.firstElementChild?.className).toContain("border-dashed");
+  it("forecast is the accent badge; calculated and heuristic are plain, none dashed", () => {
+    const cls = (basis: "forecast" | "calculated" | "heuristic") =>
+      render(<BasisBadge basis={basis} />).container.firstElementChild?.className ?? "";
+    expect(cls("forecast")).toContain("badge-accent");
+    for (const basis of ["calculated", "heuristic"] as const) expect(cls(basis)).not.toContain("badge-accent");
+    for (const basis of ["forecast", "calculated", "heuristic"] as const) expect(cls(basis)).not.toContain("border-dashed");
   });
 });
 
