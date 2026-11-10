@@ -1,4 +1,5 @@
 import { useEffect, useRef, type ReactNode, type Ref } from "react";
+import { useSheetDrag } from "./useSheetDrag";
 
 /** Safety net if no transitionend arrives (reduced motion, display:none, background tab). */
 const CLOSE_FALLBACK_MS = 260;
@@ -9,6 +10,8 @@ type Props = {
   onClosed: () => void;
   /** Runs immediately when the user asks to close (Esc, scrim click); the parent should set open=false. */
   onDismiss?: () => void;
+  /** A phone sheet caught mid-close and released without dismissing: the parent should set open=true again. */
+  onReopen?: () => void;
   variant: "drawer" | "modal";
   labelledBy: string;
   describedBy?: string;
@@ -22,7 +25,7 @@ type Props = {
  * and, later, a drag gesture can style them directly. data-state is "open" or "closing";
  * absent while closed. Both elements share one timing so they move as a single object.
  */
-export function Overlay({ open, onClosed, onDismiss, variant, labelledBy, describedBy, children, panelRef, panelClassName = "" }: Props) {
+export function Overlay({ open, onClosed, onDismiss, onReopen, variant, labelledBy, describedBy, children, panelRef, panelClassName = "" }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const panelEl = useRef<HTMLDivElement | null>(null);
   const timer = useRef<number | null>(null);
@@ -50,7 +53,12 @@ export function Overlay({ open, onClosed, onDismiss, variant, labelledBy, descri
 
   const beginClose = () => {
     const d = ref.current;
-    if (!d || !d.open || d.dataset.state === "closing") return;
+    if (!d || !d.open) return;
+    if (d.dataset.state === "closing") {
+      // Already closing (a caught sheet being let go again): make sure the safety net is armed.
+      if (timer.current === null) timer.current = window.setTimeout(finish, CLOSE_FALLBACK_MS);
+      return;
+    }
     d.dataset.state = "closing";
     clearTimer();
     timer.current = window.setTimeout(finish, CLOSE_FALLBACK_MS);
@@ -90,6 +98,20 @@ export function Overlay({ open, onClosed, onDismiss, variant, labelledBy, descri
     onDismiss?.();
   };
 
+  const scrimEl = useRef<HTMLDivElement>(null);
+  const drag = useSheetDrag(panelEl, scrimEl, dismiss, {
+    // Holding a closing sheet stops it finishing underneath the finger.
+    onGrab: clearTimer,
+    onSettle: () => {
+      const d = ref.current;
+      if (d?.dataset.state !== "closing") return;
+      if (onReopen) {
+        d.dataset.state = "open";
+        onReopen();
+      } else dismiss();
+    },
+  });
+
   return (
     <dialog
       ref={ref}
@@ -108,7 +130,7 @@ export function Overlay({ open, onClosed, onDismiss, variant, labelledBy, descri
         if (e.target === panelEl.current && ref.current?.dataset.state === "closing") finish();
       }}
     >
-      <div className="overlay-scrim" aria-hidden />
+      <div className="overlay-scrim" ref={scrimEl} aria-hidden />
       <div
         className={`overlay-panel ${panelClassName}`}
         ref={(el) => {
@@ -117,6 +139,12 @@ export function Overlay({ open, onClosed, onDismiss, variant, labelledBy, descri
           else if (panelRef) (panelRef as { current: HTMLDivElement | null }).current = el;
         }}
       >
+        {variant === "drawer" && (
+          // Only shown on phones (CSS), where the drawer is a bottom sheet. touch-action is off here only.
+          <div className="sheet-grabber" {...drag}>
+            <span className="sheet-grabber-bar" aria-hidden />
+          </div>
+        )}
         {children}
       </div>
     </dialog>

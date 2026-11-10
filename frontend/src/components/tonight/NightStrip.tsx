@@ -236,7 +236,15 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
       </svg>
 
       <p data-testid="strip-tip" className="mt-2 min-h-[18px] text-label text-muted">
-        {tip ?? (hasHourly ? "Hover or tap the strip for hourly values." : "")}
+        {tip ??
+          (hasHourly ? (
+            <>
+              <span className="[@media(hover:none)]:hidden">Hover over the strip for hourly values.</span>
+              <span className="hidden [@media(hover:none)]:inline">Tap the strip for hourly values.</span>
+            </>
+          ) : (
+            ""
+          ))}
       </p>
 
       {/* sr-only does not constrain a <table> (its content overflows and widens the mobile layout viewport), so the wrapper clips it. */}

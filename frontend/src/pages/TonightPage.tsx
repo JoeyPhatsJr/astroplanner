@@ -169,7 +169,7 @@ export function TonightPage() {
         </aside>
       </div>
 
-      <TargetDetail targetId={openId} onClose={() => setOpenId(null)} />
+      <TargetDetail targetId={openId} onClose={() => setOpenId(null)} onReopen={setOpenId} />
     </div>
   );
 }

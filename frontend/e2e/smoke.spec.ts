@@ -80,6 +80,37 @@ test("Explore search opens a target with its altitude chart", async ({ page }) =
   expect(errors).toEqual([]);
 });
 
+test("Phone: one-row header chip opens the controls sheet; details is a bottom sheet that drags closed", async ({ page }, info) => {
+  test.skip(info.project.name !== "mobile", "phone layout only");
+  await page.goto("/");
+  const chip = page.getByRole("button", { name: /·/ }).filter({ has: page.locator("span.truncate") });
+  await expect(chip).toBeVisible();
+  const header = page.getByRole("banner");
+  expect((await header.boundingBox())!.height).toBeLessThan(72);
+  await chip.click();
+  await expect(page.getByLabel("Observing location")).toBeVisible();
+  await expect(page.getByLabel("Equipment profile")).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(page.getByLabel("Observing location")).toBeHidden();
+
+  await page.goto("/explore");
+  await page.getByLabel(/Search by name/).fill("whirlpool");
+  await page.getByRole("list", { name: "Targets" }).getByText("Whirlpool Galaxy").first().click();
+  const panel = page.locator("dialog[open] .overlay-panel");
+  await expect(panel).toBeVisible();
+  const box = (await panel.boundingBox())!;
+  const vh = page.viewportSize()!.height;
+  expect(box.width).toBeGreaterThan(page.viewportSize()!.width - 2);
+  expect(box.height / vh).toBeGreaterThan(0.8);
+  // drag the grabber well past the threshold with real pointer events
+  const grab = (await page.locator("dialog[open] .sheet-grabber").boundingBox())!;
+  await page.mouse.move(grab.x + grab.width / 2, grab.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(grab.x + grab.width / 2, grab.y + 200, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+});
+
 test("Night vision turns the palette red and survives a reload", async ({ page }) => {
   await page.goto("/");
   const html = page.locator("html");

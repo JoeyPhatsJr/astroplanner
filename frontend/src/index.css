@@ -349,6 +349,53 @@
   transform: scale(0.96);
   transition-timing-function: var(--ease-out);
 }
+/* Phones: the drawer becomes a bottom sheet. The grabber is its drag region and the only place touch-action is off. */
+.sheet-grabber {
+  display: none;
+}
+.overlay-panel {
+  --sheet-grab: 0px;
+}
+@media (max-width: 639.98px) {
+  .overlay-panel {
+    --sheet-grab: 1.75rem;
+  }
+  .overlay[data-variant="drawer"] .overlay-panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 88dvh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    border-radius: 16px 16px 0 0;
+    overscroll-behavior: contain;
+    transform: translate3d(0, 100%, 0);
+  }
+  .sheet-grabber {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: var(--sheet-grab);
+    background: var(--color-night);
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .sheet-grabber-bar {
+    width: 2.25rem;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--color-line);
+  }
+  .btn-icon {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
 .overlay[data-state="open"] .overlay-scrim {
   opacity: 1;
   transition-duration: var(--ov-in);

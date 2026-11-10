@@ -117,7 +117,7 @@ export function ExplorePage() {
           ))}
         </ul>
       )}
-      <TargetDetail targetId={openId} onClose={() => setOpen(null)} />
+      <TargetDetail targetId={openId} onClose={() => setOpen(null)} onReopen={setOpen} />
     </div>
   );
 }

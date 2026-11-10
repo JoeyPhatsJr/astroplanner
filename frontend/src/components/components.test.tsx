@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useRef } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { History } from "../api/astrolog";
@@ -15,6 +16,9 @@ import { ScoreHero } from "./tonight/ScoreHero";
 import { formatCalendarDate, nightPageTitle } from "../lib/time";
 import { PageHeader } from "./ui/PageHeader";
 import { BasisBadge } from "./ui/States";
+import { HeaderControls } from "./layout/HeaderControls";
+import { useSheetDrag } from "./ui/useSheetDrag";
+import { PrefsProvider } from "../state/prefs";
 
 const base: Omit<TonightScore, "status" | "total" | "components"> = {
   kind: "heuristic",
@@ -336,5 +340,131 @@ describe("SkyThumb", () => {
   it("renders nothing when there is neither an image nor a diagram", () => {
     const { container } = render(<SkyThumb target={{ ...target, sky_field_arcmin: undefined }} fovDeg={null} size={112} />);
     expect(container.firstChild).toBeNull();
+  });
+});
+
+// ---- Phone sheet and header (jsdom has no layout: real widths are checked by the e2e mobile project) ----
+
+const mockHdr = vi.hoisted(() => ({
+  location: { id: "l1", label: "Backyard", timezone: "America/New_York" },
+  eq: { id: "e1", name: "Seestar S30" },
+}));
+vi.mock("../api/hooks", async (orig) => ({
+  ...(await orig<typeof import("../api/hooks")>()),
+  useLocations: () => ({ data: [mockHdr.location], isLoading: false }),
+  useEquipmentList: () => ({ data: [mockHdr.eq], isLoading: false }),
+  useCurrentLocation: () => ({ location: mockHdr.location }),
+  useCurrentEquipment: () => mockHdr.eq,
+  useNightDate: () => ({ nightDate: "2026-11-09", isAuto: true }),
+}));
+
+function renderHeader() {
+  return render(
+    <MemoryRouter>
+      <PrefsProvider>
+        <HeaderControls />
+      </PrefsProvider>
+    </MemoryRouter>,
+  );
+}
+
+describe("HeaderControls on a phone", () => {
+  it("renders one chip with '{location} · {scope}' and a sheet holding the controls", () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes("max-width"), addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+    try {
+      const { container } = renderHeader();
+      const chip = screen.getByRole("button", { name: "Backyard · Seestar S30" });
+      expect(chip).toHaveAttribute("aria-haspopup", "dialog");
+      expect(screen.getByRole("button", { name: "Night vision" })).toBeInTheDocument();
+      const sheet = container.querySelector("dialog.overlay")!;
+      expect(sheet).not.toBeNull();
+      expect(sheet.contains(container.querySelector("#hdr-location"))).toBe(true);
+      expect(sheet.contains(container.querySelector("#hdr-equipment"))).toBe(true);
+      expect(sheet.contains(container.querySelector("#hdr-night"))).toBe(true);
+      // the controls exist once, not inline as well
+      expect(container.querySelectorAll("#hdr-location")).toHaveLength(1);
+    } finally {
+      window.matchMedia = original;
+    }
+  });
+
+  it("keeps the inline controls on a wide viewport", () => {
+    const { container } = renderHeader();
+    expect(container.querySelector("dialog")).toBeNull();
+    expect(screen.getByLabelText("Observing location")).toBeInTheDocument();
+  });
+});
+
+describe("useSheetDrag", () => {
+  function Harness({ onDismiss, onSettle }: { onDismiss: () => void; onSettle: () => void }) {
+    const panel = useRef<HTMLDivElement>(null);
+    const scrim = useRef<HTMLDivElement>(null);
+    const drag = useSheetDrag(panel, scrim, onDismiss, { onSettle });
+    return (
+      <div>
+        <div ref={scrim} data-testid="scrim" />
+        <div ref={panel} data-testid="panel">
+          <div data-testid="region" {...drag}>
+            <button type="button">Close</button>
+            <span data-testid="handle">handle</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  const setup = () => {
+    const onDismiss = vi.fn();
+    const onSettle = vi.fn();
+    render(<Harness onDismiss={onDismiss} onSettle={onSettle} />);
+    return { onDismiss, onSettle, panel: screen.getByTestId("panel"), scrim: screen.getByTestId("scrim") };
+  };
+
+  it("starts no drag when the press lands on a button in the region", () => {
+    const { panel, onDismiss } = setup();
+    const btn = screen.getByRole("button", { name: "Close" });
+    fireEvent.pointerDown(btn, { clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(btn, { clientY: 300, pointerId: 1 });
+    fireEvent.pointerUp(btn, { clientY: 300, pointerId: 1 });
+    expect(panel.style.transition).toBe("");
+    expect(panel.style.transform).toBe("");
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it("writes transform and scrim opacity directly while dragging, then clears them", () => {
+    const { panel, scrim, onDismiss, onSettle } = setup();
+    const handle = screen.getByTestId("handle");
+    fireEvent.pointerDown(handle, { clientY: 10, pointerId: 1 });
+    expect(panel.style.transition).toBe("none");
+    fireEvent.pointerMove(handle, { clientY: 60, pointerId: 1 });
+    expect(panel.style.transform).toBe("translate3d(0, 50px, 0)");
+    expect(scrim.style.opacity).not.toBe("");
+    // a cancelled gesture never dismisses (no timing dependence): the sheet settles
+    fireEvent.pointerCancel(handle, { clientY: 60, pointerId: 1 });
+    expect(panel.style.transform).toBe("");
+    expect(panel.style.transition).toBe("");
+    expect(scrim.style.opacity).toBe("");
+    expect(onSettle).toHaveBeenCalledTimes(1);
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it("rubber-bands upward travel instead of following it 1:1", () => {
+    const { panel } = setup();
+    const handle = screen.getByTestId("handle");
+    fireEvent.pointerDown(handle, { clientY: 200, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientY: 100, pointerId: 1 });
+    const y = Number(/translate3d\(0, (-?[\d.]+)px/.exec(panel.style.transform)![1]);
+    expect(y).toBeLessThan(0);
+    expect(y).toBeGreaterThan(-100);
+  });
+
+  it("dismisses when released past the distance threshold", () => {
+    const { onDismiss, onSettle } = setup();
+    const handle = screen.getByTestId("handle");
+    fireEvent.pointerDown(handle, { clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientY: 400, pointerId: 1 });
+    fireEvent.pointerUp(handle, { clientY: 400, pointerId: 1 });
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+    expect(onSettle).not.toHaveBeenCalled();
   });
 });

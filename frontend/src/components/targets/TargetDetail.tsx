@@ -14,7 +14,14 @@ import { FramingDiagram, framingNote } from "./FramingDiagram";
 import { ScoreChip } from "./TargetCard";
 import { SkyThumb } from "./SkyThumb";
 
-export function TargetDetail({ targetId, onClose }: { targetId: string | null; onClose: () => void }) {
+type DetailProps = {
+  targetId: string | null;
+  onClose: () => void;
+  /** Phone sheet caught while closing and let go without dismissing: the page should open this target again. */
+  onReopen?: (id: string) => void;
+};
+
+export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
   const { prefs } = usePrefs();
   // Keep showing the last target while the drawer animates out.
   const [shownId, setShownId] = useState<string | null>(targetId);
@@ -36,9 +43,10 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
       onClosed={() => setShownId(null)}
       variant="drawer"
       labelledBy="target-detail-title"
-      panelClassName="border-l border-line bg-night text-ink"
+      onReopen={onReopen && shownId ? () => onReopen(shownId) : undefined}
+      panelClassName="border-l border-line bg-night text-ink max-sm:border-l-0 max-sm:border-t"
     >
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-line-soft bg-night px-5 py-3.5">
+      <div className="sticky top-[var(--sheet-grab)] z-10 flex items-center gap-3 border-b border-line-soft bg-night px-5 py-3.5">
         <h2 id="target-detail-title" className="min-w-0 flex-1 truncate font-semibold tracking-tight text-xl">
           {t ? t.name : "Target"}
         </h2>

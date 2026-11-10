@@ -88,10 +88,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="z-30 border-b md:sticky md:top-0 border-line-soft bg-night/90">
-          <div className="flex items-center gap-3 px-4 py-3 md:px-6">
+          <div className="flex items-center gap-3 px-4 py-2 md:px-6 md:py-3">
             <div className="flex items-center gap-2 md:hidden">
               <Logo />
-              <span className="font-semibold tracking-tight text-lg text-ink">AstroPlanner</span>
+              <span className="sr-only font-semibold tracking-tight text-lg text-ink sm:not-sr-only">AstroPlanner</span>
             </div>
             <HeaderControls />
           </div>
