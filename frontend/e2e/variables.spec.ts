@@ -17,7 +17,7 @@ async function navLink(page: Page, projectName: string) {
 
 test("nav reaches Variable Hunter; /research redirects there", async ({ page }, testInfo) => {
   const errors = trackErrors(page);
-  await page.goto("/");
+  await page.goto("/tonight");
   await (await navLink(page, testInfo.project.name)).click();
   await expect(page).toHaveURL(/\/variables$/);
   await expect(page.getByRole("heading", { name: "Variable Hunter", level: 1 })).toBeVisible();

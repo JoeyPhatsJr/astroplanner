@@ -43,7 +43,7 @@ function SessionList({ sessions }: { sessions: ObservingSession[] }) {
     <div className="page-reading flex flex-col gap-5">
       <PageHeader title="Nights" subtitle="Every night you planned or imported, newest first." back={{ to: "/astrolog", label: "Library" }} />
       {sessions.length === 0 ? (
-        <EmptyState icon={<BookOpen className="size-6" />} title="No saved sessions yet" action={<Link to="/" className="btn btn-primary">Plan tonight</Link>}>
+        <EmptyState icon={<BookOpen className="size-6" />} title="No saved sessions yet" action={<Link to="/tonight" className="btn btn-primary">Plan tonight</Link>}>
           Add a target from Tonight or Explore and a session plan is created and saved automatically.
         </EmptyState>
       ) : (
@@ -129,7 +129,7 @@ function SessionDetail({ session }: { session: ObservingSession }) {
               className="btn"
               onClick={() => {
                 update({ nightDate: session.local_night_date, locationId: session.location_id ?? prefs.locationId, activeSessionId: session.id });
-                navigate("/");
+                navigate("/tonight");
               }}
             >
               Open night of {formatCalendarDate(session.local_night_date)}
