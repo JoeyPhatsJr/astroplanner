@@ -2,17 +2,18 @@ import { MapPin, MoonStar, Telescope } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useCurrentLocation, useNightDate, useRecommendations, useTonight } from "../api/hooks";
-import type { Category } from "../api/types";
-import { NightTimeline } from "../components/charts/LazyCharts";
+import type { Category, TonightResponse } from "../api/types";
 import { SessionPlanPanel } from "../components/session/SessionPlanPanel";
 import { TargetCard } from "../components/targets/TargetCard";
 import { TargetDetail } from "../components/targets/TargetDetail";
 import { TargetFilters } from "../components/targets/TargetFilters";
-import { ConditionTiles, ForecastMeta } from "../components/tonight/Conditions";
+import { FactsRow, ForecastMeta } from "../components/tonight/Conditions";
+import { NightStrip } from "../components/tonight/NightStrip";
 import { ScoreHero } from "../components/tonight/ScoreHero";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatLatLon } from "../lib/format";
-import { nightLabel } from "../lib/time";
+import { nightHeadline } from "../lib/nightHeadline";
+import { nightLabel, nightPageTitle, tzAbbrev } from "../lib/time";
 import { useActiveSession } from "../state/activeSession";
 import { usePrefs } from "../state/prefs";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -23,7 +24,7 @@ export function TonightPage() {
   const { prefs, update } = usePrefs();
   const { location, isLoading: locLoading, error: locError, refetch } = useCurrentLocation();
   const tonight = useTonight();
-  const { nightDate } = useNightDate();
+  const { nightDate, isAuto } = useNightDate();
   const [category, setCategory] = useState<Category>("all");
   const [observableOnly, setObservableOnly] = useState(true);
   const recs = useRecommendations({ category });
@@ -47,7 +48,7 @@ export function TonightPage() {
   return (
     <div className="page-wide flex flex-col gap-6">
       <PageHeader
-        title="Tonight"
+        title={nightPageTitle(nightDate, isAuto)}
         subtitle={
           <>
             {nightDate ? nightLabel(nightDate) : ""} at {location.label}
@@ -92,22 +93,7 @@ export function TonightPage() {
             </Notice>
           )}
 
-          <div className={`grid grid-cols-1 gap-5 lg:grid-cols-[minmax(320px,400px)_1fr] ${tonight.isFetching ? "opacity-70" : ""}`}>
-            <ScoreHero score={data.score} tz={tz} />
-            <div className="flex min-w-0 flex-col gap-4">
-              <ConditionTiles night={data.night} forecast={data.forecast} />
-              <section className="panel flex min-w-0 flex-col gap-3 p-4 md:p-5" aria-labelledby="timeline-heading">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 id="timeline-heading" className="font-semibold tracking-tight text-xl">
-                    Dusk to dawn
-                  </h2>
-                  <ForecastMetaInline />
-                </div>
-                <NightTimeline night={data.night} forecast={data.forecast} />
-                <ForecastMeta forecast={data.forecast} tz={tz} />
-              </section>
-            </div>
-          </div>
+          <TonightPanels data={data} tz={tz} fetching={tonight.isFetching} />
         </>
       )}
 
@@ -177,22 +163,38 @@ export function TonightPage() {
   );
 }
 
-function ForecastMetaInline() {
-  return <span className="text-xs text-muted">Hover the chart for exact values</span>;
+function TonightPanels({ data, tz, fetching }: { data: TonightResponse; tz: string; fetching: boolean }) {
+  const { night, forecast, score } = data;
+  const hasForecast = forecast.status === "ok";
+  const dark = night.dark_intervals;
+  const headline = nightHeadline({
+    clear: data.night_clear,
+    darkMinutes: night.dark_minutes,
+    darkStartUtc: dark.length ? dark[0].start_utc : null,
+    darkEndUtc: dark.length ? dark[dark.length - 1].end_utc : null,
+    hasForecast,
+    forecastMessage: forecast.status === "ok" ? null : forecast.message,
+    tz,
+  });
+  const stripTip = `${hasForecast ? "Each block is one forecast hour. Solid means overcast. " : ""}Thin band is the Moon above the horizon. Hours are ${tzAbbrev(night.display_start_utc, tz)}.`;
+  return (
+    <div className={`grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(280px,360px)_1fr] ${fetching ? "opacity-70" : ""}`}>
+      <ScoreHero score={score} tz={tz} headline={headline} />
+      <section className="panel flex min-w-0 flex-col gap-4 p-4 md:p-5" aria-label="Night from dusk to dawn">
+        <NightStrip night={night} forecast={forecast} clear={data.night_clear} bestWindow={hasForecast ? score.window : null} tz={tz} />
+        <FactsRow night={night} forecast={forecast} />
+        <p className="text-label text-muted">{stripTip}</p>
+        <ForecastMeta forecast={forecast} tz={tz} />
+      </section>
+    </div>
+  );
 }
 
 function PageSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(320px,400px)_1fr]">
-      <Skeleton className="h-[420px]" label="Loading score" />
-      <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28" />
-          ))}
-        </div>
-        <Skeleton className="h-[300px]" label="Loading timeline" />
-      </div>
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(280px,360px)_1fr]">
+      <Skeleton className="h-[300px]" label="Loading score" />
+      <Skeleton className="h-[340px]" label="Loading night" />
     </div>
   );
 }

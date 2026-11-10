@@ -58,63 +58,69 @@ export function ScoreBreakdown({ components }: { components: ScoreComponent[] })
   );
 }
 
-export function ScoreHero({ score, tz }: { score: TonightScore; tz: string }) {
+export function ScoreHero({ score, tz, headline }: { score: TonightScore; tz: string; headline?: { title: string; detail: string } }) {
   const hasTotal = score.total !== null;
   const sum = score.components.reduce((s, c) => s + (c.points ?? 0), 0);
+  const win = score.window ? `${formatTime(score.window.start_utc, tz)}–${formatTime(score.window.end_utc, tz)} ${tzAbbrev(score.window.start_utc, tz)}` : null;
   return (
-    <section className="panel flex flex-col gap-5 p-5 md:p-6 lg:self-start" aria-labelledby="score-heading">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 id="score-heading" className="font-semibold tracking-tight text-xl text-ink">
-          Tonight’s Score
-        </h2>
-        <span className="text-xs text-muted">Heuristic planning estimate</span>
-      </div>
+    <section className="panel flex flex-col gap-4 p-5 md:p-6" aria-labelledby="score-heading">
+      <h2 id="score-heading" className="sr-only">
+        Tonight’s Score
+      </h2>
 
-      <div className="flex items-end gap-4">
-        {hasTotal ? (
-          <p className="font-semibold tracking-tight text-[4.5rem] leading-[0.85]  text-ink" data-testid="score-total">
+      {hasTotal ? (
+        <div>
+          <p className="text-[4.5rem] font-semibold leading-[0.9] tracking-[-0.03em] text-ink tabular-nums" data-testid="score-total">
             {Math.round(score.total!)}
-            <span className="ml-1.5 align-top font-sans text-base font-medium text-muted">/ 100</span>
+            <span className="ml-1.5 align-top font-sans text-base font-medium tracking-normal text-muted"> / 100</span>
           </p>
-        ) : (
-          <div data-testid="score-no-total">
-            <p className="font-semibold tracking-tight text-4xl leading-none text-ink-2">No score</p>
-            <p className="mt-2 max-w-sm text-sm text-muted">
-              {score.status === "no_weather"
-                ? "Without a forecast there is no weather-backed total."
-                : "There is no darkness on this night to score."}
-              {score.partial_total !== undefined && (
-                <>
-                  {" "}
-                  Calculated parts only: <span className="text-ink-2">{formatPoints(score.partial_total)}</span> of{" "}
-                  {score.partial_max}.
-                </>
-              )}
-            </p>
-          </div>
-        )}
-        {score.window && (
-          <p className="mb-1 ml-auto text-right text-sm text-ink-2">
-            <span className="block text-xs text-muted">Best 2-hour window</span>
-            {formatTime(score.window.start_utc, tz)}–{formatTime(score.window.end_utc, tz)} {tzAbbrev(score.window.start_utc, tz)}
+          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
+            <span>
+              for the best 2 hours{win ? `, ${win}` : ""}
+            </span>
+            <BasisBadge basis="heuristic" />
           </p>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div data-testid="score-no-total">
+          <p className="text-4xl font-semibold leading-none tracking-tight text-ink-2">No score</p>
+          <p className="mt-2 max-w-sm text-sm text-muted">
+            {score.status === "no_weather" ? "Without a forecast there is no weather-backed total." : "There is no darkness on this night to score."}
+            {score.partial_total !== undefined && (
+              <>
+                {" "}
+                Calculated parts only: <span className="text-ink-2">{formatPoints(score.partial_total)}</span> of {score.partial_max}.
+              </>
+            )}{" "}
+            <BasisBadge basis="heuristic" />
+          </p>
+        </div>
+      )}
 
-      <SegmentedScoreBar components={score.components} />
-      <ScoreBreakdown components={score.components} />
-
-      {hasTotal && (
-        <p className="text-xs text-muted">
-          Components sum to {formatPoints(sum)}
-          {score.status === "partial_weather" ? ". Some dark hours had no forecast values and were skipped." : "."}
+      {headline && (
+        <p className="text-sm leading-relaxed text-ink-2">
+          <b className="block text-base font-semibold text-ink">{headline.title}</b>
+          {headline.detail}
         </p>
       )}
 
       <details className="group text-sm text-ink-2">
-        <summary className="cursor-pointer select-none text-ice hover:underline">How this score is calculated</summary>
-        <p className="mt-2 leading-relaxed">{score.method}</p>
-        <p className="mt-2 leading-relaxed text-muted">{score.disclaimer}</p>
+        <summary className="press min-h-11 cursor-pointer select-none py-2.5 text-ice hover:underline">Why this score</summary>
+        <div className="flex flex-col gap-4 pt-2">
+          <SegmentedScoreBar components={score.components} />
+          <ScoreBreakdown components={score.components} />
+          {hasTotal && (
+            <p className="text-label text-muted">
+              Components sum to {formatPoints(sum)}
+              {score.status === "partial_weather" ? ". Some dark hours had no forecast values and were skipped." : "."}
+            </p>
+          )}
+          <div>
+            <p className="font-semibold text-ink">How this score is calculated</p>
+            <p className="mt-1 leading-relaxed">{score.method}</p>
+            <p className="mt-2 leading-relaxed text-muted">{score.disclaimer}</p>
+          </div>
+        </div>
       </details>
     </section>
   );

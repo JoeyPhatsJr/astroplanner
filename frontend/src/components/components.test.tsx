@@ -10,6 +10,7 @@ import type { SessionTarget, TonightScore } from "../api/types";
 import { pickSessionForNight, sessionTitleForNight } from "../state/activeSession";
 import { moveId, SessionTargetList } from "./session/SessionTargetList";
 import { ScoreHero } from "./tonight/ScoreHero";
+import { formatCalendarDate, nightPageTitle } from "../lib/time";
 import { PageHeader } from "./ui/PageHeader";
 import { BasisBadge } from "./ui/States";
 
@@ -61,6 +62,30 @@ describe("ScoreHero", () => {
     expect(screen.getByTestId("score-total")).toHaveTextContent("98");
     expect(screen.getByText(/Components sum to 97.8/)).toBeInTheDocument();
     expect(screen.getByText(/19:35–21:35 EST/)).toBeInTheDocument();
+    expect(screen.getByText(/for the best 2 hours,/)).toBeInTheDocument();
+    expect(screen.getByText("Heuristic")).toBeVisible();
+  });
+
+  it("keeps the breakdown inside a 'Why this score' disclosure and shows the headline", () => {
+    const score: TonightScore = {
+      ...base,
+      status: "ok",
+      total: 80,
+      components: [{ key: "cloud", label: "Cloud cover", points: 40, max: 45, basis: "forecast", detail: "" }],
+    };
+    const { container } = render(<ScoreHero score={score} tz="America/New_York" headline={{ title: "Clear all night", detail: "9 h of 9 h" }} />);
+    const details = container.querySelector("details");
+    expect(details?.querySelector("summary")?.textContent).toBe("Why this score");
+    expect(details?.querySelector('ul[aria-label="Score components"]')).not.toBeNull();
+    expect(screen.getByText("Clear all night")).toBeVisible();
+  });
+});
+
+describe("nightPageTitle", () => {
+  it("says Tonight for the automatic night and the date otherwise", () => {
+    expect(nightPageTitle("2026-11-09", true)).toBe("Tonight");
+    expect(nightPageTitle("2026-11-23", false)).toBe(formatCalendarDate("2026-11-23", true));
+    expect(nightPageTitle("2026-11-23", false)).not.toBe("Tonight");
   });
 });
 

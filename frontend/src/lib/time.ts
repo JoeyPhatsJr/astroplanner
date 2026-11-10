@@ -80,6 +80,11 @@ export function nightLabel(isoDate: string): string {
   return `Night of ${formatCalendarDate(isoDate)} → morning of ${formatCalendarDate(addDays(isoDate, 1))}`;
 }
 
+/** Page title: "Tonight" for the automatic night, otherwise the chosen date. */
+export function nightPageTitle(nightDate: string | null, isAuto: boolean): string {
+  return isAuto || !nightDate ? "Tonight" : formatCalendarDate(nightDate, true);
+}
+
 export const NIGHT_ROLLOVER_HOUR = 6;
 
 /**

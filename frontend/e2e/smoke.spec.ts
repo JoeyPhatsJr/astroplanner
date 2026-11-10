@@ -15,9 +15,9 @@ test("Tonight renders computed night, score state and recommendations", async ({
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Tonight", level: 1 })).toBeVisible();
   await expect(page.getByText("Tonight’s Score").first()).toBeVisible();
-  await expect(page.getByText("Heuristic planning estimate").first()).toBeVisible();
+  await expect(page.getByText(/Heuristic/).first()).toBeVisible();
   // Either a weather-backed total or an explicit no-weather state, never silence
-  await expect(page.getByText(/Components sum to|No score|Forecast unavailable|no weather-backed total/i).first()).toBeVisible();
+  await expect(page.getByTestId("score-total").or(page.getByTestId("score-no-total"))).toBeVisible();
   await expect(page.getByRole("heading", { name: "Best targets tonight" })).toBeVisible();
   await expect(page.getByRole("button", { name: /^Add .* to session$/ }).first()).toBeVisible();
   await expect(page.getByText(/Open-Meteo/).first()).toBeVisible();

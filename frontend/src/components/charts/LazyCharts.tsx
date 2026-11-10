@@ -1,7 +1,6 @@
 import { lazy, Suspense, type ComponentProps } from "react";
 
 // Recharts is the largest dependency; load it only when a chart is actually rendered.
-const NightTimelineImpl = lazy(() => import("./NightTimeline").then((m) => ({ default: m.NightTimeline })));
 const AltitudeChartImpl = lazy(() => import("./AltitudeChart").then((m) => ({ default: m.AltitudeChart })));
 
 const FramesChartImpl = lazy(() => import("./FramesChart").then((m) => ({ default: m.FramesChart })));
@@ -11,14 +10,6 @@ function ChartPlaceholder({ label }: { label: string }) {
     <div role="status" className="flex h-64 items-center justify-center rounded-lg border border-line-soft text-sm text-muted md:h-72">
       Loading {label}…
     </div>
-  );
-}
-
-export function NightTimeline(props: ComponentProps<typeof NightTimelineImpl>) {
-  return (
-    <Suspense fallback={<ChartPlaceholder label="night timeline" />}>
-      <NightTimelineImpl {...props} />
-    </Suspense>
   );
 }
 
