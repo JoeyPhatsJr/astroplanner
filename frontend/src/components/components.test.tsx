@@ -448,6 +448,33 @@ describe("useSheetDrag", () => {
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
+  it("catching a closing sheet writes its live transform and scrim opacity back instead of jumping", () => {
+    class FakeMatrix {
+      m42: number;
+      constructor(t: string) {
+        this.m42 = Number(t.split(",")[5]?.replace(")", ""));
+      }
+    }
+    vi.stubGlobal("DOMMatrixReadOnly", FakeMatrix);
+    const { panel, scrim } = setup();
+    const real = window.getComputedStyle.bind(window);
+    const spy = vi.spyOn(window, "getComputedStyle").mockImplementation((el: Element, pseudo?: string | null) => {
+      if (el === panel) return { transform: "matrix(1, 0, 0, 1, 0, 120)" } as CSSStyleDeclaration;
+      if (el === scrim) return { opacity: "0.4" } as CSSStyleDeclaration;
+      return real(el, pseudo);
+    });
+    try {
+      fireEvent.pointerDown(screen.getByTestId("handle"), { clientY: 10, pointerId: 1 });
+      expect(panel.style.transition).toBe("none");
+      expect(panel.style.transform).toBe("translate3d(0, 120px, 0)");
+      expect(scrim.style.transition).toBe("none");
+      expect(scrim.style.opacity).toBe("0.4");
+    } finally {
+      spy.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("rubber-bands upward travel instead of following it 1:1", () => {
     const { panel } = setup();
     const handle = screen.getByTestId("handle");

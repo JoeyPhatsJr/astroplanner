@@ -8,7 +8,7 @@ import { usePrefs } from "../../state/prefs";
 import { AltitudeChart } from "../charts/LazyCharts";
 import { HistoryBadge } from "../astrolog/HistoryBadge";
 import { SegmentedScoreBar, ScoreBreakdown } from "../tonight/ScoreHero";
-import { Overlay } from "../ui/Overlay";
+import { Overlay, SheetTop } from "../ui/Overlay";
 import { ErrorState, Notice, Skeleton } from "../ui/States";
 import { FramingDiagram, framingNote } from "./FramingDiagram";
 import { ScoreChip } from "./TargetCard";
@@ -46,7 +46,8 @@ export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
       onReopen={onReopen && shownId ? () => onReopen(shownId) : undefined}
       panelClassName="border-l border-line bg-night text-ink max-sm:border-l-0 max-sm:border-t"
     >
-      <div className="sticky top-[var(--sheet-grab)] z-10 flex items-center gap-3 border-b border-line-soft bg-night px-5 py-3.5">
+      <SheetTop className="border-b border-line-soft">
+      <div className="flex items-center gap-3 px-5 py-3.5">
         <h2 id="target-detail-title" className="min-w-0 flex-1 truncate font-semibold tracking-tight text-xl">
           {t ? t.name : "Target"}
         </h2>
@@ -65,6 +66,7 @@ export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
           <X className="size-5" aria-hidden />
         </button>
       </div>
+      </SheetTop>
 
       <div className="flex flex-col gap-5 p-5">
         {active.error && <Notice tone="warn">{active.error}</Notice>}

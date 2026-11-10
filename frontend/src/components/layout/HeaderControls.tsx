@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useCurrentEquipment, useCurrentLocation, useEquipmentList, useLocations, useNightDate } from "../../api/hooks";
 import { addDays, defaultNightDate, nightLabel, NIGHT_ROLLOVER_HOUR } from "../../lib/time";
 import { usePrefs } from "../../state/prefs";
-import { Overlay } from "../ui/Overlay";
+import { Overlay, SheetTop } from "../ui/Overlay";
 
 /** Matches the stylesheet's phone breakpoint, where the drawer becomes a bottom sheet. */
 const PHONE_QUERY = "(max-width: 639.98px)";
@@ -83,7 +83,8 @@ export function HeaderControls() {
           labelledBy="hdr-sheet-title"
           panelClassName="border-t border-line bg-night text-ink"
         >
-          <div className="sticky top-[var(--sheet-grab)] z-10 flex items-center gap-3 border-b border-line-soft bg-night px-5 py-3">
+          <SheetTop className="border-b border-line-soft">
+          <div className="flex items-center gap-3 px-5 py-3">
             <h2 id="hdr-sheet-title" className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
               Location and scope
             </h2>
@@ -91,6 +92,7 @@ export function HeaderControls() {
               <X className="size-5" aria-hidden />
             </button>
           </div>
+          </SheetTop>
           <div className="flex flex-col gap-5 p-5">
             <Controls stacked />
           </div>

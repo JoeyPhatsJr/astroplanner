@@ -1,8 +1,25 @@
-import { useEffect, useRef, type ReactNode, type Ref } from "react";
+import { createContext, useContext, useEffect, useRef, type ReactNode, type Ref } from "react";
 import { useSheetDrag } from "./useSheetDrag";
 
 /** Safety net if no transitionend arrives (reduced motion, display:none, background tab). */
 const CLOSE_FALLBACK_MS = 260;
+
+type Drag = ReturnType<typeof useSheetDrag>;
+const SheetDragContext = createContext<Drag | null>(null);
+
+/**
+ * The sticky top of an overlay's panel: a grabber bar (phones only) above the header. On phones, where the
+ * drawer is a bottom sheet, dragging anywhere here (not on its buttons) moves the sheet. The body scrolls normally.
+ */
+export function SheetTop({ children, className = "" }: { children: ReactNode; className?: string }) {
+  const drag = useContext(SheetDragContext);
+  return (
+    <div className={`sheet-top ${className}`} {...(drag ?? {})}>
+      <span className="sheet-grabber-bar" aria-hidden />
+      {children}
+    </div>
+  );
+}
 
 type Props = {
   open: boolean;
@@ -139,13 +156,7 @@ export function Overlay({ open, onClosed, onDismiss, onReopen, variant, labelled
           else if (panelRef) (panelRef as { current: HTMLDivElement | null }).current = el;
         }}
       >
-        {variant === "drawer" && (
-          // Only shown on phones (CSS), where the drawer is a bottom sheet. touch-action is off here only.
-          <div className="sheet-grabber" {...drag}>
-            <span className="sheet-grabber-bar" aria-hidden />
-          </div>
-        )}
-        {children}
+        <SheetDragContext.Provider value={variant === "drawer" ? drag : null}>{children}</SheetDragContext.Provider>
       </div>
     </dialog>
   );

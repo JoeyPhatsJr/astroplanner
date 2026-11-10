@@ -75,10 +75,16 @@ export function useSheetDrag(
       if ((e.target as HTMLElement).closest(INTERACTIVE)) return;
       // Read where a closing sheet really is before anything is overwritten, so it can be caught.
       const base = liveTranslateY(panel);
+      // Same for the scrim: freezing a running opacity transition would jump it to its closing target.
+      const scrimEl = scrimRef.current;
+      const scrimOpacity = scrimEl ? getComputedStyle(scrimEl).opacity : "";
       opts.current.onGrab?.();
       panel.style.transition = "none";
-      if (scrimRef.current) scrimRef.current.style.transition = "none";
       panel.style.transform = `translate3d(0, ${base}px, 0)`;
+      if (scrimEl) {
+        scrimEl.style.transition = "none";
+        if (scrimOpacity !== "") scrimEl.style.opacity = scrimOpacity;
+      }
       s.current = { id: e.pointerId, startY: e.clientY, base, height: panel.offsetHeight || 1, lastY: e.clientY, lastT: e.timeStamp, v: 0 };
       try {
         e.currentTarget.setPointerCapture?.(e.pointerId);

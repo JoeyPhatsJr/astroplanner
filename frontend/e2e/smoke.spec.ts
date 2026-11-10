@@ -103,10 +103,16 @@ test("Phone: one-row header chip opens the controls sheet; details is a bottom s
   expect(box.width).toBeGreaterThan(page.viewportSize()!.width - 2);
   expect(box.height / vh).toBeGreaterThan(0.8);
   // drag the grabber well past the threshold with real pointer events
-  const grab = (await page.locator("dialog[open] .sheet-grabber").boundingBox())!;
-  await page.mouse.move(grab.x + grab.width / 2, grab.y + 10);
+  // The whole sticky top (grabber + title row) is the drag region; start on the title text, not a button.
+  const top = page.locator("dialog[open] .sheet-top");
+  expect((await top.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const title = (await page.locator("#target-detail-title").boundingBox())!;
+  await page.mouse.move(title.x + 20, title.y + title.height / 2);
   await page.mouse.down();
-  await page.mouse.move(grab.x + grab.width / 2, grab.y + 200, { steps: 8 });
+  // Past 35% of the sheet height so the distance path decides (not velocity).
+  await page.mouse.move(title.x + 20, title.y + title.height / 2 + box.height * 0.5, { steps: 12 });
+  // Hold still before lifting: an idle finger carries no flick velocity.
+  await page.waitForTimeout(150);
   await page.mouse.up();
   await expect(page.locator("dialog[open]")).toHaveCount(0);
 });

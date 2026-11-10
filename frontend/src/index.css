@@ -349,17 +349,17 @@
   transform: scale(0.96);
   transition-timing-function: var(--ease-out);
 }
-/* Phones: the drawer becomes a bottom sheet. The grabber is its drag region and the only place touch-action is off. */
-.sheet-grabber {
+/* Phones: the drawer becomes a bottom sheet. .sheet-top (grabber + sticky header) is its drag region and the only place touch-action is off. */
+.sheet-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-night);
+}
+.sheet-grabber-bar {
   display: none;
 }
-.overlay-panel {
-  --sheet-grab: 0px;
-}
 @media (max-width: 639.98px) {
-  .overlay-panel {
-    --sheet-grab: 1.75rem;
-  }
   .overlay[data-variant="drawer"] .overlay-panel {
     top: auto;
     left: 0;
@@ -371,23 +371,16 @@
     overscroll-behavior: contain;
     transform: translate3d(0, 100%, 0);
   }
-  .sheet-grabber {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: var(--sheet-grab);
-    background: var(--color-night);
+  .sheet-top {
     touch-action: none;
-    cursor: grab;
     user-select: none;
     -webkit-user-select: none;
   }
   .sheet-grabber-bar {
+    display: block;
     width: 2.25rem;
     height: 4px;
+    margin: 0.5rem auto 0;
     border-radius: 999px;
     background: var(--color-line);
   }
