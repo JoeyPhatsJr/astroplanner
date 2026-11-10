@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyVision } from "./vision";
+import { applyVision, VISION_EVENT } from "./vision";
 
 type Doc = Document & { startViewTransition?: (cb: () => void) => unknown };
 let svt: ReturnType<typeof vi.fn>;
@@ -36,5 +36,37 @@ describe("applyVision", () => {
     setMotion(false);
     applyVision(false);
     expect(svt).not.toHaveBeenCalled();
+  });
+
+  describe("with an asynchronous startViewTransition", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      // Like browsers: the update callback runs later, after the old state is captured.
+      svt.mockImplementation((cb: () => void) => {
+        setTimeout(cb, 16);
+        return { skipTransition: vi.fn() };
+      });
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it("fires the applied event when the deferred update lands", () => {
+      applyVision(true);
+      const seen = vi.fn();
+      window.addEventListener(VISION_EVENT, seen);
+      applyVision(false, { animate: true });
+      expect(document.documentElement.dataset.vision).toBe("night");
+      vi.advanceTimersByTime(20);
+      expect(document.documentElement.dataset.vision).toBe("normal");
+      expect(seen).toHaveBeenCalledTimes(1);
+      window.removeEventListener(VISION_EVENT, seen);
+    });
+
+    it("off then quickly on ends in night vision", () => {
+      applyVision(true);
+      applyVision(false, { animate: true });
+      applyVision(true, { animate: true });
+      vi.advanceTimersByTime(100);
+      expect(document.documentElement.dataset.vision).toBe("night");
+    });
   });
 });

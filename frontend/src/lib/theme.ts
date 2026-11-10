@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePrefs } from "../state/prefs";
 import type { SkyBand } from "./sky";
+import { VISION_EVENT } from "./vision";
 
 /**
  * Resolved theme colours for SVG chart attributes. Recharts writes colours into SVG
@@ -62,5 +63,13 @@ export function readThemeColors(): ThemeColors {
 
 export function useThemeColors(): ThemeColors {
   const { prefs } = usePrefs();
-  return useMemo(() => readThemeColors(), [prefs.nightVision]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The palette lands on <html> possibly after the re-render (leaving night vision runs in a view
+  // transition), so also re-read whenever applyVision reports a change.
+  const [applied, setApplied] = useState(0);
+  useEffect(() => {
+    const on = () => setApplied((n) => n + 1);
+    window.addEventListener(VISION_EVENT, on);
+    return () => window.removeEventListener(VISION_EVENT, on);
+  }, []);
+  return useMemo(() => readThemeColors(), [prefs.nightVision, applied]); // eslint-disable-line react-hooks/exhaustive-deps
 }
