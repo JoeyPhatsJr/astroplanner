@@ -15,7 +15,7 @@ export function ScoreChip({
   if (total === null || max === null) return null;
   return (
     <div className="flex-none text-right">
-      <p className="font-semibold text-2xl leading-none tabular-nums text-ink">
+      <p className="font-semibold text-2xl tabular-nums text-ink">
         {Math.round(total)}
         <span className="font-sans text-xs text-muted">/{max}</span>
       </p>
@@ -66,7 +66,7 @@ export function TargetCard({
       <SkyThumb target={t} fovDeg={fovDeg} size={112} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex justify-between gap-2">
-          <h3 className="min-w-0 [overflow-wrap:anywhere] font-semibold text-base leading-tight text-ink">
+          <h3 className="min-w-0 [overflow-wrap:anywhere] font-semibold text-base text-ink">
             <button
               type="button"
               onClick={onOpen}
@@ -105,7 +105,7 @@ export function TargetCard({
           <p className="text-label tabular-nums text-muted">{formatDuration(up)} up</p>
         ) : null}
         {caution && (
-          <p className="mt-1 flex gap-1.5 text-label leading-snug text-warn/90">
+          <p className="mt-1 flex gap-1.5 text-label text-warn/90">
             <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             {caution}
           </p>

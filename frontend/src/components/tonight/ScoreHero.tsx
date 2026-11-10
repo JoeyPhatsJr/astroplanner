@@ -52,7 +52,7 @@ export function ScoreBreakdown({ components }: { components: ScoreComponent[] })
               <span className="text-muted"> / {c.max}</span>
             </span>
           </div>
-          <p className="pl-[18px] text-[0.8rem] leading-snug text-muted">{c.detail}</p>
+          <p className="pl-[18px] text-[0.8rem] text-muted">{c.detail}</p>
         </li>
       ))}
     </ul>
@@ -84,7 +84,7 @@ export function ScoreHero({ score, tz, headline }: { score: TonightScore; tz: st
         </div>
       ) : (
         <div data-testid="score-no-total">
-          <p className="text-display font-semibold leading-none text-ink-2">No score</p>
+          <p className="text-display font-semibold text-ink-2">No score</p>
           <p className="mt-2 max-w-sm text-sm text-muted">
             {score.status === "no_weather" ? "Without a forecast there is no weather-backed total." : "There is no darkness on this night to score."}
             {score.partial_total !== undefined && (

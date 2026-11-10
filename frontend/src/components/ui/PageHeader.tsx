@@ -23,7 +23,7 @@ export function PageHeader({
       )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-3xl font-semibold leading-tight text-ink md:text-display">{title}</h1>
+          <h1 className="text-3xl font-semibold text-ink md:text-display">{title}</h1>
           {subtitle && <div className="mt-1 max-w-prose text-sm text-ink-2">{subtitle}</div>}
         </div>
         {actions}

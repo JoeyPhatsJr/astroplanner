@@ -61,4 +61,9 @@ describe("type scale", () => {
       .map(([path]) => path);
     expect(offenders).toEqual([]);
   });
+
+  it("no component overrides the scale line height with leading-tight or leading-snug", () => {
+    const offenders = components.filter(([, src]) => /\bleading-(tight|snug|none)\b/.test(src)).map(([path]) => path);
+    expect(offenders).toEqual([]);
+  });
 });

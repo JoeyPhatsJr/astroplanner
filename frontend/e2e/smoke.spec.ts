@@ -365,14 +365,12 @@ test("type: digits are tabular only where they align", async ({ page }) => {
   const bodyFeatures = await page.evaluate(() => getComputedStyle(document.body).fontFeatureSettings);
   expect(bodyFeatures).not.toContain("tnum");
   const score = page.getByTestId("score-total");
-  if (await score.count()) {
-    expect(await score.evaluate((el) => getComputedStyle(el).fontVariantNumeric)).toContain("tabular-nums");
-  }
+  await expect(score).toBeVisible();
+  expect(await score.evaluate((el) => getComputedStyle(el).fontVariantNumeric)).toContain("tabular-nums");
   // The strip's hour ticks align too
   const tick = page.locator("svg text").filter({ hasText: /^\d{2}$/ }).first();
-  if (await tick.count()) {
-    expect(await tick.evaluate((el) => getComputedStyle(el).fontVariantNumeric)).toContain("tabular-nums");
-  }
+  await expect(tick).toBeVisible();
+  expect(await tick.evaluate((el) => getComputedStyle(el).fontVariantNumeric)).toContain("tabular-nums");
   const loaded = await page.evaluate(async () => {
     await document.fonts.load('600 40px "Inter Variable"');
     return document.fonts.check('600 40px "Inter Variable"');
