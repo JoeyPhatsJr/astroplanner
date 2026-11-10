@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import astropy
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -19,6 +20,7 @@ from .astrolog.library import capture_info, session_capture_info
 from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
 from .db import Database, EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
+from .sky_images import SkyImageProvider
 from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, night_clear, target_score, tonight_score
 from .visibility import DEFAULT_MIN_ALT_DEG, analyse_target, visibility_payload
 from .weather import OpenMeteoProvider, align_to_grid, forecast_payload
@@ -159,6 +161,18 @@ def get_target(target_id: str) -> dict[str, Any]:
     if t is None:
         raise HTTPException(404, f"Unknown target {target_id!r}")
     return t
+
+
+@router.get("/targets/{target_id}/sky-image")
+def target_sky_image(target_id: str, request: Request) -> FileResponse:
+    t = catalog.get_target(target_id)
+    if t is None:
+        raise HTTPException(404, f"Unknown target {target_id!r}")
+    provider: SkyImageProvider = request.app.state.sky_images
+    path = provider.get(t["id"], t["ra_deg"], t["dec_deg"], t["sky_field_arcmin"])
+    if path is None:
+        raise HTTPException(503, "Sky survey image unavailable right now")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
 
 
 # ---- astronomy -----------------------------------------------------------------

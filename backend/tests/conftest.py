@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from app.astrolog.storage import LocalStorage
 from app.db import Database
 from app.main import create_app
+from app.sky_images import SkyImageProvider
 from app.weather import HOURLY_VARS, OpenMeteoProvider
 
 FIXED_NOW = datetime(2026, 11, 2, 19, 0, tzinfo=timezone.utc)
@@ -56,6 +57,9 @@ def failing_provider():
 @pytest.fixture
 def make_client(tmp_path):
     def _make(provider, db_path=None, **kw):
+        def no_network(ra, dec, field):
+            raise RuntimeError("sky images are never fetched in tests")
+        kw.setdefault("sky_images", SkyImageProvider(tmp_path / "sky-images", fetch=no_network))
         db = Database(f"sqlite:///{db_path or tmp_path / 'test.db'}")
         return TestClient(create_app(db=db, weather=provider, storage=LocalStorage(tmp_path / "previews"), **kw))
     return _make

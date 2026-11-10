@@ -9,12 +9,17 @@ from typing import Any
 
 import numpy as np
 
+from .sky_images import sky_field_arcmin
+
 DATA_FILE = Path(__file__).resolve().parent / "data" / "targets.json"
 
 
 @lru_cache(maxsize=1)
 def _load() -> dict[str, Any]:
-    return json.loads(DATA_FILE.read_text(encoding="utf-8"))
+    data = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+    for t in data["targets"]:
+        t["sky_field_arcmin"] = sky_field_arcmin(t["id"], t.get("angular_major_arcmin"))
+    return data
 
 
 def catalog_meta() -> dict[str, Any]:
