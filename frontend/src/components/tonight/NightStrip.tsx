@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import type { ForecastPayload, NightClear, NightSummary } from "../../api/types";
+import type { ForecastPayload, HourlyRow, NightClear, NightSummary } from "../../api/types";
 import { formatDuration, formatTime, localHour } from "../../lib/time";
 import { useElementWidth } from "../../lib/useElementWidth";
 
@@ -63,14 +63,19 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
     : [[0, "dark"], [1, "dark"]];
 
   // hourly cells in range
-  const cells = forecast.hourly
-    .filter((h) => h.t_ms + HOUR > t0 && h.t_ms < t1)
-    .map((h) => {
-      const xa = x(h.t_ms);
-      const xb = x(h.t_ms + HOUR);
-      return { h, xa, w: xb - xa };
-    });
-  const hasHourly = cells.length > 0;
+  const inRange = forecast.hourly.filter((h) => h.t_ms + HOUR > t0 && h.t_ms < t1);
+  const hasHourly = inRange.length > 0;
+  const rowAt = new Map(inRange.map((h) => [h.t_ms, h]));
+  // One slot per hour of the displayed night: a forecast row, or a gap where the
+  // forecast has no row (it ends mid-night). Gaps are drawn hatched, never as clear.
+  const slots: { t: number; h: HourlyRow | null; xa: number; w: number }[] = [];
+  if (hasHourly) {
+    for (const h of inRange) slots.push({ t: h.t_ms, h, xa: x(h.t_ms), w: x(h.t_ms + HOUR) - x(h.t_ms) });
+    for (let t = Math.floor(t0 / HOUR) * HOUR; t < t1; t += HOUR) {
+      if (t + HOUR > t0 && !rowAt.has(t)) slots.push({ t, h: null, xa: x(t), w: x(t + HOUR) - x(t) });
+    }
+    slots.sort((a, b) => a.t - b.t);
+  }
 
   // hour ticks at local whole hours (quarter-hour stepping handles :30 and :45 zones)
   const ticks: { t: number; label: string | null }[] = [];
@@ -102,22 +107,25 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
   const bestB = bestWindow ? ms(bestWindow.end_utc) : null;
   const showBest = !!bestWindow && bestA !== null && bestB !== null && bestB > t0 && bestA < t1;
 
-  const describe = (c: (typeof cells)[number]) => {
-    const cloud = num(c.h.cloud_cover);
-    const rain = num(c.h.precipitation_probability);
-    return `${formatTime(c.h.t_ms, tz)}: cloud ${cloud === null ? "not available" : `${cloud} %`}, rain chance ${rain === null ? "not available" : `${rain} %`}`;
+  const describe = (s: (typeof slots)[number]) => {
+    if (!s.h) return `${formatTime(s.t, tz)}: No forecast`;
+    const cloud = num(s.h.cloud_cover);
+    const rain = num(s.h.precipitation_probability);
+    if (cloud === null) return `${formatTime(s.t, tz)}: No forecast for cloud, rain chance ${rain === null ? "not available" : `${rain} %`}`;
+    return `${formatTime(s.t, tz)}: cloud ${cloud} %, rain chance ${rain === null ? "not available" : `${rain} %`}`;
   };
 
   const readAt = (e: React.PointerEvent<SVGRectElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const scale = rect.width > 0 ? W / rect.width : 1;
     const px = (e.clientX - rect.left) * scale;
-    const hit = cells.find((c) => px >= c.xa && px < c.xa + c.w) ?? null;
+    const hit = slots.find((c) => px >= c.xa && px < c.xa + c.w) ?? null;
     setTip(hit ? describe(hit) : null);
   };
 
   const clipId = `strip-clip-${uid}`;
   const gradId = `strip-sky-${uid}`;
+  const hatchId = `strip-hatch-${uid}`;
 
   return (
     <div ref={boxRef} className="night-strip">
@@ -135,6 +143,9 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
               <stop key={i} offset={o.toFixed(4)} style={{ stopColor: `var(--strip-${k})` }} />
             ))}
           </linearGradient>
+          <pattern id={hatchId} width={6} height={6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1={0} y1={0} x2={0} y2={6} strokeWidth={1.5} style={{ stroke: "var(--color-muted)" }} />
+          </pattern>
           <clipPath id={clipId}>
             <rect x={0} y={LABEL_H} width={W} height={barH} rx={10} />
           </clipPath>
@@ -142,19 +153,15 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
         <rect x={0} y={LABEL_H} width={W} height={barH} rx={10} fill={`url(#${gradId})`} />
 
         <g clipPath={`url(#${clipId})`}>
-          {cells.map((c) => {
-            const cloud = c.h.cloud_cover;
+          {slots.map((c) => {
+            const cloud = c.h ? c.h.cloud_cover : null;
+            const w = Math.max(0, c.w - 1);
             return (
-              <g key={c.h.t_ms} data-cell>
-                {cloud !== null && (
-                  <rect
-                    data-cloud
-                    x={c.xa + 0.5}
-                    y={LABEL_H}
-                    width={Math.max(0, c.w - 1)}
-                    height={barH}
-                    style={{ fill: "var(--cloud)", opacity: (cloud / 100) * 0.82 }}
-                  />
+              <g key={c.t} {...(c.h ? { "data-cell": true } : { "data-gap": true })}>
+                {cloud !== null ? (
+                  <rect data-cloud x={c.xa + 0.5} y={LABEL_H} width={w} height={barH} style={{ fill: "var(--cloud)", opacity: (cloud / 100) * 0.82 }} />
+                ) : (
+                  <rect data-missing x={c.xa + 0.5} y={LABEL_H} width={w} height={barH} fill={`url(#${hatchId})`} opacity={0.55} />
                 )}
               </g>
             );
@@ -242,11 +249,11 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
           </tr>
         </thead>
         <tbody>
-          {cells.map((c) => (
-            <tr key={c.h.t_ms}>
-              <th scope="row">{formatTime(c.h.t_ms, tz)}</th>
-              <td>{num(c.h.cloud_cover) === null ? "not available" : `${num(c.h.cloud_cover)} %`}</td>
-              <td>{num(c.h.precipitation_probability) === null ? "not available" : `${num(c.h.precipitation_probability)} %`}</td>
+          {slots.map((s) => (
+            <tr key={s.t}>
+              <th scope="row">{formatTime(s.t, tz)}</th>
+              <td>{!s.h || num(s.h.cloud_cover) === null ? "No forecast" : `${num(s.h.cloud_cover)} %`}</td>
+              <td>{!s.h || num(s.h.precipitation_probability) === null ? "No forecast" : `${num(s.h.precipitation_probability)} %`}</td>
             </tr>
           ))}
         </tbody>

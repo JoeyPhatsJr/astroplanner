@@ -77,6 +77,33 @@ describe("NightStrip", () => {
     expect(container.querySelectorAll("[data-cloud]").length).toBe(2);
   });
 
+  it("marks a null cloud_cover as missing, never as clear, and not a 0% hour", () => {
+    const { container } = render(
+      <NightStrip night={night(() => -20)} forecast={forecast(hours(3, (i) => (i === 0 ? null : i === 1 ? 0 : 50)))} clear={null} bestWindow={null} tz={TZ} />,
+    );
+    // only the null row is hatched; the 0% hour has a (fully transparent) cloud rect and no marker
+    expect(container.querySelectorAll("[data-cell] [data-missing]").length).toBe(1);
+    const cells = container.querySelectorAll("[data-cell]");
+    expect(cells[0].querySelector("[data-missing]")).not.toBeNull();
+    expect(cells[1].querySelector("[data-missing]")).toBeNull();
+    expect(cells[1].querySelector("[data-cloud]")).not.toBeNull();
+  });
+
+  it("marks hours inside the night that have no forecast row, in the tip and the table", () => {
+    // forecast ends after 5 hours; the rest of the night has no rows
+    const { container } = render(
+      <NightStrip night={night(() => -20)} forecast={forecast(hours(5, () => 40))} clear={null} bestWindow={null} tz={TZ} />,
+    );
+    expect(container.querySelectorAll("[data-gap] [data-missing]").length).toBe(8);
+    const table = screen.getByRole("table");
+    const lastRow = within(table).getAllByRole("row").at(-1) as HTMLElement;
+    expect(within(lastRow).getAllByText("No forecast").length).toBe(2);
+    // a pointer over the first gap hour (hour index 5 of 13) reads "No forecast"
+    const hit = container.querySelector("[data-hit]") as Element;
+    fireEvent.pointerMove(hit, { clientX: (5.5 / 13) * 752, clientY: 40 });
+    expect(screen.getByTestId("strip-tip").textContent).toBe("22:00: No forecast");
+  });
+
   it("shows the empty state and no clear bar when there is no hourly data", () => {
     const { container } = render(
       <NightStrip
