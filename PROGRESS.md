@@ -11,7 +11,7 @@ No score, calculation or data-source change.
 
 | Area | What changed |
 |---|---|
-| Type | Inter optical-size file (`opsz`); one scale in `@theme` with a line height and tracking per size; no `tracking-tight`/`tracking-[]` and no `leading-tight`, `leading-snug` or `leading-none` overrides in components; digits that must align use `tabular-nums`, `body` keeps only `cv11` |
+| Type | Inter optical-size file (`opsz`); one scale in `@theme` with a line height and tracking per size (three arbitrary sizes stay as exceptions: ScoreHero `text-[0.8rem]`, NightReport `text-[17px]`, CompareStep `text-[13px]`); no `tracking-tight`/`tracking-[]` and no `leading-tight`, `leading-snug` or `leading-none` overrides in components; digits that must align use `tabular-nums`, `body` keeps only `cv11` |
 | Night vision | Two red text levels (ink `#ee5a4b`, ink-2 and muted `#d24c3f`) and accent `#ff5a47`, each at least 4.5:1 on night, night-deep and panel-2 (contrast test); links underlined in night vision |
 | Tonight | One conditions panel; date shown once; notice slot in the page header; touch hint for the strip on phones, hover hint on desktop; one divider above the facts; score hero no longer boxed |
 | Target cards | Framing notes shorter, with the S30 FOV-axis caveat stated once per surface; tinted "+ Add" button that keeps its accessible name; the score leads the card; thumbnails show the field width only |
@@ -19,15 +19,19 @@ No score, calculation or data-source change.
 | Star page | Facts as a list; prose at reading width; no boxed explainer |
 | Badges and copy | Two badge styles: `.badge` (neutral) and `.badge-accent` (13 % ice tint, no border) replace every inline `border-ice/40 text-ice` variant; the three em-dashes are gone (CompareStep placeholders are an en-dash, the import message uses a colon); en-dashes in ranges stay; guard tests in `typeScale.test.ts` |
 
-### Commands last run (2026-11-10, after Task 8)
+### Commands last run (2026-11-10, on commit 9495fbb; later commits on this branch change only docs)
 
 ```bash
 cd backend && .venv/bin/python -m pytest -q   # 459 passed, 12 skipped
 cd frontend && npx tsc -b                     # clean
-cd frontend && npx vitest run                 # 312 passed (31 files)
+cd frontend && npx vitest run                 # 321 passed (32 files)
 cd frontend && npm run build                  # built
-cd frontend && npx playwright test            # 41 passed, 3 skipped (desktop + mobile)
+cd frontend && npx playwright test            # 40 passed, 3 skipped, 1 failed (desktop + mobile)
 ```
+
+The one Playwright failure is `e2e/landing.spec.ts:80`, "city box opens Tonight for the chosen place (live geocoding,
+tolerated when offline)" (mobile project). It comes from main (PR #5), depends on the live geocoding API, and this
+branch does not touch it; it was not re-run until green.
 
 ### Known limitations (polish pass 2)
 
@@ -35,6 +39,12 @@ cd frontend && npx playwright test            # 41 passed, 3 skipped (desktop + 
   more orange (green channel 90, against 53 to 71 before). Two red-only test thresholds were relaxed to fit
   (smoke palette G/B below 100; landing tint 2.5 times instead of 3). Pure red tops out near 5.25:1 on `#050000`,
   so two AA levels need some green. If it is too bright or orange, the options are dimmer reds or one text level.
+- **The landing screenshots are stale.** `frontend/public/landing/*.jpg` (merged from PR #6) show the pass-1
+  Tonight and must be re-shot after this branch merges.
+- **Three arbitrary text sizes are not on the scale:** ScoreHero `text-[0.8rem]`, NightReport `text-[17px]` and
+  CompareStep `text-[13px]`. ScoreHero also keeps two inline "Heuristic" spans instead of the shared badge.
+- **At night, `--color-ok` is the same red as ink-2** (`#d24c3f`), so "Saved" and coach ok text read like secondary
+  text; a fourth distinct AA red does not exist.
 - **The opsz font adds about 25 kB.**
 - **Settings, AstroLog, Import and the processing coach were not mocked.** They got only the shared rules (type
   scale, badges, copy, night levels).
@@ -48,6 +58,7 @@ cd frontend && npx playwright test            # 41 passed, 3 skipped (desktop + 
 ### Exact next step (polish pass 2)
 
 The developer reviews the branch `worktree-polish-pass-2` and its PR, including the dark-room check of night vision.
+After the merge, re-shoot the landing screenshots in `frontend/public/landing/*.jpg` so they show the pass-2 Tonight.
 
 ## Previous work: homescreen landing page (branch `worktree-landing-page`, merged via PR #5)
 
