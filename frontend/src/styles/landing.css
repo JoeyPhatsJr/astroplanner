@@ -185,7 +185,7 @@ body.landing-sky {
     gap: 0;
   }
   .landing-clock {
-    top: 64px;
+    top: 70px; /* just under the sticky site header (69.5px at 390px wide) */
     z-index: 5;
     display: flex;
     align-items: baseline;

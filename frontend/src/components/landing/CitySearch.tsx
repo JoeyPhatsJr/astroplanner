@@ -72,7 +72,8 @@ export function CitySearch() {
         elevation_m: r.elevation_m,
         timezone,
       });
-      await qc.invalidateQueries({ queryKey: qk.locations });
+      // The place is saved at this point; a failed refresh of the list must not report a failed save.
+      await qc.invalidateQueries({ queryKey: qk.locations }).catch(() => undefined);
       update({ locationId: created.id, nightDate: null });
       navigate("/tonight");
     } catch {

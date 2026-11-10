@@ -4,6 +4,19 @@
 *which targets will actually be above my horizon during real darkness tonight, and when?*
 It is tuned first for the **ZWO Seestar S30** (original, not the S30 Pro).
 
+## Homescreen
+
+`/` is a landing page that tells the story before you touch a tool: the headline first, then a real
+capture (the developer's Andromeda Galaxy), then **one night, scrolled**. A sticky clock moves from sunset
+(16:57) through astronomical darkness (18:28) to sunrise (06:32) while the page sky darkens, and each
+stop shows one part of the app (Tonight, Explore, AstroLog, Processing Coach, Variable Hunter). A gallery
+of real captures follows, then **Clear skies tonight?**: type a city and it opens Tonight for that place.
+It reuses a saved location within 1 km, never guesses a timezone, and hands the place to Settings if none
+can be found. The times come from a saved example night (Philadelphia, 2 Nov) and are labelled as such; the
+landing page shows no live data. Tonight itself now lives at **`/tonight`**.
+
+![Landing page](docs/screenshots/landing-desktop.png)
+
 ![Tonight dashboard](docs/screenshots/tonight-desktop.png)
 
 ## What it does (Phase 1)
@@ -121,6 +134,8 @@ Requirements: **Python 3.11+** (Astropy 8) and **Node 20+**.
 ./scripts/dev.sh       # API on :8000, app on http://127.0.0.1:5173
 ```
 
+Open http://127.0.0.1:5173 for the homescreen, or go straight to http://127.0.0.1:5173/tonight.
+
 No API keys or environment variables are needed for the local prototype.
 
 Or run the pieces yourself:
@@ -145,14 +160,16 @@ Optional environment variables:
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q        # 379 passed, 12 skipped (astronomy references, scoring, weather, API, AstroLog, Variable Hunter, Processing Coach, migrations)
-cd frontend && npm run typecheck && npm test       # 121 tests: time formatting, header slicing, import merge, Variable Hunter, Processing Coach, components
+cd backend && .venv/bin/python -m pytest -q        # 416 passed, 12 skipped (astronomy references, scoring, weather, API, AstroLog, Variable Hunter, Processing Coach, migrations)
+cd frontend && npm run typecheck && npm test       # 160 tests: routes, landing page and city box, location matching, time formatting, header slicing, import merge, Variable Hunter, Processing Coach, components
 cd frontend && npm run build
-cd frontend && npx playwright install chromium && npm run test:e2e   # 18 end-to-end tests (Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach), desktop + mobile
+cd frontend && npx playwright install chromium && npm run test:e2e   # 26 end-to-end tests (landing page, Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach), desktop + mobile
 ```
 
 The end-to-end suite starts its own backend (fresh SQLite file and preview folder under
 `frontend/e2e/`) and Vite server on ports 8100/5180, so it never touches your dev servers or data.
+To run two checkouts' suites at once, give one other ports: `E2E_API_PORT=8110 E2E_WEB_PORT=5190 npm run test:e2e`.
+The landing page's city-box test uses live Open-Meteo geocoding and skips itself, with a reason, when that is unreachable.
 It builds its FITS files itself with dummy coordinates (the Processing Coach test generates a synthetic night with
 `backend/scripts/make_synthetic_night.py` into the git-ignored `frontend/e2e/fixtures/`). No test contacts AAVSO.
 

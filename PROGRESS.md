@@ -1,8 +1,52 @@
 # PROGRESS
 
-_Last updated: 2026-11-05 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
+_Last updated: 2026-11-09 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
-## Current phase: Phase 4, Processing Coach: merged and tagged
+## In progress: homescreen landing page (branch `worktree-landing-page`, not merged)
+
+Built 2026-11-09 from the approved mockup "B v2" (headline first, then the developer's Andromeda photo, then
+one night scrolled through the app, a gallery of real captures, and a working city box). Spec:
+`docs/superpowers/specs/2026-11-09-landing-page-design.md`; plan: `docs/superpowers/plans/2026-11-09-landing-page.md`.
+Decisions made while the developer was away are marked "my call" in the spec.
+
+| Area | Status | Evidence |
+|---|---|---|
+| `/` is the landing page (outside the app shell); Tonight moves to `/tonight`; every in-app Tonight link updated; shell wordmark links home | done | `App.tsx` (layout route), `AppShell.tsx`, `AstroLogPage.tsx`, `App.test.tsx` |
+| Header, hero photo, five story chapters with sticky clock and twilight page sky, gallery, footer attribution | done | `pages/LandingPage.tsx`, `components/landing/`, `styles/landing.css`, `LandingPage.test.tsx` |
+| City box: geocode, reuse a saved place within 1 km or save a new one, timezone from coordinates, else Settings with the place prefilled; loading, empty and error states | done | `CitySearch.tsx`, `lib/locationMatch.ts` (+ tests), e2e against live geocoding |
+| Night vision on landing pictures: greyscale × accent red (no yellow-green cores) | done | `landing.css`, `e2e/landing.spec.ts` |
+| Reduced motion, 390 px with no horizontal scroll, all images load | done | `e2e/landing.spec.ts` (desktop + Pixel 7), browser check |
+| Independent code review | done, no blockers | 2 minor items fixed (save reported as failed if only the list refresh failed; mobile clock 5.5 px under the header) |
+| README section and screenshots | done | `README.md` "Homescreen", `docs/screenshots/landing-desktop.png`, `landing-mobile.png` |
+
+### Commands last run (all passing, 2026-11-09)
+
+```bash
+cd backend && .venv/bin/python -m pytest -q           # 416 passed, 12 skipped (skips are the existing local real-data and Postgres checks)
+cd frontend && npx tsc -b --noEmit && npx vitest run  # typecheck clean; 160 passed (16 files)
+cd frontend && npm run build                          # built
+cd frontend && E2E_API_PORT=8110 E2E_WEB_PORT=5190 npx playwright test   # 26 passed, desktop + mobile (other ports because the polish-pass worktree was using 8100/5180)
+```
+
+### Known limitations (landing page)
+
+- **Photo captions name the object only.** No telescope, exposure or date is shown for the five photos until the
+  developer supplies them. The North America Nebula file was named "NGC 7001" by its capture app; the caption
+  says NGC 7000 (what the picture shows) and should be confirmed.
+- **The app screenshots are from 2 Nov** (`docs/screenshots`): the sidebar still says "Research Lab" and Tonight's
+  look predates the in-progress polish pass. Re-shoot `frontend/public/landing/*-desktop.jpg` after that merges.
+- **Old `/` bookmarks** now open the homescreen; Tonight is one click away (`/tonight`).
+- **No night-vision toggle on the landing page.** It honours the saved setting; the toggle lives in the app header.
+- The city-box e2e test uses live Open-Meteo geocoding and skips, with a reason, when it is unreachable.
+
+### Exact next step (landing page)
+
+1. Developer reviews the page (`./scripts/dev.sh`, open http://127.0.0.1:5173) and supplies caption details
+   (scope, frames × exposure, date) for the five photos, or confirms object-only captions.
+2. On approval: open a PR from `worktree-landing-page`, merge, and reconcile route changes with the polish-pass
+   branch (both touch Tonight; this branch changes `App.tsx` and `AppShell.tsx` paths only).
+
+## Previous phase: Phase 4, Processing Coach: merged and tagged
 
 Merged to `main` on 2026-11-04 (PR #3, merge commit `20bb73d`) and tagged `phase-4`. Spec:
 `docs/superpowers/specs/2026-11-03-processing-coach-design.md`; plan: `docs/superpowers/plans/2026-11-03-processing-coach.md`;
