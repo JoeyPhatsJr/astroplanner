@@ -34,7 +34,9 @@ export function TargetTile({ row }: { row: LibraryRow }) {
         )}
       </div>
       <div className="flex flex-col gap-1 p-3">
-        <span className="truncate font-semibold text-ink">{row.display_name}</span>
+        <span className="truncate font-semibold text-ink" title={row.display_name}>
+          {row.display_name}
+        </span>
         <span className="flex flex-wrap items-baseline gap-x-2">
           <span className="text-lg font-semibold tracking-tight text-ice">{formatIntegration(seconds)}</span>
           {seconds !== null && <span className="text-xs text-ink-2">{headlineLabel(row.headline)}</span>}

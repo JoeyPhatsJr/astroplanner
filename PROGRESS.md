@@ -1,6 +1,6 @@
 # PROGRESS
 
-_Last updated: 2026-11-09 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
+_Last updated: 2026-11-10 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
 ## Current work: polish pass
 
@@ -10,9 +10,42 @@ Baseline before any change (2026-11-09, in the worktree): `pytest -q` 416 passed
 
 Task 12 (remaining screens): two Phase 3 tests in `frontend/src/components/variables/variables.test.tsx` changed on purpose. The Star page test no longer expects "Planned for a later phase" (the panel was removed), and the Seestar-note test finds the "Seestar fit · …" label by text because it is now a summary-panel term, not a heading.
 
-**Exact next step:** write the implementation plan, then build milestone 1 (foundations and press states).
+### Polish pass: status (2026-11-10)
 
-Audit finding still to confirm on the live app: the night-vision image filter (`index.css:115`) turned bright image areas yellow-green in the prototype; the local library had no images to test it on.
+| Milestone | Status | Evidence |
+|---|---|---|
+| Foundations: tokens, easing, press states, page widths | done | `index.css`, `index.css.test.ts` |
+| `night_clear` (whole-night clear window, API field) | done | `scoring.py::night_clear`, backend tests |
+| Night strip, score panel, target card (Tonight redesign) | done | `components/tonight/`, `components/targets/TargetCard.tsx` |
+| Sky images (STScI DSS, server cache, switchable) | done | `backend/app/sky_images.py`, `SkyThumb.tsx` |
+| Overlays, phone bottom sheet and drag | done | `ui/Overlay.tsx`, `ui/useSheetDrag.ts`, `lib/sheetDrag.ts` |
+| Night vision (red-only filter, themed controls, popups) | done | `index.css`, `ui/Select.tsx`, `ui/NightPicker.tsx` |
+| Remaining screens carried through | done | Task 12 |
+| Task 13 validation: suites, break-ui, animation-performance, improve-animations audit, browser check, screenshots | done | below |
+| Real-phone test, dark-room test, developer review, merge and `polish-1` tag | **pending (developer)** | not attempted |
+
+**Suites on 2026-11-10** (worktree, all run on this commit): `cd backend && .venv/bin/python -m pytest -q` 446 passed, 12 skipped (baseline 416 passed, 12 skipped);
+`cd frontend && npm run typecheck` ok; `npm test` 215 passed in 20 files (baseline 129); `npm run build` ok; `npx playwright test` 27 passed, 1 skipped (desktop and mobile projects).
+
+**Task 13 findings and fixes**
+- `break-ui` on Tonight cards and Library tiles, with worst-case data injected at the network boundary (not committed): an unbroken 60-character target name widened the whole Tonight page to 695 px at 390 px. Fixed with `overflow-wrap: anywhere` on the card title, a non-shrinking score chip, and `title` text on the truncated subtitle line and Library tile name. Library tiles, a long caution line and a 320 px viewport held up without further change.
+- Browser check found one night-vision leak: the native checkbox tick ("Observable only") is drawn white by the browser. Checkboxes and radios are now drawn from the palette (`index.css`, test in `index.css.test.ts`). After the fix, every night-vision screenshot (Tonight, drawer, sheet, Explore, Variable Hunter, Star page, Settings, at 1440 and 390 px) has zero pixels whose green or blue exceeds 45 % of red (+4).
+- `animation-performance` on the phone sheet and scrim: no frame-budget problem found. Drag writes `transform` and `opacity` straight to styles, no React state, no CSS variable, no layout reads while tracking; the scrim is opacity-only with no backdrop filter. Nothing changed. Still needs a real-device recording.
+- `improve-animations` audit (read-only): five LOW findings (cohesion nits and one pre-existing shimmer that animates `background-position`), nothing feel-breaking. Output kept in the sdd folder, not in the repository.
+- The `review-animations` pass is assigned to the final whole-branch reviewer.
+
+**Exact next step:** developer tests on a real phone and in a dark room (sheet drag, card press, night vision, native select popups), reviews the branch, and says whether to merge and tag `polish-1`. Then Phase 5 Design.
+
+Audit finding about the night-vision image filter (yellow-green bright areas in the prototype) is closed: pictures now go through a red-channel-only SVG filter (`#vision-red`); it is covered by tests, but it has not been looked at on a real sky image in a dark room.
+
+### Polish pass: known limitations
+
+- Ten native `<select>` elements remain (Settings timezone, field-of-view definition, minimum altitude and darkness; AstroLog stack and final-picture pickers; target log variable star; import location and per-group controls). The browser draws their open list, which cannot be themed, so in night vision that list may be bright. The Tonight header, filters and date picker use the themed controls.
+- Base UI (`@base-ui/react`) added for themed selects and popups: main bundle 289.15 kB to 435.22 kB (gzip 89.99 to 139.02) in Task 11. Accepted for now; no code splitting of it yet.
+- Browser-only checks still owed: real-phone touch behaviour of the bottom sheet (drag, flick, catching a closing sheet, iOS Safari address bar and safe areas), press-scale feel on cards, and any frame-rate measurement. These were checked in desktop Chromium with an emulated 390 px viewport only.
+- Real-phone and dark-room tests are pending; nothing here claims them.
+- Survey pictures need the network on first view per target (STScI DSS, cached on disk afterwards); with `ASTROPLANNER_SKY_IMAGES=off` the framing diagram is shown instead.
+- Documentation screenshots of AstroLog (library, target) and Processing Coach were not re-shot: they need the developer's own or synthetic imported data, and carry the previous look.
 
 ## Previous phase: Phase 4, Processing Coach: merged and tagged
 

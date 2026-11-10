@@ -87,4 +87,10 @@ describe("night vision", () => {
     const night = sheet.match(/:root\[data-vision="night"\]\s*\{[^}]*\}/)?.[0] ?? "";
     expect(night).toContain("--color-muted: #a23a30");
   });
+
+  it("draws checkboxes and radios from the palette, with no native white tick", () => {
+    const rule = (sel: string) => sheet.match(new RegExp(`${sel.replace(/[[\]"]/g, "\\$&")}[^{]*\\{([^}]*)\\}`))?.[1] ?? "";
+    expect(rule('input[type="checkbox"],')).toContain("appearance: none");
+    expect(rule('input[type="checkbox"]::before,')).toContain("var(--color-on-accent)");
+  });
 });
