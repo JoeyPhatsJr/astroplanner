@@ -1,10 +1,11 @@
 import { BookOpen, ChevronsLeft, ChevronsRight, Moon, Settings, Sparkles, Telescope } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
 import { HeaderControls } from "./HeaderControls";
+import { Logo } from "./Logo";
 
 const NAV = [
-  { to: "/", label: "Tonight", icon: Moon, end: true },
+  { to: "/tonight", label: "Tonight", icon: Moon, end: true },
   { to: "/explore", label: "Explore", icon: Telescope },
   { to: "/variables", label: "Variable Hunter", icon: Sparkles },
   { to: "/astrolog", label: "AstroLog", icon: BookOpen },
@@ -44,12 +45,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         }`}
         aria-label="Primary"
       >
-        <div className={`flex items-center gap-2.5 px-4 pb-6 pt-5 ${collapsed ? "justify-center px-0" : ""}`}>
+        <Link
+          to="/"
+          aria-label="AstroPlanner home"
+          title={collapsed ? "AstroPlanner home" : undefined}
+          className={`flex items-center gap-2.5 px-4 pb-6 pt-5 ${collapsed ? "justify-center px-0" : ""}`}
+        >
           <Logo />
           {!collapsed && (
             <span className="font-semibold tracking-tight text-[1.35rem] leading-none  text-ink">AstroPlanner</span>
           )}
-        </div>
+        </Link>
         <nav className="flex flex-1 flex-col gap-1 px-3">
           {NAV.map(({ to, label, icon: Icon, end }) => (
             <NavLink
@@ -89,10 +95,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="z-30 border-b md:sticky md:top-0 border-line-soft bg-night/90">
           <div className="flex items-center gap-3 px-4 py-2 md:px-6 md:py-3">
-            <div className="flex items-center gap-2 md:hidden">
+            <Link to="/" aria-label="AstroPlanner home" className="flex shrink-0 items-center gap-2 md:hidden">
               <Logo />
               <span className="sr-only font-semibold tracking-tight text-lg text-ink sm:not-sr-only">AstroPlanner</span>
-            </div>
+            </Link>
             <HeaderControls />
           </div>
         </header>
@@ -151,13 +157,3 @@ function FooterText() {
   );
 }
 
-function Logo() {
-  return (
-    <svg viewBox="0 0 32 32" className="size-7 shrink-0 text-ink" aria-hidden>
-      <circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" strokeWidth="2" />
-      
-      
-      <circle cx="22.5" cy="8.5" r="3" style={{ fill: "var(--color-ice)" }} />
-    </svg>
-  );
-}

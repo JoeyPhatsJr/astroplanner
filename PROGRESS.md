@@ -2,7 +2,60 @@
 
 _Last updated: 2026-11-10 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
-## Current work: polish pass
+## Current work: homescreen landing page (branch `worktree-landing-page`, merged into `main` after the polish pass)
+
+Built 2026-11-09 from the approved mockup "B v2" (headline first, then the developer's Andromeda photo, then
+one night scrolled through the app, a gallery of real captures, and a working city box). Spec:
+`docs/superpowers/specs/2026-11-09-landing-page-design.md`; plan: `docs/superpowers/plans/2026-11-09-landing-page.md`.
+Decisions made while the developer was away are marked "my call" in the spec.
+
+| Area | Status | Evidence |
+|---|---|---|
+| `/` is the landing page (outside the app shell); Tonight moves to `/tonight`; every in-app Tonight link updated; shell wordmark links home | done | `App.tsx` (layout route), `AppShell.tsx`, `AstroLogPage.tsx`, `App.test.tsx` |
+| Header, hero photo, five story chapters with sticky clock and twilight page sky, gallery, footer attribution | done | `pages/LandingPage.tsx`, `components/landing/`, `styles/landing.css`, `LandingPage.test.tsx` |
+| City box: geocode, reuse a saved place within 1 km or save a new one, timezone from coordinates, else Settings with the place prefilled; loading, empty and error states | done | `CitySearch.tsx`, `lib/locationMatch.ts` (+ tests), e2e against live geocoding |
+| Night vision on landing pictures: greyscale × accent red (no yellow-green cores) | done | `landing.css`, `e2e/landing.spec.ts` |
+| Reduced motion, 390 px with no horizontal scroll, all images load | done | `e2e/landing.spec.ts` (desktop + Pixel 7), browser check |
+| Independent code review | done, no blockers | 2 minor items fixed (save reported as failed if only the list refresh failed; mobile clock 5.5 px under the header) |
+| README section and screenshots | done | `README.md` "Homescreen", `docs/screenshots/landing-desktop.png`, `landing-mobile.png` |
+| Design pass 1 (2026-11-10, developer asked for the Apple design guidance): press feedback, Inter optical-size Display cut for headings with size-specific tracking, rem layout, frosted header, reduce-transparency / increase-contrast fallbacks, gentler reduced motion, clock bar on `transform` | done | `landing.css`, browser check of computed styles under each media setting |
+| Design pass 2 (2026-11-10, anti-slop checklist): hero lede cut to 18 words, one CTA, no scroll cue, one label ("See tonight’s sky") for every way into Tonight, one eyebrow on the page, gallery header stacked, footer as sentences, tinted shadows, story clock on IntersectionObserver (no scroll listener) | done | `LandingPage.test.tsx` (one-label test), `e2e/landing.spec.ts` (clock incl. jump to top), Lighthouse mobile: Accessibility 100, Best Practices 100; trace LCP 1.7 s, CLS 0.00 (4× CPU, Fast 4G) |
+
+| Merge with `main` after the polish pass (PR #4) | done | Conflicts resolved in `App.tsx` (imports), `AppShell.tsx` (phone wordmark is a home link with the polish pass's tighter header), `e2e/smoke.spec.ts` (polish-pass tests that opened `/` now open `/tonight`), docs |
+
+### Commands last run (after merging `main`, 2026-11-10)
+
+```bash
+cd backend && .venv/bin/python -m pytest -q           # 453 passed, 12 skipped
+cd frontend && npx tsc -b --noEmit && npx vitest run  # typecheck clean; 276 passed (25 files)
+cd frontend && npm run build                          # built
+cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 36 passed, 2 skipped (phone-only tests on desktop), desktop + mobile
+```
+
+### Known limitations (landing page)
+
+- **Photo captions name the object only.** No telescope, exposure or date is shown for the five photos until the
+  developer supplies them. The North America Nebula file was named "NGC 7001" by its capture app; the caption
+  says NGC 7000 (what the picture shows) and should be confirmed.
+- **The app screenshots on the landing page are from 2 Nov**: the sidebar still says "Research Lab" and Tonight's
+  look predates the polish pass, which is now merged. Re-shoot `frontend/public/landing/*-desktop.jpg`.
+- **Old `/` bookmarks** now open the homescreen; Tonight is one click away (`/tonight`).
+- **No night-vision toggle on the landing page.** It honours the saved setting; the toggle lives in the app header.
+- The city-box e2e test uses live Open-Meteo geocoding and skips, with a reason, when it is unreachable.
+- **Images are full JPEGs.** Lighthouse estimates ~675 kB could be saved with WebP/AVIF and tighter sizes; LCP is
+  already 1.7 s on a throttled phone, so this is a later optimisation, not a blocker.
+- **`robots.txt` / SEO files do not exist yet** (Lighthouse SEO 92). That belongs with deployment, which is deferred.
+- **`prefers-reduced-transparency` is untested in automation** (Playwright cannot emulate it); it reuses the
+  increase-contrast rules, which are tested.
+
+### Exact next step (landing page)
+
+1. Re-shoot the landing page's app screenshots (`frontend/public/landing/*-desktop.jpg`) so they show the
+   polished Tonight and the current sidebar.
+2. Developer supplies caption details (scope, frames × exposure, date) for the five photos, or confirms
+   object-only captions, and confirms NGC 7000 for the file named "NGC 7001".
+
+## Previous work: polish pass (merged, PR #4)
 
 Design approved 2026-11-09. Spec: `docs/superpowers/specs/2026-11-09-polish-pass-design.md`; prototype: `docs/superpowers/mockups/2026-11-09-polish/tonight.html`.
 Built on branch `worktree-polish-pass` in `.claude/worktrees/polish-pass`, so the main checkout stays free for other work.

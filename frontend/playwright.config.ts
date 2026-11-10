@@ -2,8 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 // Smoke test of the core Phase 1 flow against the REAL backend (fresh SQLite file)
 // on dedicated ports, so it never touches a developer's running dev servers or data.
-const API_PORT = 8100;
-const WEB_PORT = 5180;
+// Override the ports (E2E_API_PORT / E2E_WEB_PORT) to run two worktrees' suites side by side.
+const API_PORT = Number(process.env.E2E_API_PORT ?? 8100);
+const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5180);
 
 export default defineConfig({
   testDir: "./e2e",

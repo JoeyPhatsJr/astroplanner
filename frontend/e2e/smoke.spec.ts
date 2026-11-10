@@ -15,7 +15,7 @@ test("Tonight renders computed night, score state and recommendations", async ({
   // The e2e backend runs with sky images off: targets say so, and the page asks for none.
   const skyRequests: string[] = [];
   page.on("request", (r) => r.url().includes("/sky-image") && skyRequests.push(r.url()));
-  await page.goto("/");
+  await page.goto("/tonight");
   await expect(page.getByRole("heading", { name: "Tonight", level: 1 })).toBeVisible();
   await expect(page.getByText("Tonight’s Score").first()).toBeVisible();
   await expect(page.getByText(/Heuristic/).first()).toBeVisible();
@@ -30,7 +30,7 @@ test("Tonight renders computed night, score state and recommendations", async ({
 });
 
 test("Add targets, reorder, reload persists, delete with confirmation", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/tonight");
   const addButtons = page.getByRole("button", { name: /^Add .* to session$/ });
   await expect(addButtons.first()).toBeVisible();
   const first = (await addButtons.nth(0).getAttribute("aria-label"))!.replace(/^Add (.*) to session$/, "$1");
@@ -86,7 +86,7 @@ test("Explore search opens a target with its altitude chart", async ({ page }) =
 
 test("Phone: one-row header chip opens the controls sheet; details is a bottom sheet that drags closed", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile", "phone layout only");
-  await page.goto("/");
+  await page.goto("/tonight");
   const chip = page.getByRole("button", { name: /·/ }).filter({ has: page.locator("span.truncate") });
   await expect(chip).toBeVisible();
   const header = page.getByRole("banner");
@@ -123,7 +123,7 @@ test("Phone: one-row header chip opens the controls sheet; details is a bottom s
 
 test("Phone: tapping outside an open select in the header sheet closes the select, not the sheet", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile", "phone layout only");
-  await page.goto("/");
+  await page.goto("/tonight");
   await page.getByRole("button", { name: /·/ }).filter({ has: page.locator("span.truncate") }).click();
   const location = page.getByLabel("Observing location");
   await expect(location).toBeVisible();
@@ -150,7 +150,7 @@ test("Phone: tapping outside an open select in the header sheet closes the selec
 });
 
 test("Night vision turns the palette red and survives a reload", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/tonight");
   const html = page.locator("html");
   await expect(html).toHaveAttribute("data-vision", "normal");
   const ink = () => page.evaluate(() => getComputedStyle(document.body).color);
@@ -176,7 +176,7 @@ test("Night vision turns the palette red and survives a reload", async ({ page }
 });
 
 test("Night vision: the location and date popups show only red", async ({ page }, info) => {
-  await page.goto("/");
+  await page.goto("/tonight");
   await page.getByRole("button", { name: "Night vision" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-vision", "night");
   if (info.project.name === "mobile") {
@@ -329,7 +329,7 @@ async function withSkyImagesOn(page: Page) {
 test("A target card shows its sky image when the survey answers", async ({ page }) => {
   await withSkyImagesOn(page);
   await page.route("**/sky-image", (route) => route.fulfill({ status: 200, contentType: "image/jpeg", body: TINY_JPEG }));
-  await page.goto("/");
+  await page.goto("/tonight");
   // Images load as their cards near the viewport; on a phone the cards start below the fold.
   await page.locator("article").first().scrollIntoViewIfNeeded();
   const img = page.locator("article img[data-loaded]").first();
@@ -350,7 +350,7 @@ test("A target card keeps the framing diagram when the survey is unavailable", a
     inFlight--;
     await route.fulfill({ status: 503, body: "unavailable" });
   });
-  await page.goto("/");
+  await page.goto("/tonight");
   await expect(page.getByRole("button", { name: /^Add .* to session$/ }).first()).toBeVisible();
   await page.locator("article").first().scrollIntoViewIfNeeded();
   await expect.poll(() => asked).toBeGreaterThan(2);
