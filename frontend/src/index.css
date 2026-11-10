@@ -96,10 +96,10 @@
   --color-panel-2: #1c0505;
   --color-line: #3a0b0b;
   --color-line-soft: #260707;
-  --color-ink: #d9473c;
-  --color-ink-2: #b83a31;
-  --color-muted: #a23a30;
-  --color-ice: #e0352b;
+  --color-ink: #ee5a4b;
+  --color-ink-2: #d24c3f;
+  --color-muted: #d24c3f;
+  --color-ice: #ff5a47;
   --color-ice-dim: #8f1f18;
   --color-on-accent: #140000;
   --color-warn: #ef6a4a;
@@ -122,6 +122,12 @@
   --cloud: #9c2c23;
   --sky-glow-top: radial-gradient(120% 60% at 50% -12%, rgb(90 10 8 / 0.25), transparent 62%);
   --sky-glow-corner: none;
+}
+
+/* Inline text links need a non-colour cue when every colour is red. */
+:root[data-vision="night"] a.text-ice:not(.btn) {
+  text-decoration-line: underline;
+  text-underline-offset: 2px;
 }
 
 @layer base {
