@@ -20,7 +20,7 @@ from .astrolog.library import capture_info, session_capture_info
 from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
 from .db import Database, EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
-from .sky_images import SkyImageProvider
+from .sky_images import BUSY_RETRY_AFTER_S, SkyImageBusy, SkyImageProvider
 from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, night_clear, target_score, tonight_score
 from .visibility import DEFAULT_MIN_ALT_DEG, analyse_target, visibility_payload
 from .weather import OpenMeteoProvider, align_to_grid, forecast_payload
@@ -169,21 +169,29 @@ def timezone_lookup(lat: float = Query(..., ge=-90, le=90), lon: float = Query(.
 
 # ---- catalog -------------------------------------------------------------------
 
+def _client_target(t: dict[str, Any], request: Request) -> dict[str, Any]:
+    """A catalog target as sent to clients: no sky-image field width when images are off, so none are requested."""
+    if request.app.state.sky_images.enabled:
+        return t
+    return t | {"sky_field_arcmin": None}
+
+
 @router.get("/targets")
 def list_targets(
+    request: Request,
     query: str | None = Query(None, max_length=60),
     category: Literal["all", "galaxy", "nebula", "cluster"] = "all",
 ) -> dict[str, Any]:
-    items = catalog.search(query, category)
+    items = [_client_target(t, request) for t in catalog.search(query, category)]
     return {"count": len(items), "targets": items, "catalog": catalog.catalog_meta()}
 
 
 @router.get("/targets/{target_id}")
-def get_target(target_id: str) -> dict[str, Any]:
+def get_target(target_id: str, request: Request) -> dict[str, Any]:
     t = catalog.get_target(target_id)
     if t is None:
         raise HTTPException(404, f"Unknown target {target_id!r}")
-    return t
+    return _client_target(t, request)
 
 
 @router.get("/targets/{target_id}/sky-image")
@@ -192,7 +200,11 @@ def target_sky_image(target_id: str, request: Request) -> FileResponse:
     if t is None:
         raise HTTPException(404, f"Unknown target {target_id!r}")
     provider: SkyImageProvider = request.app.state.sky_images
-    path = provider.get(t["id"], t["ra_deg"], t["dec_deg"], t["sky_field_arcmin"])
+    try:
+        path = provider.get(t["id"], t["ra_deg"], t["dec_deg"], t["sky_field_arcmin"])
+    except SkyImageBusy:
+        # Answer at once rather than hold one of the browser's few connections while another fetch runs.
+        raise HTTPException(503, "Sky survey image busy; retry shortly", headers={"Retry-After": str(BUSY_RETRY_AFTER_S)})
     if path is None:
         raise HTTPException(503, "Sky survey image unavailable right now")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
@@ -244,6 +256,7 @@ STATUS_ORDER = ["observable", "too_brief", "daylight_only", "below_threshold", "
 
 @router.get("/recommendations")
 def recommendations(
+    request: Request,
     o: Observer = Depends(observer_params),
     equipment_id: str | None = None,
     min_altitude_deg: float = Query(DEFAULT_MIN_ALT_DEG, ge=0, le=80),
@@ -267,7 +280,7 @@ def recommendations(
         idx = catalog.target_index(t["id"])
         vis = analyse_target(ctx, idx, t["dec_deg"], min_altitude_deg, darkness)
         items.append({
-            "target": t,
+            "target": _client_target(t, request),
             "visibility": visibility_payload(vis, ctx, min_altitude_deg, include_series=False),
             "score": target_score(ctx, vis, t, grid, eq, min_altitude_deg),
             "sparkline_alt_deg": np.round(ctx.target_alt[idx][spark_sel], 1).tolist(),
@@ -293,6 +306,7 @@ def recommendations(
 @router.get("/targets/{target_id}/visibility")
 def target_visibility(
     target_id: str,
+    request: Request,
     o: Observer = Depends(observer_params),
     min_altitude_deg: float = Query(DEFAULT_MIN_ALT_DEG, ge=0, le=80),
     darkness: Darkness = "astronomical",
@@ -313,7 +327,7 @@ def target_visibility(
     night = night_summary(ctx, darkness)
     return {
         "computed_at_utc": iso_utc(_now().timestamp()),
-        "target": t,
+        "target": _client_target(t, request),
         "visibility": payload,
         "score": target_score(ctx, vis, t, grid, _equipment_dict(db, equipment_id), min_altitude_deg),
         "night": {k: night[k] for k in ("events", "dark_intervals", "display_start_utc", "display_end_utc",

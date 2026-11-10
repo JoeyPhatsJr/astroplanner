@@ -10,7 +10,9 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from app.sky_images import SkyImageProvider, sky_field_arcmin
+from app.sky_images import SkyImageBusy, SkyImageProvider, sky_field_arcmin
+
+from .conftest import PHILLY_PARAMS
 
 
 def make_gif(size=(600, 400), right_band=0.0) -> bytes:
@@ -188,3 +190,100 @@ def test_route_unavailable_is_503(tmp_path, make_client, clear_provider):
 
 def test_default_test_client_never_reaches_network(client):
     assert client.get("/api/targets/m31/sky-image").status_code == 503
+
+
+# ---- a busy provider answers at once instead of holding a connection ----------------------------
+
+class BlockingFetch(Fetch):
+    """Holds the fetch lock until released, so a second caller finds the provider busy."""
+
+    def __init__(self):
+        super().__init__()
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def __call__(self, ra, dec, field):
+        self.started.set()
+        self.release.wait(5)
+        return super().__call__(ra, dec, field)
+
+
+def test_busy_provider_raises_instead_of_waiting(tmp_path):
+    fetch = BlockingFetch()
+    p = provider(tmp_path, fetch, lock_timeout_s=0.05)
+    first = threading.Thread(target=lambda: p.get("m31", 1, 2, 60))
+    first.start()
+    assert fetch.started.wait(5)
+    t0 = time.monotonic()
+    with pytest.raises(SkyImageBusy):
+        p.get("m42", 3, 4, 60)
+    assert time.monotonic() - t0 < 1.0
+    fetch.release.set()
+    first.join()
+    assert p.get("m31", 1, 2, 60) is not None
+
+
+def test_cached_image_is_served_while_busy(tmp_path):
+    provider(tmp_path, Fetch()).get("m42", 3, 4, 60)
+    fetch = BlockingFetch()
+    p = provider(tmp_path, fetch, lock_timeout_s=0.05)
+    first = threading.Thread(target=lambda: p.get("m31", 1, 2, 60))
+    first.start()
+    assert fetch.started.wait(5)
+    assert p.get("m42", 3, 4, 60) is not None
+    fetch.release.set()
+    first.join()
+
+
+def test_backed_off_target_answers_while_busy(tmp_path):
+    clock = [1000.0]
+    p = provider(tmp_path, Fetch(b"<HTML>"), now=lambda: clock[0], sleep=lambda s: None)
+    assert p.get("m42", 3, 4, 60) is None  # now backing off
+    fetch = BlockingFetch()
+    p._fetch = fetch
+    p.lock_timeout_s = 0.05
+    first = threading.Thread(target=lambda: p.get("m31", 1, 2, 60))
+    first.start()
+    assert fetch.started.wait(5)
+    assert p.get("m42", 3, 4, 60) is None  # no SkyImageBusy: the back-off answers without the lock
+    fetch.release.set()
+    first.join()
+
+
+def test_default_lock_timeout_is_short(tmp_path):
+    assert 0 < provider(tmp_path, Fetch()).lock_timeout_s <= 1.0
+
+
+class BusyProvider(SkyImageProvider):
+    def get(self, *a, **kw):
+        raise SkyImageBusy()
+
+
+def test_route_busy_is_503_with_retry_after(tmp_path, make_client, clear_provider):
+    with make_client(clear_provider, sky_images=BusyProvider(tmp_path / "cache", fetch=Fetch())) as c:
+        r = c.get("/api/targets/m31/sky-image")
+    assert r.status_code == 503
+    assert int(r.headers["retry-after"]) > 0
+
+
+def test_route_unavailable_has_no_retry_after(tmp_path, make_client, clear_provider):
+    with make_client(clear_provider, sky_images=provider(tmp_path, Fetch(b"<HTML>"))) as c:
+        r = c.get("/api/targets/m31/sky-image")
+    assert r.status_code == 503
+    assert "retry-after" not in r.headers
+
+
+# ---- clients learn whether images are on from the targets themselves ---------------------------
+
+def test_disabled_provider_sends_no_field_width(tmp_path, make_client, clear_provider):
+    with make_client(clear_provider, sky_images=provider(tmp_path, Fetch(), enabled=False)) as c:
+        assert c.get("/api/targets/m31").json()["sky_field_arcmin"] is None
+        assert all(t["sky_field_arcmin"] is None for t in c.get("/api/targets").json()["targets"])
+        recs = c.get("/api/recommendations", params=PHILLY_PARAMS).json()["results"]
+        assert recs and all(r["target"]["sky_field_arcmin"] is None for r in recs)
+        assert c.get("/api/targets/m31/visibility", params=PHILLY_PARAMS).json()["target"]["sky_field_arcmin"] is None
+    # The shared catalog is not changed for an enabled app.
+    with make_client(clear_provider, sky_images=provider(tmp_path, Fetch())) as c:
+        assert c.get("/api/targets/m31").json()["sky_field_arcmin"] == 120
+        recs = c.get("/api/recommendations", params=PHILLY_PARAMS).json()["results"]
+        assert all(isinstance(r["target"]["sky_field_arcmin"], int) for r in recs)

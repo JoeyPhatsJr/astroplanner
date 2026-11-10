@@ -2,6 +2,8 @@
 
 Each target is fetched from STScI at most once, reduced to a small greyscale JPEG and cached on disk.
 Requests are serialised and spaced out, failures back off, and nothing is fetched when disabled.
+A caller that finds another fetch in progress is told so at once (SkyImageBusy) rather than held waiting,
+so a cold cache never ties up the browser's few connections to this host.
 Images come from the DSS (POSS2/UKSTU red); credit STScI/DSS wherever they are shown.
 """
 
@@ -33,6 +35,8 @@ MAX_TRIM_FRACTION = 0.15  # more white than this on one side: the plate does not
 MIN_FIELD_ARCMIN, MAX_FIELD_ARCMIN = 40, 120
 SKY_FIELD_OVERRIDES = {"ic1396": 120}
 DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[1] / "data" / "sky-images"
+LOCK_TIMEOUT_S = 1.0      # how long a caller waits for another fetch before being told the provider is busy
+BUSY_RETRY_AFTER_S = 5    # Retry-After sent with a busy 503
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -92,15 +96,21 @@ def _process(body: bytes) -> bytes | None:
     return out.getvalue()
 
 
+class SkyImageBusy(Exception):
+    """Another fetch holds the provider; try again shortly."""
+
+
 class SkyImageProvider:
     def __init__(self, cache_dir: Path, fetch: Callable[[float, float, int], bytes] = default_fetch,
                  enabled: bool = True, min_interval_s: float = 1.0, retry_after_s: float = 3600.0,
+                 lock_timeout_s: float = LOCK_TIMEOUT_S,
                  now: Callable[[], float] = time.time, sleep: Callable[[float], None] = time.sleep):
         self.cache_dir = Path(cache_dir)
         self._fetch = fetch
         self.enabled = enabled
         self.min_interval_s = min_interval_s
         self.retry_after_s = retry_after_s
+        self.lock_timeout_s = lock_timeout_s
         self._now = now
         self._sleep = sleep
         self._lock = threading.Lock()
@@ -120,33 +130,44 @@ class SkyImageProvider:
         return t is not None and self._now() - t < self.retry_after_s
 
     def get(self, target_id: str, ra_deg: float, dec_deg: float, field_arcmin: int) -> Path | None:
+        """The cached image path, or None when unavailable. Raises SkyImageBusy while another fetch runs."""
         if not self.enabled or not _SAFE_ID.match(target_id):
             return None
         path = self._path(target_id, field_arcmin)
         if path.is_file():
             return path
-        with self._lock:
-            if path.is_file():
-                return path
-            if self._backing_off(target_id):
-                return None
-            if self._last_request is not None:
-                wait = self.min_interval_s - (self._now() - self._last_request)
-                if wait > 0:
-                    self._sleep(wait)
-            self._last_request = self._now()
-            try:
-                jpeg = _process(self._fetch(ra_deg, dec_deg, field_arcmin))
-            except Exception as exc:  # network, decode or decompression-bomb errors all mean "no image"
-                log.warning("sky image for %s failed: %s", target_id, type(exc).__name__)
-                jpeg = None
-            self._last_request = self._now()
-            if jpeg is None:
-                self._failed_at[target_id] = self._now()
-                return None
-            self._failed_at.pop(target_id, None)
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_name(path.name + f".{os.getpid()}.tmp")
-            tmp.write_bytes(jpeg)
-            os.replace(tmp, path)
+        if self._backing_off(target_id):
+            return None
+        if not self._lock.acquire(timeout=self.lock_timeout_s):
+            raise SkyImageBusy()
+        try:
+            return self._fetch_locked(target_id, ra_deg, dec_deg, field_arcmin, path)
+        finally:
+            self._lock.release()
+
+    def _fetch_locked(self, target_id: str, ra_deg: float, dec_deg: float, field_arcmin: int, path: Path) -> Path | None:
+        # Re-check under the lock: the caller that held it may have just fetched or failed this target.
+        if path.is_file():
             return path
+        if self._backing_off(target_id):
+            return None
+        if self._last_request is not None:
+            wait = self.min_interval_s - (self._now() - self._last_request)
+            if wait > 0:
+                self._sleep(wait)
+        self._last_request = self._now()
+        try:
+            jpeg = _process(self._fetch(ra_deg, dec_deg, field_arcmin))
+        except Exception as exc:  # network, decode or decompression-bomb errors all mean "no image"
+            log.warning("sky image for %s failed: %s", target_id, type(exc).__name__)
+            jpeg = None
+        self._last_request = self._now()
+        if jpeg is None:
+            self._failed_at[target_id] = self._now()
+            return None
+        self._failed_at.pop(target_id, None)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + f".{os.getpid()}.tmp")
+        tmp.write_bytes(jpeg)
+        os.replace(tmp, path)
+        return path
