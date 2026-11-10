@@ -91,38 +91,35 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
         actions={<AddToPlan starId={star.id} slug={slug} />}
       />
 
-      <dl className="panel grid gap-x-6 gap-y-3 p-4 sm:grid-cols-[auto_1fr]" aria-label="Summary">
-        <dt className="label sm:pt-0.5">Tonight</dt>
-        <dd className="m-0">
+      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-[10rem_1fr]" aria-label="Summary">
+        <dt className="text-sm font-semibold text-ink-2">Tonight</dt>
+        <dd className="m-0 max-w-[62ch]">
           <TonightWindow slug={slug} bare />
         </dd>
         {data.nights.length > 0 && (
           <>
-            <dt className="label sm:pt-0.5">Your nights</dt>
-            <dd className="m-0 text-sm text-ink">{data.nights.length}</dd>
+            <dt className="text-sm font-semibold text-ink-2">Your nights</dt>
+            <dd className="m-0 max-w-[62ch] text-sm text-ink">{data.nights.length}</dd>
           </>
         )}
         {data.seestar_fit && (
           <>
-            <dt className="label sm:pt-0.5">Seestar fit{eq ? ` · ${eq.name}` : ""}</dt>
-            <dd className="m-0 text-sm text-ink-2">{data.seestar_fit.text}</dd>
+            <dt className="text-sm font-semibold text-ink-2">Seestar fit{eq ? ` · ${eq.name}` : ""}</dt>
+            <dd className="m-0 max-w-[62ch] text-sm text-ink-2">{data.seestar_fit.text}</dd>
           </>
         )}
+        <dt className="text-sm font-semibold text-ink-2">Light curve</dt>
+        <dd className="m-0 flex max-w-[62ch] flex-col gap-2">
+          <p className="text-sm text-ink-2">
+            AstroPlanner doesn&apos;t download AAVSO observations, so it draws no light curve. AAVSO&apos;s own pages have this star&apos;s
+            record.
+          </p>
+          <a href={data.source_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 self-start text-sm text-ice hover:underline">
+            View {star.primary_designation} on AAVSO VSX <span aria-hidden>→</span>
+            <ExternalLink className="size-3.5" aria-hidden />
+          </a>
+        </dd>
       </dl>
-
-      <section className="panel flex flex-col gap-2 p-4" aria-labelledby="vh-curve">
-        <h2 id="vh-curve" className="label">
-          Light curve
-        </h2>
-        <p className="text-sm text-ink-2">
-          AstroPlanner doesn&apos;t download AAVSO observations, so it draws no light curve. AAVSO&apos;s own pages have this star&apos;s
-          record.
-        </p>
-        <a href={data.source_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 self-start text-sm text-ice hover:underline">
-          View {star.primary_designation} on AAVSO VSX <span aria-hidden>→</span>
-          <ExternalLink className="size-3.5" aria-hidden />
-        </a>
-      </section>
 
       {data.missions.length > 0 && (
         <section className="flex flex-col gap-2" aria-labelledby="vh-missions">
