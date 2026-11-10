@@ -279,6 +279,18 @@ describe("TargetCard layout", () => {
     show(mk({}, "NGC 7635", "NGC 7635"));
     expect(screen.getAllByText(/NGC 7635/)).toHaveLength(1);
   });
+  it("scales the card only from the name's press target, not the add button or badge", () => {
+    // jsdom does not evaluate :active or :has, so the markup contract is checked instead: the article carries
+    // no .press, and the only .card-open element is the name button.
+    show(mk());
+    const article = screen.getByRole("article");
+    expect(article.className).not.toMatch(/\bpress\b/);
+    expect(article.className).toContain("has-[.card-open:active]:scale-[0.97]");
+    const open = article.querySelectorAll(".card-open");
+    expect(open).toHaveLength(1);
+    expect(open[0]).toBe(screen.getByRole("button", { name: "Bubble Nebula" }));
+    expect(screen.getByRole("button", { name: "Add Bubble Nebula to session" }).closest(".card-open")).toBeNull();
+  });
   it("opens details from the name; the add button does not", async () => {
     const { onOpen, onAdd } = show(mk());
     await userEvent.click(screen.getByRole("button", { name: "Add Bubble Nebula to session" }));

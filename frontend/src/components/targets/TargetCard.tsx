@@ -62,7 +62,7 @@ export function TargetCard({
   const caution = score.cautions[0];
   return (
     <article
-      className={`panel press relative flex min-w-0 gap-3 p-3 has-[:focus-visible]:border-ice ${inSession ? "border-ice/50" : ""}`}
+      className={`panel relative flex min-w-0 gap-3 p-3 transition-transform duration-[120ms] ease-[var(--ease-out)] has-[.card-open:active]:scale-[0.97] motion-reduce:has-[.card-open:active]:scale-100 ${inSession ? "border-ice/50" : ""}`}
     >
       {/* Picture slot: the diagram today; survey images layer into this same square later. */}
       {note && (
@@ -85,7 +85,7 @@ export function TargetCard({
             <button
               type="button"
               onClick={onOpen}
-              className="text-left after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] focus-visible:outline-none"
+              className="card-open text-left after:absolute after:inset-0 after:rounded-[inherit] after:content-[''] focus-visible:outline-none focus-visible:after:outline focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ice"
             >
               {t.name}
             </button>

@@ -36,8 +36,10 @@ native-feeling phone experience, night vision with no non-red leaks, and consist
 - Sky images come from DSS red plates, fetched once per target and cached locally (§6).
 - The framing diagram stays: it is the fallback when an image is unavailable, and it sits next to the image in the drawer,
   because a sky image cropped to the object cannot show how the object fits the S30's field.
-- The Session plan panel keeps its place beside the targets on wide screens, so the grid there is two columns, not the
-  prototype's three. The prototype left that panel out.
+- The target grid is two columns at every width, not the prototype's three. Below xl the Session plan panel stacks
+  under the grid, but the content area is then only about 740 to 990 px, and three cards with a 112 px picture would
+  leave about 115 px for text. Beside the panel on wide screens the grid is two columns as well. The prototype left that
+  panel out.
 - No new motion or sheet dependency (§7). Vaul is ruled out: its README says it is unmaintained.
 - Headline clear times round to the half hour because the forecast is hourly. Exact runs stay on the strip.
 
