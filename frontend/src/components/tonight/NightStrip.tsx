@@ -239,7 +239,9 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
         {tip ?? (hasHourly ? "Hover or tap the strip for hourly values." : "")}
       </p>
 
-      <table className="sr-only">
+      {/* sr-only does not constrain a <table> (its content overflows and widens the mobile layout viewport), so the wrapper clips it. */}
+      <div className="sr-only">
+      <table>
         <caption>Hourly forecast for the night, local time {tz}</caption>
         <thead>
           <tr>
@@ -258,6 +260,7 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

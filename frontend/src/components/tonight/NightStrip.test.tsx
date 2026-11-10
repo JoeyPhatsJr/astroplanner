@@ -139,4 +139,11 @@ describe("NightStrip", () => {
     fireEvent.pointerMove(hit, { clientX: 10, clientY: 40 });
     expect(screen.getByTestId("strip-tip").textContent).toBe("17:00: cloud 40 %, rain chance 10 %");
   });
+
+  it("keeps the screen-reader table inside a visually hidden wrapper", () => {
+    render(<NightStrip night={night(() => -20)} forecast={forecast(hours(13, () => 40))} clear={null} bestWindow={null} tz={TZ} />);
+    const table = screen.getByRole("table");
+    expect(table.className).not.toContain("sr-only");
+    expect(table.parentElement?.className).toContain("sr-only");
+  });
 });

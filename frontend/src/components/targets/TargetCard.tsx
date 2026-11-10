@@ -108,7 +108,7 @@ export function TargetCard({
             {caution}
           </p>
         )}
-        <div className="mt-auto flex items-center gap-2 pt-1.5">
+        <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1.5">
           <Sparkline
             values={rec.sparkline_alt_deg}
             minAlt={minAlt}
