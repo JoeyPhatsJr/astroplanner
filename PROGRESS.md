@@ -8,6 +8,8 @@ Design approved 2026-11-09. Spec: `docs/superpowers/specs/2026-11-09-polish-pass
 Built on branch `worktree-polish-pass` in `.claude/worktrees/polish-pass`, so the main checkout stays free for other work.
 Baseline before any change (2026-11-09, in the worktree): `pytest -q` 416 passed, 12 skipped; `npm run typecheck` ok; `npm test` 129 passed.
 
+Task 12 (remaining screens): two Phase 3 tests in `frontend/src/components/variables/variables.test.tsx` changed on purpose. The Star page test no longer expects "Planned for a later phase" (the panel was removed), and the Seestar-note test finds the "Seestar fit · …" label by text because it is now a summary-panel term, not a heading.
+
 **Exact next step:** write the implementation plan, then build milestone 1 (foundations and press states).
 
 Audit finding still to confirm on the live app: the night-vision image filter (`index.css:115`) turned bright image areas yellow-green in the prototype; the local library had no images to test it on.

@@ -91,17 +91,23 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
         actions={<AddToPlan starId={star.id} slug={slug} />}
       />
 
-      <dl className="grid gap-3 sm:grid-cols-2">
-        <div className="panel p-4">
-          <dt className="label">Tonight</dt>
-          <dd className="mt-1">
-            <TonightWindow slug={slug} bare />
-          </dd>
-        </div>
-        <div className="panel p-4">
-          <dt className="label">Your nights</dt>
-          <dd className="mt-1 text-sm text-ink">{data.nights.length === 0 ? "None yet" : data.nights.length}</dd>
-        </div>
+      <dl className="panel grid gap-x-6 gap-y-3 p-4 sm:grid-cols-[auto_1fr]" aria-label="Summary">
+        <dt className="label sm:pt-0.5">Tonight</dt>
+        <dd className="m-0">
+          <TonightWindow slug={slug} bare />
+        </dd>
+        {data.nights.length > 0 && (
+          <>
+            <dt className="label sm:pt-0.5">Your nights</dt>
+            <dd className="m-0 text-sm text-ink">{data.nights.length}</dd>
+          </>
+        )}
+        {data.seestar_fit && (
+          <>
+            <dt className="label sm:pt-0.5">Seestar fit{eq ? ` · ${eq.name}` : ""}</dt>
+            <dd className="m-0 text-sm text-ink-2">{data.seestar_fit.text}</dd>
+          </>
+        )}
       </dl>
 
       <section className="panel flex flex-col gap-2 p-4" aria-labelledby="vh-curve">
@@ -131,23 +137,7 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
         </section>
       )}
 
-      {data.seestar_fit && (
-        <section className="panel flex flex-col gap-1 p-4" aria-labelledby="vh-fit">
-          <h2 id="vh-fit" className="label">
-            Seestar fit{eq ? ` · ${eq.name}` : ""}
-          </h2>
-          <p className="text-sm text-ink-2">{data.seestar_fit.text}</p>
-        </section>
-      )}
-
       <StarExplainer sourceUrl={data.source_url} starName={star.primary_designation} />
-
-      <section className="panel p-4" aria-labelledby="vh-p4">
-        <h2 id="vh-p4" className="label">
-          Planned for a later phase
-        </h2>
-        <p className="mt-1 text-sm text-ink-2">Your own brightness measurements from your frames, plotted on the light curve with error bars.</p>
-      </section>
 
       <div className="flex flex-col gap-0.5 text-xs text-muted">
         {data.attribution.map((a) => (

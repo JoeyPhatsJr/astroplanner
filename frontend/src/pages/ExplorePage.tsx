@@ -122,7 +122,7 @@ export function ExplorePage() {
   );
 }
 
-function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: string; minAlt: number; onOpen: () => void }) {
+export function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: string; minAlt: number; onOpen: () => void }) {
   const { target: t, visibility: v, score } = rec;
   return (
     <li>
@@ -134,12 +134,13 @@ function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: string; min
         <span className="min-w-0">
           <span className="block truncate font-medium text-ink">{t.name}</span>
           <span className="block truncate text-xs text-muted">
-            {t.primary_designation} · {t.kind} · {t.constellation} · {formatSize(t.angular_major_arcmin, t.angular_minor_arcmin)}
+            {t.primary_designation.toLowerCase() !== t.name.toLowerCase() && `${t.primary_designation} · `}
+            {t.kind} · {t.constellation} · {formatSize(t.angular_major_arcmin, t.angular_minor_arcmin)}
           </span>
         </span>
         <span className="order-3 col-span-2 min-w-0 text-xs md:order-none md:col-span-1">
-          <span className={`badge ${STATUS_TONE[v.status]}`}>{v.status_text}</span>
-          <span className="ml-2 text-ink-2">
+          {v.status !== "observable" && <span className={`badge ${STATUS_TONE[v.status]}`}>{v.status_text}</span>}
+          <span className={v.status !== "observable" ? "ml-2 text-ink-2" : "text-ink-2"}>
             {v.best_window
               ? `${formatTime(v.best_window.start_utc, tz)}–${formatTime(v.best_window.end_utc, tz)}, peak ${formatDeg(v.max_alt_dark_deg)}`
               : v.status_detail}

@@ -59,7 +59,7 @@ export function NightReport({ report, folder }: { report: NightReportData; folde
       )}
 
       <div className="grid gap-4 min-[900px]:grid-cols-2">
-        <section aria-labelledby="frames-h" className="rounded-lg border border-line p-3.5">
+        <section aria-labelledby="frames-h" className="self-start rounded-lg border border-line p-3.5">
           <h3 id="frames-h" className="font-semibold text-ink">
             Frames through the night
           </h3>
@@ -92,7 +92,7 @@ export function NightReport({ report, folder }: { report: NightReportData; folde
           )}
         </section>
 
-        <section aria-labelledby="stands-h" className="rounded-lg border border-line p-3.5">
+        <section aria-labelledby="stands-h" className="self-start rounded-lg border border-line p-3.5">
           <h3 id="stands-h" className="font-semibold text-ink">
             What stands out
           </h3>

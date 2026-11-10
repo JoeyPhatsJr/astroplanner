@@ -34,7 +34,7 @@ export function VariableHunterPage() {
         <ul className="grid gap-3 md:grid-cols-2" aria-label="Variable stars">
           {q.data.stars.map((s) => (
             <li key={s.id} className="contents">
-              <Link to={`/variables/${s.slug}`} className="panel flex flex-col gap-2 p-4 hover:border-ice/40">
+              <Link to={`/variables/${s.slug}`} className="panel press flex flex-col gap-2 p-4 hover:border-ice/40">
                 <span className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-semibold tracking-tight text-xl text-ink">{s.name}</span>
                   <span className="badge">{s.type_label}</span>
@@ -43,7 +43,7 @@ export function VariableHunterPage() {
                   {s.constellation} · {vsxRange(s.vsx)}
                 </span>
                 <TonightWindow slug={s.slug} plain />
-                <span className="text-sm text-ink-2">Your nights: {s.nights_count}</span>
+                {s.nights_count > 0 && <span className="text-sm text-ink-2">Your nights: {s.nights_count}</span>}
               </Link>
             </li>
           ))}

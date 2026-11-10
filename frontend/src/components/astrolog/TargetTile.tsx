@@ -24,7 +24,7 @@ export function TargetTile({ row }: { row: LibraryRow }) {
   return (
     <Link
       to={`/astrolog/targets/${row.id}`}
-      className="panel group flex flex-col overflow-hidden hover:border-ice/40"
+      className="panel press group flex flex-col overflow-hidden hover:border-ice/40"
     >
       <div className="flex aspect-[4/3] items-center justify-center overflow-hidden border-b border-line bg-ink/5 text-sm text-muted">
         {row.thumb_url ? (
