@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronLeft, ChevronRight, ChevronDown, Eye, MapPin, Telescope, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, Eye, MapPin, Telescope, X } from "lucide-react";
 import { useState } from "react";
 import { usePhone } from "../../lib/usePhone";
 import { Link } from "react-router-dom";
@@ -6,6 +6,8 @@ import { useCurrentEquipment, useCurrentLocation, useEquipmentList, useLocations
 import { addDays, defaultNightDate, nightLabel, NIGHT_ROLLOVER_HOUR } from "../../lib/time";
 import { usePrefs } from "../../state/prefs";
 import { Overlay, SheetTop } from "../ui/Overlay";
+import { Select } from "../ui/Select";
+import { NightPicker } from "../ui/NightPicker";
 
 export function HeaderControls() {
   const { prefs, update } = usePrefs();
@@ -111,7 +113,7 @@ function Controls({ stacked = false }: { stacked?: boolean }) {
 
   const labelClass = stacked ? "label" : "sr-only";
   const fieldWrap = stacked ? "flex min-w-0 flex-col" : "flex min-w-0 items-center gap-1.5";
-  const fieldClass = stacked ? "field w-full py-2.5" : "field py-1.5";
+  const fieldClass = stacked ? "py-2.5" : "py-1.5";
 
   return (
     <>
@@ -120,20 +122,15 @@ function Controls({ stacked = false }: { stacked?: boolean }) {
         <label htmlFor="hdr-location" className={labelClass}>
           Observing location
         </label>
-        <select
+        <Select
           id="hdr-location"
           className={`${fieldClass} ${stacked ? "" : "max-w-[14rem]"}`}
           value={location?.id ?? ""}
+          options={(locations.data ?? []).map((l) => ({ value: l.id, label: l.label }))}
+          placeholder={locations.isLoading ? "Loading…" : "No locations"}
           disabled={!locations.data?.length}
-          onChange={(e) => update({ locationId: e.target.value, nightDate: null })}
-        >
-          {!locations.data?.length && <option value="">{locations.isLoading ? "Loading…" : "No locations"}</option>}
-          {locations.data?.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.label}
-            </option>
-          ))}
-        </select>
+          onChange={(id) => update({ locationId: id, nightDate: null })}
+        />
       </div>
 
       <div className={fieldWrap}>
@@ -141,19 +138,14 @@ function Controls({ stacked = false }: { stacked?: boolean }) {
         <label htmlFor="hdr-equipment" className={labelClass}>
           Equipment profile
         </label>
-        <select
+        <Select
           id="hdr-equipment"
           className={`${fieldClass} ${stacked ? "" : "max-w-[13rem]"}`}
           value={eq?.id ?? ""}
+          options={(equipment.data ?? []).map((x) => ({ value: x.id, label: x.name }))}
           disabled={!equipment.data?.length}
-          onChange={(e) => update({ equipmentId: e.target.value })}
-        >
-          {equipment.data?.map((x) => (
-            <option key={x.id} value={x.id}>
-              {x.name}
-            </option>
-          ))}
-        </select>
+          onChange={(id) => update({ equipmentId: id })}
+        />
       </div>
 
       {nightDate && location && (
@@ -167,24 +159,20 @@ function Controls({ stacked = false }: { stacked?: boolean }) {
             <button type="button" className="btn btn-ghost btn-icon" aria-label="Previous night" onClick={() => setNight(addDays(nightDate, -1))}>
               <ChevronLeft className="size-4" aria-hidden />
             </button>
-            <label htmlFor="hdr-night" className="flex items-center gap-2">
-              {!stacked && (
-                <>
-                  <CalendarDays className="hidden size-4 text-muted lg:block" aria-hidden />
-                  <span className="hidden text-sm text-ink-2 lg:inline" title={`Times shown in ${location.timezone}`}>
-                    {nightLabel(nightDate)}
-                  </span>
-                </>
-              )}
-              <span className="sr-only">Night date (evening of)</span>
-            </label>
-            <input
+            {!stacked && (
+              <span className="hidden items-center gap-2 lg:flex">
+                <span className="text-sm text-ink-2" title={`Times shown in ${location.timezone}`}>
+                  {nightLabel(nightDate)}
+                </span>
+              </span>
+            )}
+            <NightPicker
               id="hdr-night"
-              type="date"
-              className={`field py-1.5 ${stacked ? "min-w-0 flex-1 py-2.5" : "w-[9.5rem]"}`}
+              ariaLabel="Night date (evening of)"
+              describedBy="hdr-night-help"
+              className={stacked ? "min-w-0 flex-1 py-2.5" : "w-[10.5rem] py-1.5"}
               value={nightDate}
-              onChange={(e) => e.target.value && setNight(e.target.value)}
-              aria-describedby="hdr-night-help"
+              onChange={setNight}
             />
             <button type="button" className="btn btn-ghost btn-icon" aria-label="Next night" onClick={() => setNight(addDays(nightDate, 1))}>
               <ChevronRight className="size-4" aria-hidden />

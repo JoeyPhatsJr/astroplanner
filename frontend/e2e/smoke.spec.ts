@@ -143,6 +143,54 @@ test("Night vision turns the palette red and survives a reload", async ({ page }
   await expect(html).toHaveAttribute("data-vision", "normal");
 });
 
+test("Night vision: the location and date popups show only red", async ({ page }, info) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Night vision" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-vision", "night");
+  if (info.project.name === "mobile") {
+    await page.getByRole("button", { name: /·/ }).filter({ has: page.locator("span.truncate") }).click();
+  }
+
+  // Every visible element in the popup: no green or blue channel above red, in text, background or border.
+  const offenders = () =>
+    page.evaluate(() => {
+      const bad: string[] = [];
+      const check = (c: string) => {
+        const m = c.match(/[\d.]+/g)?.map(Number);
+        if (!m || m.length < 3) return false;
+        const [r, g, b, a = 1] = m;
+        return a > 0 && (g > r || b > r);
+      };
+      for (const root of document.querySelectorAll(".pop")) {
+        for (const el of [root, ...root.querySelectorAll("*")]) {
+          const box = el.getBoundingClientRect();
+          if (!box.width || !box.height) continue;
+          const cs = getComputedStyle(el);
+          const name = `${el.tagName}.${el.getAttribute("class") ?? ""}`;
+          if (check(cs.color)) bad.push(`${name} color ${cs.color}`);
+          if (check(cs.backgroundColor)) bad.push(`${name} background ${cs.backgroundColor}`);
+          if (parseFloat(cs.borderTopWidth) > 0 && check(cs.borderTopColor)) bad.push(`${name} border ${cs.borderTopColor}`);
+        }
+      }
+      return bad;
+    });
+
+  await page.getByLabel("Observing location").click();
+  const popup = page.locator(".pop").first();
+  await expect(popup).toBeVisible();
+  await expect(popup.getByRole("option").first()).toBeVisible();
+  expect(await offenders()).toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+
+  await page.getByLabel("Night date (evening of)").click();
+  await expect(page.getByRole("grid")).toBeVisible();
+  expect(await offenders()).toEqual([]);
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("grid")).toHaveCount(0);
+});
+
 test("Variable Hunter route has no fake controls", async ({ page }) => {
   await page.goto("/research");
   await expect(page.getByRole("heading", { name: "Variable Hunter" })).toBeVisible();
