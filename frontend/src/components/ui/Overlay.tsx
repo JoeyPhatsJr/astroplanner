@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode, type Ref } from "react";
+import { usePhone } from "../../lib/usePhone";
 import { useSheetDrag } from "./useSheetDrag";
 
 /** Safety net if no transitionend arrives (reduced motion, display:none, background tab). */
@@ -115,6 +116,8 @@ export function Overlay({ open, onClosed, onDismiss, onReopen, variant, labelled
     onDismiss?.();
   };
 
+  // The drag exists only where the drawer is a bottom sheet; on wider screens it is a plain side drawer.
+  const phone = usePhone();
   const scrimEl = useRef<HTMLDivElement>(null);
   const drag = useSheetDrag(panelEl, scrimEl, dismiss, {
     // Holding a closing sheet stops it finishing underneath the finger.
@@ -156,7 +159,7 @@ export function Overlay({ open, onClosed, onDismiss, onReopen, variant, labelled
           else if (panelRef) (panelRef as { current: HTMLDivElement | null }).current = el;
         }}
       >
-        <SheetDragContext.Provider value={variant === "drawer" ? drag : null}>{children}</SheetDragContext.Provider>
+        <SheetDragContext.Provider value={variant === "drawer" && phone ? drag : null}>{children}</SheetDragContext.Provider>
       </div>
     </dialog>
   );

@@ -18,6 +18,7 @@ import { PageHeader } from "./ui/PageHeader";
 import { BasisBadge } from "./ui/States";
 import { HeaderControls } from "./layout/HeaderControls";
 import { useSheetDrag } from "./ui/useSheetDrag";
+import { Overlay, SheetTop } from "./ui/Overlay";
 import { PrefsProvider } from "../state/prefs";
 
 const base: Omit<TonightScore, "status" | "total" | "components"> = {
@@ -393,6 +394,45 @@ describe("HeaderControls on a phone", () => {
     const { container } = renderHeader();
     expect(container.querySelector("dialog")).toBeNull();
     expect(screen.getByLabelText("Observing location")).toBeInTheDocument();
+  });
+});
+
+describe("SheetTop drag is phone-only", () => {
+  const drawer = () =>
+    render(
+      <Overlay open onClosed={() => {}} variant="drawer" labelledBy="st-title">
+        <SheetTop>
+          <h2 id="st-title">Details</h2>
+        </SheetTop>
+      </Overlay>,
+    );
+  const dragTitle = () => {
+    const title = screen.getByText("Details");
+    fireEvent.pointerDown(title, { clientY: 10, pointerId: 1 });
+    fireEvent.pointerMove(title, { clientY: 400, pointerId: 1 });
+    return title;
+  };
+
+  it("at desktop width a pointer drag on the title row does not move the panel", () => {
+    const { container } = drawer();
+    const panel = container.querySelector<HTMLElement>(".overlay-panel")!;
+    const title = dragTitle();
+    fireEvent.pointerUp(title, { clientY: 400, pointerId: 1 });
+    expect(panel.style.transform).toBe("");
+    expect(panel.style.transition).toBe("");
+  });
+
+  it("at phone width the same drag moves the panel", () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((q: string) => ({ matches: q.includes("max-width"), addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia;
+    try {
+      const { container } = drawer();
+      const panel = container.querySelector<HTMLElement>(".overlay-panel")!;
+      dragTitle();
+      expect(panel.style.transform).toBe("translate3d(0, 390px, 0)");
+    } finally {
+      window.matchMedia = original;
+    }
   });
 });
 

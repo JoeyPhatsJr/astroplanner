@@ -1,27 +1,11 @@
 import { CalendarDays, ChevronLeft, ChevronRight, ChevronDown, Eye, MapPin, Telescope, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { usePhone } from "../../lib/usePhone";
 import { Link } from "react-router-dom";
 import { useCurrentEquipment, useCurrentLocation, useEquipmentList, useLocations, useNightDate } from "../../api/hooks";
 import { addDays, defaultNightDate, nightLabel, NIGHT_ROLLOVER_HOUR } from "../../lib/time";
 import { usePrefs } from "../../state/prefs";
 import { Overlay, SheetTop } from "../ui/Overlay";
-
-/** Matches the stylesheet's phone breakpoint, where the drawer becomes a bottom sheet. */
-const PHONE_QUERY = "(max-width: 639.98px)";
-
-function usePhone(): boolean {
-  const read = () => typeof window.matchMedia === "function" && window.matchMedia(PHONE_QUERY).matches;
-  const [phone, setPhone] = useState(read);
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia(PHONE_QUERY);
-    const on = () => setPhone(mq.matches);
-    on();
-    mq.addEventListener?.("change", on);
-    return () => mq.removeEventListener?.("change", on);
-  }, []);
-  return phone;
-}
 
 export function HeaderControls() {
   const { prefs, update } = usePrefs();
