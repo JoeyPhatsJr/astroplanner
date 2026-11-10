@@ -1,8 +1,5 @@
-import { Cloud, CloudRain, Moon, Sparkles } from "lucide-react";
-import type { ReactNode } from "react";
 import type { ForecastPayload, NightSummary } from "../../api/types";
 import { formatAge, formatDateTime, formatDuration, formatTime, tzAbbrev } from "../../lib/time";
-import { BasisBadge } from "../ui/States";
 
 function darkHourly(forecast: ForecastPayload, night: NightSummary) {
   const spans = night.dark_intervals.map((d) => [new Date(d.start_utc).getTime(), new Date(d.end_utc).getTime()] as const);
@@ -15,90 +12,60 @@ function stats(vals: (number | null)[]) {
   return { mean: v.reduce((a, b) => a + b, 0) / v.length, min: Math.min(...v), max: Math.max(...v), n: v.length, missing: vals.length - v.length };
 }
 
-function Tile({ icon, title, basis, children }: { icon: ReactNode; title: string; basis: "forecast" | "calculated"; children: ReactNode }) {
+function Fact({ label, value, note }: { label: string; value: string; note: string }) {
   return (
-    <div className="panel flex flex-col gap-2 p-4">
-      <div className="flex items-center gap-2 text-ink-2">
-        <span className="text-ice">{icon}</span>
-        <h3 className="min-w-0 text-sm font-semibold">{title}</h3>
-        <span className="ml-auto shrink-0">
-          <BasisBadge basis={basis} />
-        </span>
-      </div>
-      {children}
+    <div className="min-w-0">
+      <dt className="text-label text-muted">{label}</dt>
+      <dd className="text-lg font-semibold tabular-nums text-ink">
+        {value}
+        <small className="block text-label font-normal text-muted">{note}</small>
+      </dd>
     </div>
   );
 }
 
-export function ConditionTiles({ night, forecast }: { night: NightSummary; forecast: ForecastPayload }) {
+/** Four plain numbers under the strip: cloud, rain, Moon, darkness. Absent forecast reads "No data", never zero. */
+export function FactsRow({ night, forecast }: { night: NightSummary; forecast: ForecastPayload }) {
   const tz = night.timezone;
   const rows = forecast.status === "ok" ? (night.has_darkness ? darkHourly(forecast, night) : forecast.hourly) : [];
   const cloud = stats(rows.map((r) => r.cloud_cover));
   const rain = stats(rows.map((r) => r.precipitation_probability));
-  const scope = night.has_darkness ? "during darkness" : "overnight";
-  const noForecast = <p className="text-sm text-muted">No forecast for this night.</p>;
-  const ev = night.events;
-  const moonEvents = night.moon.events.filter((e) => {
-    const t = new Date(e.time_utc).getTime();
-    return t >= new Date(night.display_start_utc).getTime() && t <= new Date(night.display_end_utc).getTime();
-  });
-
+  const noData = "beyond forecast range";
+  const first = night.dark_intervals[0];
+  const last = night.dark_intervals[night.dark_intervals.length - 1];
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
-      <Tile icon={<Cloud className="size-4" aria-hidden />} title="Clouds" basis="forecast">
-        {cloud ? (
-          <>
-            <p className="font-semibold tracking-tight text-3xl text-ink">{Math.round(cloud.mean)}%</p>
-            <p className="text-xs text-muted">
-              Mean {scope} · range {cloud.min}–{cloud.max}%{cloud.missing ? ` · ${cloud.missing} h missing` : ""}
-            </p>
-          </>
-        ) : (
-          noForecast
-        )}
-      </Tile>
-      <Tile icon={<CloudRain className="size-4" aria-hidden />} title="Rain risk" basis="forecast">
-        {rain ? (
-          <>
-            <p className="font-semibold tracking-tight text-3xl text-ink">{Math.round(rain.max)}%</p>
-            <p className="text-xs text-muted">
-              Highest hourly precipitation probability {scope}
-              {rain.missing ? ` · ${rain.missing} h missing` : ""}
-            </p>
-          </>
-        ) : (
-          noForecast
-        )}
-      </Tile>
-      <Tile icon={<Moon className="size-4" aria-hidden />} title="Moon" basis="calculated">
-        <p className="font-semibold tracking-tight text-3xl text-ink">{Math.round(night.moon.illumination * 100)}%</p>
-        <p className="text-xs text-muted">
-          {night.moon.phase_name} · up {Math.round(night.moon.up_fraction_of_dark * 100)}% of {night.has_darkness ? "darkness" : "the night"}
-        </p>
-        {moonEvents.length > 0 && (
-          <p className="text-xs text-ink-2">
-            {moonEvents.map((e) => `${e.event === "moonrise" ? "Rises" : "Sets"} ${formatTime(e.time_utc, tz)}`).join(" · ")}
-          </p>
-        )}
-      </Tile>
-      <Tile icon={<Sparkles className="size-4" aria-hidden />} title={night.darkness === "nautical" ? "Nautical darkness" : "Astronomical darkness"} basis="calculated">
-        {night.has_darkness ? (
-          <>
-            <p className="font-semibold tracking-tight text-3xl text-ink">{formatDuration(night.dark_minutes)}</p>
-            <p className="text-xs text-muted">
-              {night.dark_intervals.map((d) => `${formatTime(d.start_utc, tz)}–${formatTime(d.end_utc, tz)}`).join(", ")} {tzAbbrev(night.dark_intervals[0].start_utc, tz)}
-            </p>
-          </>
-        ) : (
-          <p className="text-sm text-ink-2">None tonight. Sun stays above {night.darkness_threshold_deg}° (lowest {night.sun_min_alt_deg.toFixed(1)}°).</p>
-        )}
-        {ev.sunset_utc && ev.sunrise_utc && (
-          <p className="text-xs text-ink-2">
-            Sunset {formatTime(ev.sunset_utc, tz)} · Sunrise {formatTime(ev.sunrise_utc, tz)}
-          </p>
-        )}
-      </Tile>
-    </div>
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line-soft pt-4 md:grid-cols-4">
+      <Fact
+        label="Cloud, average"
+        value={cloud ? `${Math.round(cloud.mean)} %` : "No data"}
+        note={cloud ? `range ${cloud.min}–${cloud.max} %${cloud.missing ? `, ${cloud.missing} h missing` : ""}` : noData}
+      />
+      <Fact
+        label="Rain chance, peak"
+        value={rain ? `${Math.round(rain.max)} %` : "No data"}
+        note={rain ? `forecast${rain.missing ? `, ${rain.missing} h missing` : ""}` : noData}
+      />
+      <Fact
+        label="Moon"
+        value={`${Math.round(night.moon.illumination * 100)} %`}
+        note={
+          night.moon.up_fraction_of_dark <= 0
+            ? `down all ${night.has_darkness ? "darkness" : "night"}`
+            : night.moon.up_fraction_of_dark >= 1
+              ? `up all ${night.has_darkness ? "darkness" : "night"}`
+              : `up ${Math.round(night.moon.up_fraction_of_dark * 100)} % of ${night.has_darkness ? "darkness" : "the night"}`
+        }
+      />
+      <Fact
+        label={night.darkness === "nautical" ? "Nautical darkness" : "Darkness"}
+        value={night.has_darkness ? formatDuration(night.dark_minutes) : "None"}
+        note={
+          night.has_darkness
+            ? `${formatTime(first.start_utc, tz)}–${formatTime(last.end_utc, tz)} ${tzAbbrev(first.start_utc, tz)}`
+            : `Sun stays above ${night.darkness_threshold_deg}°`
+        }
+      />
+    </dl>
   );
 }
 

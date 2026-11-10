@@ -1,17 +1,86 @@
 # PROGRESS
 
-_Last updated: 2026-11-05 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
+_Last updated: 2026-11-10 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
-## Current phase: Phase 4, Processing Coach: merged and tagged
+## Current work: polish pass
+
+Design approved 2026-11-09. Spec: `docs/superpowers/specs/2026-11-09-polish-pass-design.md`; prototype: `docs/superpowers/mockups/2026-11-09-polish/tonight.html`.
+Built on branch `worktree-polish-pass` in `.claude/worktrees/polish-pass`, so the main checkout stays free for other work.
+Baseline before any change (2026-11-09, in the worktree): `pytest -q` 416 passed, 12 skipped; `npm run typecheck` ok; `npm test` 129 passed.
+
+Task 12 (remaining screens): two Phase 3 tests in `frontend/src/components/variables/variables.test.tsx` changed on purpose. The Star page test no longer expects "Planned for a later phase" (the panel was removed), and the Seestar-note test finds the "Seestar fit · …" label by text because it is now a summary-panel term, not a heading.
+
+### Polish pass: status (2026-11-10)
+
+| Milestone | Status | Evidence |
+|---|---|---|
+| Foundations: tokens, easing, press states, page widths | done | `index.css`, `index.css.test.ts` |
+| `night_clear` (whole-night clear window, API field) | done | `scoring.py::night_clear`, backend tests |
+| Night strip, score panel, target card (Tonight redesign) | done | `components/tonight/`, `components/targets/TargetCard.tsx` |
+| Sky images (STScI DSS, server cache, switchable) | done | `backend/app/sky_images.py`, `SkyThumb.tsx` |
+| Overlays, phone bottom sheet and drag | done | `ui/Overlay.tsx`, `ui/useSheetDrag.ts`, `lib/sheetDrag.ts` |
+| Night vision (red-only filter, themed controls, popups) | done | `index.css`, `ui/Select.tsx`, `ui/NightPicker.tsx` |
+| Remaining screens carried through | done | Task 12 |
+| Task 13 validation: suites, break-ui, animation-performance, improve-animations audit, browser check, screenshots | done | below |
+| Real-phone test, dark-room test, developer review, merge and `polish-1` tag | **pending (developer)** | not attempted |
+
+**Suites on 2026-11-10** (worktree, all run on this commit): `cd backend && .venv/bin/python -m pytest -q` 446 passed, 12 skipped (baseline 416 passed, 12 skipped);
+`cd frontend && npm run typecheck` ok; `npm test` 215 passed in 20 files (baseline 129); `npm run build` ok; `npx playwright test` 27 passed, 1 skipped (desktop and mobile projects).
+
+**Task 13 findings and fixes**
+- `break-ui` on Tonight cards and Library tiles, with worst-case data injected at the network boundary (not committed): an unbroken 60-character target name widened the whole Tonight page to 695 px at 390 px. Fixed with `overflow-wrap: anywhere` on the card title, a non-shrinking score chip, and `title` text on the truncated subtitle line and Library tile name. Library tiles, a long caution line and a 320 px viewport held up without further change.
+- Browser check found one night-vision leak: the native checkbox tick ("Observable only") is drawn white by the browser. Checkboxes and radios are now drawn from the palette (`index.css`, test in `index.css.test.ts`). After the fix, every night-vision screenshot (Tonight, drawer, sheet, Explore, Variable Hunter, Star page, Settings, at 1440 and 390 px) has zero pixels whose green or blue exceeds 45 % of red (+4).
+- `animation-performance` on the phone sheet and scrim: no frame-budget problem found. Drag writes `transform` and `opacity` straight to styles, no React state, no CSS variable, no layout reads while tracking; the scrim is opacity-only with no backdrop filter. Nothing changed. Still needs a real-device recording.
+- `improve-animations` audit (read-only): five LOW findings (cohesion nits and one pre-existing shimmer that animates `background-position`), nothing feel-breaking. Output kept in the sdd folder, not in the repository.
+- The `review-animations` pass is assigned to the final whole-branch reviewer.
+
+**Final-review fix wave (2026-11-10)**
+- Night headline no longer claims cloud it cannot know: no darkness has its own title; a forecast with no usable values in darkness reads "No forecast yet"; a partial forecast says how much darkness has no forecast (no "through all"); a clear run that ends where the forecast stops reads "Forecast clear until about HH:MM; no forecast after". A Moon-only window is no longer marked best on the night strip.
+- Score panel names the real window length ("for the best 1 h 15 min").
+- Overlays close only on a click whose target is the scrim itself. On a phone, a tap outside an open select in the header sheet used to close the whole sheet (the select's full-screen backdrop takes the pointerdown, then the click lands on the dialog); an e2e step on the mobile project covers it, and a text selection dragged out of the panel no longer closes it either.
+- Library tiles and the target-log final picture go through the night-vision red filter.
+- The night-vision popup e2e uses the screenshot rule (green or blue above 0.45 × red + 4) with colours normalised through a canvas; a self-test pins white, grey and `color(srgb 1 1 1)` as failures. In normal mode the same scan reports 15 non-red colours, so it is reading real styles.
+- Sky images: the route waits at most 1 s for the fetch lock, then answers 503 with `Retry-After: 5`. The client loads at most two at a time through a shared queue (`lib/skyImageQueue.ts`), retries a busy 503 once after its Retry-After, starts each one only as its card nears the viewport, and keeps the framing diagram meanwhile. With images off, targets carry `sky_field_arcmin: null`, the page requests no images and hides the DSS credit; the e2e console filters for `/sky-image` are removed.
+- Small items: drawer scrim on `--ease-drawer`; "Why this score" summary is `w-fit`; night-vision scrollbars use the palette; native date icons use `url(#vision-red)`; the chosen night is `aria-selected` only; `.btn`/`.press` colour transitions use `--dur-press` and `--ease-out`; stale `theme.ts` comment.
+
+**Live sky-image check (2026-11-10, scratch servers on ports 8210/5190, scratch database and `ASTROPLANNER_SKY_CACHE_DIR` in the session scratchpad, nothing committed).** Request: `https://archive.stsci.edu/cgi-bin/dss_search?v=poss2ukstu_red&r=<ra>&d=<dec>&e=J2000&h=<field>&w=<field>&f=gif`. One connectivity probe (a 1′ field, M42) went straight to STScI by curl first.
+
+| Target | r, d (deg) | Field | Cold fetch through the app | Output | Edge trimming |
+|---|---|---|---|---|---|
+| M31 (first Tonight card) | 10.684792, 41.269056 | 120′ | 17.5 s | 23.9 kB JPEG | **did not behave**: a white plate-edge band about 10 px wide stays near the right edge, because a 1-px black column sits outside it and the outside-in scan stops at the first non-white column |
+| NGC 7789 | 359.350250, 56.708278 | 40′ | 2.3 s | 75.0 kB | nothing to trim (brightest edge row or column mean 31) |
+| NGC 7000 | 314.821417, 44.528778 | 120′ | 19.0 s | 40.4 kB | nothing to trim (brightest edge mean 95) |
+
+- On Tonight, NGC 7789 was asked for while M31 was fetching: both tries (the first and the one retry 5 s later) got the busy 503 in about 1.02 s, so its card kept the framing diagram on that visit. Other API calls (target details and visibility) answered normally throughout; a cached image is served in about 23 ms.
+- Backend memory: about 134 MB resting, 566 MB peak sampled every 0.5 s during the Tonight run, and 645 MB maximum resident set size over the whole run (from `/usr/bin/time -l`, all three fetches included). The 120′ plates are decoded at full size before reduction.
+
+**Suites after the fix wave (2026-11-10, worktree):** `cd backend && .venv/bin/python -m pytest -q` 453 passed, 12 skipped; `cd frontend && npm run typecheck` ok; `npm test` 244 passed in 21 files; `npm run build` ok; `npx playwright test` 28 passed, 2 skipped (both projects; the skips are the two phone-only tests on desktop). On the first full Playwright run, "Themed select works from the keyboard" (desktop) failed once on its final text check. It passed alone, 8 of 8 with `--repeat-each=8`, and in a second full run, so it is recorded as a timing flake, not fixed.
+
+**Exact next step:** developer reviews the fix wave and decides on the two sky-image findings above (the M31 white band left by edge trimming, and a cold Tonight showing only one or two pictures per visit because a busy fetch is retried only once). Then the developer tests on a real phone and in a dark room (sheet drag, card press, night vision, native select popups), reviews the branch, and says whether to merge and tag `polish-1`. Then Phase 5 Design.
+
+Audit finding about the night-vision image filter (yellow-green bright areas in the prototype) is closed: pictures now go through a red-channel-only SVG filter (`#vision-red`); it is covered by tests, but it has not been looked at on a real sky image in a dark room.
+
+### Polish pass: known limitations
+
+- Ten native `<select>` elements remain (Settings timezone, field-of-view definition, minimum altitude and darkness; AstroLog stack and final-picture pickers; target log variable star; import location and per-group controls). The browser draws their open list, which cannot be themed, so in night vision that list may be bright. The Tonight header, filters and date picker use the themed controls.
+- Base UI (`@base-ui/react`) added for themed selects and popups: main bundle 289.15 kB to 435.22 kB (gzip 89.99 to 139.02) in Task 11. Accepted for now; no code splitting of it yet.
+- Browser-only checks still owed: real-phone touch behaviour of the bottom sheet (drag, flick, catching a closing sheet, iOS Safari address bar and safe areas), press-scale feel on cards, and any frame-rate measurement. These were checked in desktop Chromium with an emulated 390 px viewport only.
+- Real-phone and dark-room tests are pending; nothing here claims them.
+- Survey pictures need the network on first view per target (STScI DSS, cached on disk afterwards); with `ASTROPLANNER_SKY_IMAGES=off` targets carry no field width, no image is requested and the framing diagram is shown instead.
+- On a cold cache the server fetches one survey image at a time (a 120′ field took 17 to 19 s live), and a card whose request finds it busy retries only once, so the first visit to Tonight shows few pictures; later visits fill in from the cache. A white plate-edge band can survive edge trimming when a thin black column lies outside it (seen on M31 at 120′).
+- Feel checks owed on a phone (card press while scrolling, flick threshold), dark-room contrast, the remaining native selects and the bundle size are left for later, as above.
+- Documentation screenshots of AstroLog (library, target) and Processing Coach were not re-shot: they need the developer's own or synthetic imported data, and carry the previous look.
+
+## Previous phase: Phase 4, Processing Coach: merged and tagged
 
 Merged to `main` on 2026-11-04 (PR #3, merge commit `20bb73d`) and tagged `phase-4`. Spec:
 `docs/superpowers/specs/2026-11-03-processing-coach-design.md`; plan: `docs/superpowers/plans/2026-11-03-processing-coach.md`;
 methods and sources: `docs/PROCESSING.md`. Phase 3 was merged on 2026-11-03 (PR #2) and tagged `phase-3`.
 
-## Exact next step
+## Phase 4 open items
 
 1. Supply the Seestar's own stacked FITS for the Bubble Nebula night (`Stacked_1015_NGC 7635_…fit`, on the Seestar): it closes gate G2 (the measured Seestar-vs-Siril comparison is validated on synthetic data only). The Seestar JPEG supplied on 2026-11-04 is a Lightroom iOS edit, so it serves "Final pictures" only.
-2. Start Phase 5 Design (scientific image analysis: FITS photometry, user-generated light curves; see `ROADMAP.md`), beginning from a real S30 night as with earlier phases.
+2. After the polish pass, start Phase 5 Design (scientific image analysis: FITS photometry, user-generated light curves; see `ROADMAP.md`), beginning from a real S30 night as with earlier phases.
 
 Housekeeping (2026-11-04): `process-coach/` (39 GB, coach-generated) and the coach's temp test files were deleted at the developer's request; the merged branches `phase-2-astrolog`, `phase-3-variable-hunter` and `phase-4-processing-coach` still exist locally and on GitHub (deleting them needs the developer's own command). `aavso-live-layer` is unmerged and kept on purpose.
 

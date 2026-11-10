@@ -22,7 +22,8 @@ It is tuned first for the **ZWO Seestar S30** (original, not the S30 Pro).
 - **Settings:** city search or manual coordinates with timezone detection (opt-in browser
   geolocation), the read-only **verified S30 preset** plus custom equipment, and observing
   preferences (minimum altitude, astronomical vs nautical darkness).
-- **Night vision:** one toggle turns the whole app dim red to protect dark-adapted eyes at the telescope.
+- **Night vision:** one toggle turns the whole app dim red to protect dark-adapted eyes at the telescope: text, charts, pictures, popups and checkboxes. Ten native selects (Settings, AstroLog) still open a browser-drawn list that cannot be themed.
+- **Phone:** target details open as a bottom sheet you can drag down to close; Tonight leads with the score tied to what it covers and a one-line statement about the whole night.
 
 ![Night-vision mode](docs/screenshots/tonight-night-vision.png)
 
@@ -140,15 +141,17 @@ Optional environment variables:
 | `DATABASE_URL` | unset → SQLite at `backend/data/astroplanner.db` | Postgres (e.g. Supabase) connection string |
 | `ASTROPLANNER_DB` | `backend/data/astroplanner.db` | SQLite path when `DATABASE_URL` is unset |
 | `ASTROPLANNER_PREVIEWS_DIR` | `backend/data/previews` | Where final-picture previews and thumbnails are stored |
+| `ASTROPLANNER_SKY_IMAGES` | on | `off` stops all survey-picture downloads; target cards then show the framing diagram only |
+| `ASTROPLANNER_SKY_CACHE_DIR` | `backend/data/sky-images` | Where survey pictures are cached (ignored by version control, never committed) |
 | `ASTROPLANNER_CORS` | `http://localhost:5173,http://127.0.0.1:5173` | Allowed browser origins |
 
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q        # 379 passed, 12 skipped (astronomy references, scoring, weather, API, AstroLog, Variable Hunter, Processing Coach, migrations)
-cd frontend && npm run typecheck && npm test       # 121 tests: time formatting, header slicing, import merge, Variable Hunter, Processing Coach, components
+cd backend && .venv/bin/python -m pytest -q        # 446 passed, 12 skipped (astronomy references, scoring, weather, API, AstroLog, Variable Hunter, Processing Coach, migrations)
+cd frontend && npm run typecheck && npm test       # 215 tests: time formatting, header slicing, import merge, Variable Hunter, Processing Coach, components
 cd frontend && npm run build
-cd frontend && npx playwright install chromium && npm run test:e2e   # 18 end-to-end tests (Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach), desktop + mobile
+cd frontend && npx playwright install chromium && npm run test:e2e   # 28 end-to-end tests (27 run, 1 skipped), desktop + mobile (Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach)
 ```
 
 The end-to-end suite starts its own backend (fresh SQLite file and preview folder under
@@ -188,6 +191,8 @@ scripts/   setup.sh · dev.sh
 - **AAVSO VSX** (catalog facts for four stars; personal, non-commercial use): see Variable Hunter above for the
   terms and attribution; facts are listed in
   [backend/app/data/ATTRIBUTION.md](backend/app/data/ATTRIBUTION.md).
+- **Digitized Sky Survey** (STScI/DSS, POSS2/UKSTU red) pictures on target cards: fetched once per target, one at a time with back-off,
+  cached locally and never committed or redistributed. Credit: STScI/DSS. Turn off with `ASTROPLANNER_SKY_IMAGES=off`.
 - **Astropy** (BSD-3-Clause), **timezonefinder** (MIT), **photutils** (BSD-3-Clause; star size in stack measurements).
 - **Siril** (GPL-3.0) is run by the user, never bundled; the coach writes scripts and reads Siril's own text output, and copies no
   Siril code or documentation text. Sources: [docs/PROCESSING.md](docs/PROCESSING.md).

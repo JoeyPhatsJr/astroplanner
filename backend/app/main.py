@@ -20,6 +20,7 @@ from .astrolog.storage import LocalStorage, Storage
 from .processing.routes import router as processing_router
 from .variables.routes import router as variables_router
 from .db import Database
+from .sky_images import SkyImageProvider
 from .weather import OpenMeteoProvider
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
@@ -30,7 +31,8 @@ MAX_UPLOAD_BYTES = 150 * 1024 * 1024
 
 
 def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = None,
-               storage: Storage | None = None, max_upload_bytes: int = MAX_UPLOAD_BYTES) -> FastAPI:
+               storage: Storage | None = None, max_upload_bytes: int = MAX_UPLOAD_BYTES,
+               sky_images: SkyImageProvider | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.db.init()
@@ -40,6 +42,7 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     app.state.db = db or Database()
     app.state.weather = weather or OpenMeteoProvider()
     app.state.storage = storage or LocalStorage(Path(os.environ.get("ASTROPLANNER_PREVIEWS_DIR") or DEFAULT_PREVIEWS_DIR))
+    app.state.sky_images = sky_images or SkyImageProvider.from_env()
     app.state.max_upload_bytes = max_upload_bytes
 
     origins = [o.strip() for o in os.environ.get("ASTROPLANNER_CORS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]

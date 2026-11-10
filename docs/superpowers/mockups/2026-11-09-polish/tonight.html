@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tonight prototype v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet">
+<style>
+:root{--ease-out:cubic-bezier(.23,1,.32,1);--ease-drawer:cubic-bezier(.32,.72,0,1)}
+*{box-sizing:border-box}
+html{-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#16181d;color:#e7eaf0;font:15px/1.5 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1,"cv11" 1}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.2s}
+button,[role=button]{touch-action:manipulation;user-select:none;-webkit-user-select:none}
+
+.bar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center;padding:10px 18px;background:#1f2229;border-bottom:1px solid #30343d;font-size:13px}
+.bar strong{font-weight:600}
+.seg{display:inline-flex;align-items:center;gap:8px}
+.seg>span{color:#9aa3b2}
+.seg div{display:inline-flex;background:#14161b;border:1px solid #30343d;border-radius:8px;padding:2px}
+.seg button{all:unset;cursor:pointer;padding:4px 10px;border-radius:6px;color:#b8c0cc;font-weight:500}
+.seg button[aria-pressed=true]{background:#3a4150;color:#fff}
+.seg button:focus-visible{outline:2px solid #5aa9ff}
+.notice{padding:8px 18px;font-size:12.5px;color:#9aa3b2;margin:0}
+.stage{display:flex;justify-content:center;padding:0 18px 40px}
+
+.frame{--night:#02030a;--deep:#05070d;--panel:rgb(10 13 19/.92);--panel2:#121722;--line:#232a37;--soft:#171c26;--ink:#f5f7fa;--ink2:#c5ccd6;--muted:#8a93a3;--ice:#5aa9ff;--on:#00152e;--warn:#f0a35e;
+  --strip-day:#3a4d72;--strip-civil:#26324c;--strip-nautical:#161e31;--strip-dark:#070a12;--cloud:#c3cad6;--moon:#d9dee8;
+  position:relative;container:app/inline-size;width:100%;max-width:1440px;height:860px;overflow:hidden;background:var(--night);color:var(--ink);border:1px solid #30343d;border-radius:14px;transition:max-width .28s var(--ease-drawer)}
+.frame[data-vision=night]{--night:#050000;--deep:#080101;--panel:rgb(18 3 3/.94);--panel2:#1c0505;--line:#3a0b0b;--soft:#260707;--ink:#d9473c;--ink2:#b83a31;--muted:#a23a30;--ice:#e0352b;--on:#140000;--warn:#ef6a4a;
+  --strip-day:#3d0a08;--strip-civil:#2b0706;--strip-nautical:#190403;--strip-dark:#080101;--cloud:#9c2c23;--moon:#c4453a}
+.frame[data-size=phone]{max-width:390px;height:844px;border-radius:34px}
+.app{display:flex;height:100%}
+.side{width:224px;flex:none;padding:18px 12px;border-right:1px solid var(--soft);background:var(--deep)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:19px;letter-spacing:-.02em;padding:0 8px 22px}
+.brand svg{width:26px;height:26px;flex:none}
+.nav a{display:flex;gap:10px;padding:8px 11px;border-radius:8px;color:var(--muted);font-size:14px;font-weight:500}
+.nav a.on{background:var(--panel2);color:var(--ink)}
+.col{flex:1;min-width:0;display:flex;flex-direction:column;position:relative}
+.head{display:flex;align-items:center;gap:8px;padding:10px 24px;border-bottom:1px solid var(--soft)}
+.chip{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--line);border-radius:999px;font-size:13.5px;font-weight:500;white-space:nowrap;color:var(--ink2);transition:transform 120ms var(--ease-out)}
+.chip b{color:var(--ink);font-weight:600}
+.chip:focus-visible{outline:2px solid var(--ice)}
+.chip.phone{display:none}
+.spacer{flex:1}
+.scroll{flex:1;overflow-y:auto;padding:26px 24px 40px}
+.inner{max-width:1120px;margin:0 auto}
+.press{transition:transform 120ms var(--ease-out),border-color 150ms ease}
+.press:active{transform:scale(.97)}
+.chip:active{transform:scale(.97)}
+
+h1{margin:0;font-size:clamp(28px,4.2cqw,42px);line-height:1.08;letter-spacing:-.025em;font-weight:650}
+.kicker{font-size:13px;color:var(--muted);margin:0 0 8px}
+.lead{margin:10px 0 0;color:var(--ink2);font-size:16px;line-height:1.45}
+.panel{background:var(--panel);border:1px solid var(--soft);border-radius:14px}
+.scen{display:none}
+.frame[data-night=tonight] .scen[data-scen=tonight],.frame[data-night=moon] .scen[data-scen=moon],.frame[data-night=none] .scen[data-scen=none]{display:block}
+.heroB{display:grid;grid-template-columns:320px minmax(0,1fr);gap:12px;margin-top:20px}
+.big{padding:20px 22px}
+.big .n{font-size:84px;line-height:1;font-weight:650;letter-spacing:-.04em}
+.big .n.none{font-size:44px;letter-spacing:-.025em;color:var(--ink2);padding:10px 0}
+.big .n small{font-size:18px;color:var(--muted);font-weight:500;letter-spacing:0}
+.big .for{font-size:14px;color:var(--ink2);margin:6px 0 0}
+.big .then{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--soft);font-size:14px;color:var(--ink2)}
+.big .then b{color:var(--ink);font-size:20px;display:block;letter-spacing:-.012em}
+.stripbox{padding:12px 18px 12px;position:relative}
+.strip{display:block;width:100%;height:auto;overflow:visible}
+.strip.narrow{display:none}
+.cell{cursor:crosshair}.cell:hover rect:first-child{fill:rgb(255 255 255/.05)}
+.axis{font-size:11px;fill:var(--muted)}.axis.accent{fill:var(--ice);font-weight:600}.axis.onstrip{fill:var(--ink);font-size:10.5px}
+.tick{stroke:var(--line)}.clearbar{fill:var(--ice)}.bestbar{fill:var(--ink)}.moonbar{fill:var(--muted)}
+.facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px 14px;margin:10px 0 0}
+.facts dt{font-size:12px;color:var(--muted)}
+.facts dd{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em}
+.facts small{display:block;font-size:11.5px;font-weight:400;color:var(--muted);letter-spacing:0}
+.tip{min-height:18px;margin:8px 0 0;font-size:12.5px;color:var(--muted)}
+.src{font-size:12px;color:var(--muted);margin:2px 0 0}
+
+details.score-d{margin-top:12px}
+details.score-d summary{list-style:none;cursor:pointer;display:flex;padding:11px 18px;font-size:14px;user-select:none}
+details.score-d summary::-webkit-details-marker{display:none}
+details.score-d summary .more{color:var(--ice);font-size:13.5px}
+details.score-d summary .more::after{content:"›";display:inline-block;margin-left:6px;transition:transform 180ms var(--ease-out)}
+details.score-d[open] summary .more::after{transform:rotate(90deg)}
+details.score-d::details-content{block-size:0;overflow:clip;opacity:0;transition:block-size 200ms var(--ease-out),opacity 150ms ease,content-visibility 200ms allow-discrete}
+details.score-d[open]::details-content{block-size:auto;opacity:1}
+.frame{interpolate-size:allow-keywords}
+.tag{font-style:normal;font-size:11px;font-weight:600;padding:0 6px;border:1px solid var(--line);border-radius:99px;color:var(--ink2);margin-left:5px;white-space:nowrap}
+ul.comp{list-style:none;margin:0;padding:0 18px 12px}
+ul.comp li{padding:9px 0;border-top:1px solid var(--soft)}
+.row{display:flex;justify-content:space-between;gap:10px;font-size:14px;font-weight:500}
+.num i{font-style:normal;color:var(--muted);font-weight:400}
+.fine{margin:2px 0 0;font-size:12.5px;color:var(--muted)}
+
+.sec{margin:30px 0 4px}
+h2{margin:0;font-size:22px;letter-spacing:-.018em;font-weight:620}
+.secnote{margin:0 0 14px;font-size:13.5px;color:var(--muted)}
+.othernight{display:none;margin:22px 0 0;font-size:13.5px;color:var(--muted)}
+.frame:not([data-night=tonight]) .targets{display:none}
+.frame:not([data-night=tonight]) .othernight{display:block}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.card{min-width:0;display:flex;gap:13px;padding:13px;background:var(--panel);border:1px solid var(--soft);border-radius:14px;cursor:pointer;outline:0}
+.card:focus-visible{border-color:var(--ice)}
+@media (hover:hover) and (pointer:fine){.card:hover{border-color:var(--line)}}
+.thumbs{flex:none;width:112px;height:112px;position:relative}
+.thumb{display:block;width:112px;height:112px;border-radius:10px;background:var(--deep)}
+.thumb.photo{object-fit:cover;position:absolute;inset:0}
+.frame[data-vision=night] .thumb.photo,.frame[data-vision=night] .dphoto{filter:url(#redonly)}
+.scale{position:absolute;left:5px;bottom:5px;padding:0 5px;font-size:10.5px;font-weight:600;border-radius:5px;background:rgb(0 0 0/.62);color:var(--ink)}
+.frame[data-card=none] .thumb.photo,.frame[data-card=none] .scale,.frame[data-card=none] .dphoto-w{display:none}
+.fov{fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
+.obj{fill:var(--ice);opacity:.42;stroke:var(--ice);stroke-width:1}
+.body{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{display:flex;justify-content:space-between;gap:8px}
+h3{margin:0;font-size:15.5px;line-height:1.25;font-weight:600;letter-spacing:-.008em}
+.score b{font-size:20px;line-height:1.1;font-weight:650}
+.sub{margin:1px 0 0;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.time{margin:7px 0 0;font-size:14.5px;font-weight:550}
+.clear{margin:0;font-size:12.5px;color:var(--ice);font-weight:550}
+.dim{color:var(--muted);font-weight:400}
+.foot{margin-top:auto;padding-top:6px;display:flex;align-items:center;gap:8px}
+.spark{width:62px;height:18px;flex:none}
+.sparkline{fill:none;stroke:var(--ice);stroke-width:1.6}
+.sparkwin{fill:var(--ice);opacity:.14}
+.sparklim{stroke:var(--muted);stroke-dasharray:2 3;opacity:.7}
+.fit{font-size:11.5px;color:var(--muted);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fit.warn{color:var(--warn)}
+.add{all:unset;cursor:pointer;display:grid;place-items:center;width:30px;height:30px;border-radius:99px;border:1px solid var(--line);font-size:18px;line-height:1;color:var(--ink);flex:none;transition:transform 120ms var(--ease-out),background-color 150ms ease}
+.add:active{transform:scale(.92)}
+.add[data-on]{background:var(--ice);color:var(--on);border-color:transparent}
+.add:focus-visible{outline:2px solid var(--ice)}
+.legend{margin:14px 0 0;font-size:12px;color:var(--muted)}
+
+.tabs{display:none}
+.scrim{position:absolute;inset:0;background:rgb(0 0 0/.55);opacity:0;pointer-events:none;transition:opacity 280ms var(--ease-drawer);z-index:20}
+.drawer{position:absolute;z-index:21;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--night);border-left:1px solid var(--line);padding:18px 20px calc(18px + env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain;transform:translate3d(100%,0,0);transition:transform 280ms var(--ease-drawer);visibility:hidden}
+.open>.scrim{opacity:1;pointer-events:auto}
+.open>.drawer{transform:none;visibility:visible}
+.closing>.scrim{transition-duration:200ms}
+.closing>.drawer{visibility:visible;transition-duration:200ms}
+.grab{display:none}
+.dtop{display:block}
+.dhead{display:flex;justify-content:space-between;align-items:start;gap:12px}
+.dhead h2{font-size:24px}
+.x{all:unset;cursor:pointer;width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--line);border-radius:99px;flex:none}
+.x:focus-visible{outline:2px solid var(--ice)}
+.dpics{display:flex;gap:12px;margin:14px 0}
+.dphoto-w{position:relative;flex:1;min-width:0}
+.dphoto{display:block;width:100%;height:200px;object-fit:cover;border-radius:12px}
+.dframe{flex:none;width:150px;display:flex;flex-direction:column;gap:6px}
+.dframe .thumb{width:112px;height:112px}
+.dframe p{margin:0;font-size:12px;color:var(--ink2)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;margin:14px 0}
+.stats dt{font-size:12px;color:var(--muted)}.stats dd{margin:0;font-size:15px;font-weight:550}
+
+@container app (max-width:640px){
+  .side{display:none}
+  .head{padding:9px 14px;gap:5px}.chip.loc,.chip.scope,.dt-month{display:none}
+  .chip{padding:8px 10px;flex:none}
+  .chip.phone{display:block;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .strip.wide{display:none}.strip.narrow{display:block}
+  .scroll{padding:18px 14px 90px}
+  .facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
+  .grid{grid-template-columns:minmax(0,1fr)}
+  .heroB{grid-template-columns:minmax(0,1fr)}
+  .big .n{font-size:72px}
+  .tabs{position:absolute;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(5,1fr);padding:9px 0 calc(14px + env(safe-area-inset-bottom,10px));background:color-mix(in srgb,var(--deep) 72%,transparent);backdrop-filter:blur(18px) saturate(160%);border-top:1px solid var(--soft);font-size:11px;font-weight:550;color:var(--muted);text-align:center;z-index:10}
+  .tabs .on{color:var(--ice)}
+  .add{width:44px;height:44px}
+  .drawer{top:auto;left:0;right:0;width:100%;height:88%;border-left:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding-top:18px;transform:translate3d(0,100%,0)}
+  .dtop{touch-action:none;cursor:grab;margin:-18px -20px 0;padding:0 20px 8px}
+  .grab{display:block;height:24px;position:relative}
+  .grab::after{content:"";position:absolute;left:calc(50% - 20px);width:40px;top:9px;height:5px;border-radius:9px;background:var(--line)}
+  .dpics{flex-direction:column}.dframe{width:auto;flex-direction:row;align-items:center}
+}
+@media (prefers-reduced-motion:reduce){.drawer,.scrim{transition:opacity 200ms ease,visibility 0s}.press:active,.chip:active,.add:active{transform:none}.frame{transition:none}details.score-d::details-content{transition:none}}
+@media (prefers-reduced-transparency:reduce){.tabs{backdrop-filter:none;background:var(--deep)}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="redonly" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values=".17 .33 .06 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"/></filter></svg>
+<div class="bar">
+  <strong>Tonight, chosen direction</strong>
+  <div class="seg"><span>Night</span><div data-ctl="night"><button data-v="tonight" aria-pressed="true">Tonight</button><button data-v="moon" aria-pressed="false">Full Moon, 23 Nov</button><button data-v="none" aria-pressed="false">No forecast, 20 Dec</button></div></div>
+    <div class="seg"><span>Vision</span><div data-ctl="vision"><button data-v="normal" aria-pressed="true">Normal</button><button data-v="night" aria-pressed="false">Night</button></div></div>
+  <div class="seg"><span>Size</span><div data-ctl="size"><button data-v="desktop" aria-pressed="true">Desktop</button><button data-v="phone" aria-pressed="false">Phone</button></div></div>
+</div>
+<p class="notice">Mockup, not the live app. Survey images are left out of this repository copy; cards show the framing diagram used when an image is unavailable. Real forecast and calculations for the sample location, retrieved around 13:52 EST on 9 Nov. Open a card and try "Why this score". On Phone, drag the sheet by its top.</p>
+<div class="stage">
+<div class="frame" id="frame" data-card="none" data-vision="normal" data-size="desktop" data-night="tonight">
+ <div class="app">
+  <aside class="side">
+    <div class="brand"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="22.5" cy="8.5" r="3" style="fill:var(--ice)"/></svg>AstroPlanner</div>
+    <nav class="nav"><a class="on">Tonight</a><a>Explore</a><a>Variable Hunter</a><a>AstroLog</a><a>Settings</a></nav>
+  </aside>
+  <div class="col" id="col">
+   <div class="head">
+     <button class="chip loc press">Philadelphia, PA</button>
+     <button class="chip scope press">Seestar S30</button>
+     <button class="chip phone press">Philadelphia · S30</button>
+     <span class="spacer"></span>
+     <button class="chip press" aria-label="Previous night">‹</button>
+     <button class="chip press" id="datechip"></button>
+     <button class="chip press" aria-label="Next night">›</button>
+   </div>
+   <div class="scroll"><div class="inner">
+     <p class="kicker">Philadelphia, PA</p>
+     <h1>Tonight</h1>
+     
+    <div class="scen" data-scen="tonight" data-chip='<b>Mon 9</b> to Tue 10<span class="dt-month"> Nov</span>'>
+      <p class="lead">Night of Mon 9 to morning of Tue 10 Nov</p>
+      <div class="heroB">
+        <div class="panel big"><div class="n">100<small> / 100</small></div><p class="for">for the best 2 hours, 18:25–20:25 <em class="tag">Heuristic</em></p><p class="then"><b>Clear until about 01:30</b>7 h 10 min of 10 h 45 min of darkness is forecast clear.</p></div>
+        <div class="panel stripbox">
+<svg viewBox="0 0 752 164" class="strip wide" role="img" aria-label="Night from sunset to sunrise">
+  <defs><linearGradient id="skytonightw"><stop offset="0.0000" style="stop-color:var(--strip-day)"/><stop offset="0.0489" style="stop-color:var(--strip-day)"/><stop offset="0.0799" style="stop-color:var(--strip-civil)"/><stop offset="0.1151" style="stop-color:var(--strip-nautical)"/><stop offset="0.1496" style="stop-color:var(--strip-dark)"/><stop offset="0.8501" style="stop-color:var(--strip-dark)"/><stop offset="0.8847" style="stop-color:var(--strip-nautical)"/><stop offset="0.9200" style="stop-color:var(--strip-civil)"/><stop offset="0.9511" style="stop-color:var(--strip-day)"/><stop offset="1.0000" style="stop-color:var(--strip-day)"/></linearGradient>
+  <clipPath id="roundtonightw"><rect x="0" y="26" width="752" height="104" rx="10"/></clipPath></defs>
+  <rect x="0" y="26" width="752" height="104" rx="10" fill="url(#skytonightw)"/>
+  <g clip-path="url(#roundtonightw)"><g class="cell" data-tip="16:00: cloud 7 %, rain chance 0 %"><rect x="0.0" y="26" width="20.7" height="104" fill="transparent"/><rect x="0.5" y="26" width="19.7" height="104" style="fill:var(--cloud);opacity:0.06"/></g><g class="cell" data-tip="17:00: cloud 0 %, rain chance 0 %"><rect x="20.7" y="26" width="49.0" height="104" fill="transparent"/><rect x="21.2" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="18:00: cloud 0 %, rain chance 0 %"><rect x="69.7" y="26" width="49.0" height="104" fill="transparent"/><rect x="70.2" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="19:00: cloud 0 %, rain chance 0 %"><rect x="118.8" y="26" width="49.0" height="104" fill="transparent"/><rect x="119.3" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="20:00: cloud 0 %, rain chance 0 %"><rect x="167.8" y="26" width="49.0" height="104" fill="transparent"/><rect x="168.3" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="21:00: cloud 0 %, rain chance 0 %"><rect x="216.8" y="26" width="49.0" height="104" fill="transparent"/><rect x="217.3" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="22:00: cloud 0 %, rain chance 0 %"><rect x="265.8" y="26" width="49.0" height="104" fill="transparent"/><rect x="266.3" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="23:00: cloud 0 %, rain chance 0 %"><rect x="314.8" y="26" width="49.0" height="104" fill="transparent"/><rect x="315.3" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="00:00: cloud 27 %, rain chance 0 %"><rect x="363.9" y="26" width="49.0" height="104" fill="transparent"/><rect x="364.4" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.22"/></g><g class="cell" data-tip="01:00: cloud 39 %, rain chance 0 %"><rect x="412.9" y="26" width="49.0" height="104" fill="transparent"/><rect x="413.4" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.32"/></g><g class="cell" data-tip="02:00: cloud 100 %, rain chance 0 %"><rect x="461.9" y="26" width="49.0" height="104" fill="transparent"/><rect x="462.4" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="03:00: cloud 100 %, rain chance 0 %"><rect x="510.9" y="26" width="49.0" height="104" fill="transparent"/><rect x="511.4" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="04:00: cloud 100 %, rain chance 0 %"><rect x="559.9" y="26" width="49.0" height="104" fill="transparent"/><rect x="560.4" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="05:00: cloud 100 %, rain chance 0 %"><rect x="609.0" y="26" width="49.0" height="104" fill="transparent"/><rect x="609.5" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="06:00: cloud 100 %, rain chance 0 %"><rect x="658.0" y="26" width="49.0" height="104" fill="transparent"/><rect x="658.5" y="26" width="48.0" height="104" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="07:00: cloud 100 %, rain chance 0 %"><rect x="707.0" y="26" width="45.0" height="104" fill="transparent"/><rect x="707.5" y="26" width="44.0" height="104" style="fill:var(--cloud);opacity:0.82"/></g></g>
+  <rect x="114.7" y="13" width="351.3" height="3" rx="1.5" class="clearbar"/><text x="290.3" y="9" text-anchor="middle" class="axis accent">forecast clear · 7 h 10 min</text><rect x="114.7" y="123" width="98.0" height="4" rx="2" class="bestbar"/><text x="163.7" y="118" text-anchor="middle" class="axis onstrip">best 2 h</text><rect x="0.0" y="134" width="28.9" height="5" rx="2.5" class="moonbar"/><line x1="45.2" x2="45.2" y1="140" y2="145" class="tick"/><line x1="94.3" x2="94.3" y1="140" y2="145" class="tick"/><text x="94.3" y="162" text-anchor="middle" class="axis">18</text><line x1="143.3" x2="143.3" y1="140" y2="145" class="tick"/><line x1="192.3" x2="192.3" y1="140" y2="145" class="tick"/><text x="192.3" y="162" text-anchor="middle" class="axis">20</text><line x1="241.3" x2="241.3" y1="140" y2="145" class="tick"/><line x1="290.3" x2="290.3" y1="140" y2="145" class="tick"/><text x="290.3" y="162" text-anchor="middle" class="axis">22</text><line x1="339.4" x2="339.4" y1="140" y2="145" class="tick"/><line x1="388.4" x2="388.4" y1="140" y2="145" class="tick"/><text x="388.4" y="162" text-anchor="middle" class="axis">00</text><line x1="437.4" x2="437.4" y1="140" y2="145" class="tick"/><line x1="486.4" x2="486.4" y1="140" y2="145" class="tick"/><text x="486.4" y="162" text-anchor="middle" class="axis">02</text><line x1="535.4" x2="535.4" y1="140" y2="145" class="tick"/><line x1="584.5" x2="584.5" y1="140" y2="145" class="tick"/><text x="584.5" y="162" text-anchor="middle" class="axis">04</text><line x1="633.5" x2="633.5" y1="140" y2="145" class="tick"/><line x1="682.5" x2="682.5" y1="140" y2="145" class="tick"/><text x="682.5" y="162" text-anchor="middle" class="axis">06</text><line x1="731.5" x2="731.5" y1="140" y2="145" class="tick"/>
+</svg>
+<svg viewBox="0 0 324 138" class="strip narrow" role="img" aria-label="Night from sunset to sunrise">
+  <defs><linearGradient id="skytonightn"><stop offset="0.0000" style="stop-color:var(--strip-day)"/><stop offset="0.0489" style="stop-color:var(--strip-day)"/><stop offset="0.0799" style="stop-color:var(--strip-civil)"/><stop offset="0.1151" style="stop-color:var(--strip-nautical)"/><stop offset="0.1496" style="stop-color:var(--strip-dark)"/><stop offset="0.8501" style="stop-color:var(--strip-dark)"/><stop offset="0.8847" style="stop-color:var(--strip-nautical)"/><stop offset="0.9200" style="stop-color:var(--strip-civil)"/><stop offset="0.9511" style="stop-color:var(--strip-day)"/><stop offset="1.0000" style="stop-color:var(--strip-day)"/></linearGradient>
+  <clipPath id="roundtonightn"><rect x="0" y="26" width="324" height="78" rx="10"/></clipPath></defs>
+  <rect x="0" y="26" width="324" height="78" rx="10" fill="url(#skytonightn)"/>
+  <g clip-path="url(#roundtonightn)"><g class="cell" data-tip="16:00: cloud 7 %, rain chance 0 %"><rect x="0.0" y="26" width="8.9" height="78" fill="transparent"/><rect x="0.5" y="26" width="7.9" height="78" style="fill:var(--cloud);opacity:0.06"/></g><g class="cell" data-tip="17:00: cloud 0 %, rain chance 0 %"><rect x="8.9" y="26" width="21.1" height="78" fill="transparent"/><rect x="9.4" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="18:00: cloud 0 %, rain chance 0 %"><rect x="30.0" y="26" width="21.1" height="78" fill="transparent"/><rect x="30.5" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="19:00: cloud 0 %, rain chance 0 %"><rect x="51.2" y="26" width="21.1" height="78" fill="transparent"/><rect x="51.7" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="20:00: cloud 0 %, rain chance 0 %"><rect x="72.3" y="26" width="21.1" height="78" fill="transparent"/><rect x="72.8" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="21:00: cloud 0 %, rain chance 0 %"><rect x="93.4" y="26" width="21.1" height="78" fill="transparent"/><rect x="93.9" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="22:00: cloud 0 %, rain chance 0 %"><rect x="114.5" y="26" width="21.1" height="78" fill="transparent"/><rect x="115.0" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="23:00: cloud 0 %, rain chance 0 %"><rect x="135.7" y="26" width="21.1" height="78" fill="transparent"/><rect x="136.2" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.00"/></g><g class="cell" data-tip="00:00: cloud 27 %, rain chance 0 %"><rect x="156.8" y="26" width="21.1" height="78" fill="transparent"/><rect x="157.3" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.22"/></g><g class="cell" data-tip="01:00: cloud 39 %, rain chance 0 %"><rect x="177.9" y="26" width="21.1" height="78" fill="transparent"/><rect x="178.4" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.32"/></g><g class="cell" data-tip="02:00: cloud 100 %, rain chance 0 %"><rect x="199.0" y="26" width="21.1" height="78" fill="transparent"/><rect x="199.5" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="03:00: cloud 100 %, rain chance 0 %"><rect x="220.1" y="26" width="21.1" height="78" fill="transparent"/><rect x="220.6" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="04:00: cloud 100 %, rain chance 0 %"><rect x="241.3" y="26" width="21.1" height="78" fill="transparent"/><rect x="241.8" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="05:00: cloud 100 %, rain chance 0 %"><rect x="262.4" y="26" width="21.1" height="78" fill="transparent"/><rect x="262.9" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="06:00: cloud 100 %, rain chance 0 %"><rect x="283.5" y="26" width="21.1" height="78" fill="transparent"/><rect x="284.0" y="26" width="20.1" height="78" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="07:00: cloud 100 %, rain chance 0 %"><rect x="304.6" y="26" width="19.4" height="78" fill="transparent"/><rect x="305.1" y="26" width="18.4" height="78" style="fill:var(--cloud);opacity:0.82"/></g></g>
+  <rect x="49.4" y="13" width="151.4" height="3" rx="1.5" class="clearbar"/><text x="125.1" y="9" text-anchor="middle" class="axis accent">forecast clear · 7 h 10 min</text><rect x="49.4" y="97" width="42.2" height="4" rx="2" class="bestbar"/><text x="70.5" y="92" text-anchor="middle" class="axis onstrip">best 2 h</text><rect x="0.0" y="108" width="12.4" height="5" rx="2.5" class="moonbar"/><line x1="19.5" x2="19.5" y1="114" y2="119" class="tick"/><line x1="40.6" x2="40.6" y1="114" y2="119" class="tick"/><text x="40.6" y="136" text-anchor="middle" class="axis">18</text><line x1="61.7" x2="61.7" y1="114" y2="119" class="tick"/><line x1="82.9" x2="82.9" y1="114" y2="119" class="tick"/><line x1="104.0" x2="104.0" y1="114" y2="119" class="tick"/><text x="104.0" y="136" text-anchor="middle" class="axis">21</text><line x1="125.1" x2="125.1" y1="114" y2="119" class="tick"/><line x1="146.2" x2="146.2" y1="114" y2="119" class="tick"/><line x1="167.3" x2="167.3" y1="114" y2="119" class="tick"/><text x="167.3" y="136" text-anchor="middle" class="axis">00</text><line x1="188.5" x2="188.5" y1="114" y2="119" class="tick"/><line x1="209.6" x2="209.6" y1="114" y2="119" class="tick"/><line x1="230.7" x2="230.7" y1="114" y2="119" class="tick"/><text x="230.7" y="136" text-anchor="middle" class="axis">03</text><line x1="251.8" x2="251.8" y1="114" y2="119" class="tick"/><line x1="272.9" x2="272.9" y1="114" y2="119" class="tick"/><line x1="294.1" x2="294.1" y1="114" y2="119" class="tick"/><text x="294.1" y="136" text-anchor="middle" class="axis">06</text><line x1="315.2" x2="315.2" y1="114" y2="119" class="tick"/>
+</svg>
+          <dl class="facts">
+            <div><dt>Cloud, average</dt><dd>39 %<small>range 0–100 %</small></dd></div>
+            <div><dt>Rain chance, peak</dt><dd>0 %<small>forecast</small></dd></div>
+            <div><dt>Moon</dt><dd>1 %<small>down all darkness</small></dd></div>
+            <div><dt>Darkness</dt><dd>10 h 45 min<small>18:22–05:07 EST</small></dd></div>
+          </dl>
+          <p class="tip">Each block is one forecast hour. Solid means overcast. Thin band is the Moon above the horizon. Hours are EST.</p><p class="src">Open-Meteo forecast (CC BY 4.0), model data, not on-site measurements. Retrieved 13:52.</p>
+        </div>
+      </div>
+      <details class="panel score-d"><summary><span class="more">Why this score</span></summary><ul class="comp"><li><div class="row"><span>Cloud cover <em class="tag">Forecast</em></span><span class="num">45<i> / 45</i></span></div><p class="fine">Mean forecast cloud cover 0% in the best window</p></li><li><div class="row"><span>Rain risk <em class="tag">Forecast</em></span><span class="num">25<i> / 25</i></span></div><p class="fine">Mean precipitation probability 0% (0% does not guarantee dry skies)</p></li><li><div class="row"><span>Moonlight <em class="tag">Calculated</em></span><span class="num">20<i> / 20</i></span></div><p class="fine">Moon below the horizon throughout the window (1% illuminated)</p></li><li><div class="row"><span>Darkness available <em class="tag">Calculated</em></span><span class="num">10<i> / 10</i></span></div><p class="fine">10.8 h with the Sun below -18° (6 h earns full points)</p></li></ul></details>
+    </div>
+    <div class="scen" data-scen="moon" data-chip='<b>Mon 23</b> to Tue 24<span class="dt-month"> Nov</span>'>
+      <p class="lead">Night of Mon 23 to morning of Tue 24 Nov</p>
+      <div class="heroB">
+        <div class="panel big"><div class="n">62<small> / 100</small></div><p class="for">for the best 2 hours, 20:35–22:35 <em class="tag">Heuristic</em></p><p class="then"><b>Clear until about 22:30</b>4 h 20 min of 11 h 07 min of darkness is forecast clear.</p></div>
+        <div class="panel stripbox">
+<svg viewBox="0 0 752 164" class="strip wide" role="img" aria-label="Night from sunset to sunrise">
+  <defs><linearGradient id="skymoonw"><stop offset="0.0000" style="stop-color:var(--strip-day)"/><stop offset="0.0475" style="stop-color:var(--strip-day)"/><stop offset="0.0787" style="stop-color:var(--strip-civil)"/><stop offset="0.1137" style="stop-color:var(--strip-nautical)"/><stop offset="0.1479" style="stop-color:var(--strip-dark)"/><stop offset="0.8519" style="stop-color:var(--strip-dark)"/><stop offset="0.8861" style="stop-color:var(--strip-nautical)"/><stop offset="0.9212" style="stop-color:var(--strip-civil)"/><stop offset="0.9525" style="stop-color:var(--strip-day)"/><stop offset="1.0000" style="stop-color:var(--strip-day)"/></linearGradient>
+  <clipPath id="roundmoonw"><rect x="0" y="26" width="752" height="104" rx="10"/></clipPath></defs>
+  <rect x="0" y="26" width="752" height="104" rx="10" fill="url(#skymoonw)"/>
+  <g clip-path="url(#roundmoonw)"><g class="cell" data-tip="16:00: cloud 2 %, rain chance 21 %"><rect x="0.0" y="26" width="28.5" height="104" fill="transparent"/><rect x="0.5" y="26" width="27.5" height="104" style="fill:var(--cloud);opacity:0.02"/></g><g class="cell" data-tip="17:00: cloud 13 %, rain chance 20 %"><rect x="28.5" y="26" width="47.7" height="104" fill="transparent"/><rect x="29.0" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.11"/></g><g class="cell" data-tip="18:00: cloud 27 %, rain chance 20 %"><rect x="76.2" y="26" width="47.7" height="104" fill="transparent"/><rect x="76.7" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.22"/></g><g class="cell" data-tip="19:00: cloud 37 %, rain chance 19 %"><rect x="123.8" y="26" width="47.7" height="104" fill="transparent"/><rect x="124.3" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.30"/></g><g class="cell" data-tip="20:00: cloud 35 %, rain chance 18 %"><rect x="171.5" y="26" width="47.7" height="104" fill="transparent"/><rect x="172.0" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.29"/></g><g class="cell" data-tip="21:00: cloud 29 %, rain chance 18 %"><rect x="219.1" y="26" width="47.7" height="104" fill="transparent"/><rect x="219.6" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.24"/></g><g class="cell" data-tip="22:00: cloud 31 %, rain chance 17 %"><rect x="266.8" y="26" width="47.7" height="104" fill="transparent"/><rect x="267.3" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.25"/></g><g class="cell" data-tip="23:00: cloud 53 %, rain chance 17 %"><rect x="314.5" y="26" width="47.7" height="104" fill="transparent"/><rect x="315.0" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.43"/></g><g class="cell" data-tip="00:00: cloud 84 %, rain chance 16 %"><rect x="362.1" y="26" width="47.7" height="104" fill="transparent"/><rect x="362.6" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.69"/></g><g class="cell" data-tip="01:00: cloud 100 %, rain chance 16 %"><rect x="409.8" y="26" width="47.7" height="104" fill="transparent"/><rect x="410.3" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="02:00: cloud 87 %, rain chance 16 %"><rect x="457.4" y="26" width="47.7" height="104" fill="transparent"/><rect x="457.9" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.71"/></g><g class="cell" data-tip="03:00: cloud 60 %, rain chance 16 %"><rect x="505.1" y="26" width="47.7" height="104" fill="transparent"/><rect x="505.6" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.49"/></g><g class="cell" data-tip="04:00: cloud 38 %, rain chance 16 %"><rect x="552.7" y="26" width="47.7" height="104" fill="transparent"/><rect x="553.2" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.31"/></g><g class="cell" data-tip="05:00: cloud 25 %, rain chance 16 %"><rect x="600.4" y="26" width="47.7" height="104" fill="transparent"/><rect x="600.9" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.20"/></g><g class="cell" data-tip="06:00: cloud 16 %, rain chance 16 %"><rect x="648.0" y="26" width="47.7" height="104" fill="transparent"/><rect x="648.5" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.13"/></g><g class="cell" data-tip="07:00: cloud 18 %, rain chance 16 %"><rect x="695.7" y="26" width="47.7" height="104" fill="transparent"/><rect x="696.2" y="26" width="46.7" height="104" style="fill:var(--cloud);opacity:0.15"/></g><g class="cell" data-tip="08:00: cloud 40 %, rain chance 17 %"><rect x="743.3" y="26" width="8.7" height="104" fill="transparent"/><rect x="743.8" y="26" width="7.7" height="104" style="fill:var(--cloud);opacity:0.33"/></g></g>
+  <rect x="111.9" y="13" width="206.5" height="3" rx="1.5" class="clearbar"/><text x="215.2" y="9" text-anchor="middle" class="axis accent">forecast clear · 4 h 20 min</text><rect x="223.1" y="123" width="95.3" height="4" rx="2" class="bestbar"/><text x="270.8" y="118" text-anchor="middle" class="axis onstrip">best 2 h</text><rect x="0.0" y="134" width="723.5" height="5" rx="2.5" class="moonbar"/><line x1="4.7" x2="4.7" y1="140" y2="145" class="tick"/><text x="4.7" y="162" text-anchor="middle" class="axis">16</text><line x1="52.4" x2="52.4" y1="140" y2="145" class="tick"/><line x1="100.0" x2="100.0" y1="140" y2="145" class="tick"/><text x="100.0" y="162" text-anchor="middle" class="axis">18</text><line x1="147.7" x2="147.7" y1="140" y2="145" class="tick"/><line x1="195.3" x2="195.3" y1="140" y2="145" class="tick"/><text x="195.3" y="162" text-anchor="middle" class="axis">20</text><line x1="243.0" x2="243.0" y1="140" y2="145" class="tick"/><line x1="290.6" x2="290.6" y1="140" y2="145" class="tick"/><text x="290.6" y="162" text-anchor="middle" class="axis">22</text><line x1="338.3" x2="338.3" y1="140" y2="145" class="tick"/><line x1="385.9" x2="385.9" y1="140" y2="145" class="tick"/><text x="385.9" y="162" text-anchor="middle" class="axis">00</text><line x1="433.6" x2="433.6" y1="140" y2="145" class="tick"/><line x1="481.2" x2="481.2" y1="140" y2="145" class="tick"/><text x="481.2" y="162" text-anchor="middle" class="axis">02</text><line x1="528.9" x2="528.9" y1="140" y2="145" class="tick"/><line x1="576.6" x2="576.6" y1="140" y2="145" class="tick"/><text x="576.6" y="162" text-anchor="middle" class="axis">04</text><line x1="624.2" x2="624.2" y1="140" y2="145" class="tick"/><line x1="671.9" x2="671.9" y1="140" y2="145" class="tick"/><text x="671.9" y="162" text-anchor="middle" class="axis">06</text><line x1="719.5" x2="719.5" y1="140" y2="145" class="tick"/>
+</svg>
+<svg viewBox="0 0 324 138" class="strip narrow" role="img" aria-label="Night from sunset to sunrise">
+  <defs><linearGradient id="skymoonn"><stop offset="0.0000" style="stop-color:var(--strip-day)"/><stop offset="0.0475" style="stop-color:var(--strip-day)"/><stop offset="0.0787" style="stop-color:var(--strip-civil)"/><stop offset="0.1137" style="stop-color:var(--strip-nautical)"/><stop offset="0.1479" style="stop-color:var(--strip-dark)"/><stop offset="0.8519" style="stop-color:var(--strip-dark)"/><stop offset="0.8861" style="stop-color:var(--strip-nautical)"/><stop offset="0.9212" style="stop-color:var(--strip-civil)"/><stop offset="0.9525" style="stop-color:var(--strip-day)"/><stop offset="1.0000" style="stop-color:var(--strip-day)"/></linearGradient>
+  <clipPath id="roundmoonn"><rect x="0" y="26" width="324" height="78" rx="10"/></clipPath></defs>
+  <rect x="0" y="26" width="324" height="78" rx="10" fill="url(#skymoonn)"/>
+  <g clip-path="url(#roundmoonn)"><g class="cell" data-tip="16:00: cloud 2 %, rain chance 21 %"><rect x="0.0" y="26" width="12.3" height="78" fill="transparent"/><rect x="0.5" y="26" width="11.3" height="78" style="fill:var(--cloud);opacity:0.02"/></g><g class="cell" data-tip="17:00: cloud 13 %, rain chance 20 %"><rect x="12.3" y="26" width="20.5" height="78" fill="transparent"/><rect x="12.8" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.11"/></g><g class="cell" data-tip="18:00: cloud 27 %, rain chance 20 %"><rect x="32.8" y="26" width="20.5" height="78" fill="transparent"/><rect x="33.3" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.22"/></g><g class="cell" data-tip="19:00: cloud 37 %, rain chance 19 %"><rect x="53.4" y="26" width="20.5" height="78" fill="transparent"/><rect x="53.9" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.30"/></g><g class="cell" data-tip="20:00: cloud 35 %, rain chance 18 %"><rect x="73.9" y="26" width="20.5" height="78" fill="transparent"/><rect x="74.4" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.29"/></g><g class="cell" data-tip="21:00: cloud 29 %, rain chance 18 %"><rect x="94.4" y="26" width="20.5" height="78" fill="transparent"/><rect x="94.9" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.24"/></g><g class="cell" data-tip="22:00: cloud 31 %, rain chance 17 %"><rect x="115.0" y="26" width="20.5" height="78" fill="transparent"/><rect x="115.5" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.25"/></g><g class="cell" data-tip="23:00: cloud 53 %, rain chance 17 %"><rect x="135.5" y="26" width="20.5" height="78" fill="transparent"/><rect x="136.0" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.43"/></g><g class="cell" data-tip="00:00: cloud 84 %, rain chance 16 %"><rect x="156.0" y="26" width="20.5" height="78" fill="transparent"/><rect x="156.5" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.69"/></g><g class="cell" data-tip="01:00: cloud 100 %, rain chance 16 %"><rect x="176.5" y="26" width="20.5" height="78" fill="transparent"/><rect x="177.0" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.82"/></g><g class="cell" data-tip="02:00: cloud 87 %, rain chance 16 %"><rect x="197.1" y="26" width="20.5" height="78" fill="transparent"/><rect x="197.6" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.71"/></g><g class="cell" data-tip="03:00: cloud 60 %, rain chance 16 %"><rect x="217.6" y="26" width="20.5" height="78" fill="transparent"/><rect x="218.1" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.49"/></g><g class="cell" data-tip="04:00: cloud 38 %, rain chance 16 %"><rect x="238.1" y="26" width="20.5" height="78" fill="transparent"/><rect x="238.6" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.31"/></g><g class="cell" data-tip="05:00: cloud 25 %, rain chance 16 %"><rect x="258.7" y="26" width="20.5" height="78" fill="transparent"/><rect x="259.2" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.20"/></g><g class="cell" data-tip="06:00: cloud 16 %, rain chance 16 %"><rect x="279.2" y="26" width="20.5" height="78" fill="transparent"/><rect x="279.7" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.13"/></g><g class="cell" data-tip="07:00: cloud 18 %, rain chance 16 %"><rect x="299.7" y="26" width="20.5" height="78" fill="transparent"/><rect x="300.2" y="26" width="19.5" height="78" style="fill:var(--cloud);opacity:0.15"/></g><g class="cell" data-tip="08:00: cloud 40 %, rain chance 17 %"><rect x="320.3" y="26" width="3.7" height="78" fill="transparent"/><rect x="320.8" y="26" width="2.7" height="78" style="fill:var(--cloud);opacity:0.33"/></g></g>
+  <rect x="48.2" y="13" width="89.0" height="3" rx="1.5" class="clearbar"/><text x="92.7" y="9" text-anchor="middle" class="axis accent">forecast clear · 4 h 20 min</text><rect x="96.1" y="97" width="41.1" height="4" rx="2" class="bestbar"/><text x="116.7" y="92" text-anchor="middle" class="axis onstrip">best 2 h</text><rect x="0.0" y="108" width="311.7" height="5" rx="2.5" class="moonbar"/><line x1="2.0" x2="2.0" y1="114" y2="119" class="tick"/><line x1="22.6" x2="22.6" y1="114" y2="119" class="tick"/><line x1="43.1" x2="43.1" y1="114" y2="119" class="tick"/><text x="43.1" y="136" text-anchor="middle" class="axis">18</text><line x1="63.6" x2="63.6" y1="114" y2="119" class="tick"/><line x1="84.2" x2="84.2" y1="114" y2="119" class="tick"/><line x1="104.7" x2="104.7" y1="114" y2="119" class="tick"/><text x="104.7" y="136" text-anchor="middle" class="axis">21</text><line x1="125.2" x2="125.2" y1="114" y2="119" class="tick"/><line x1="145.7" x2="145.7" y1="114" y2="119" class="tick"/><line x1="166.3" x2="166.3" y1="114" y2="119" class="tick"/><text x="166.3" y="136" text-anchor="middle" class="axis">00</text><line x1="186.8" x2="186.8" y1="114" y2="119" class="tick"/><line x1="207.3" x2="207.3" y1="114" y2="119" class="tick"/><line x1="227.9" x2="227.9" y1="114" y2="119" class="tick"/><text x="227.9" y="136" text-anchor="middle" class="axis">03</text><line x1="248.4" x2="248.4" y1="114" y2="119" class="tick"/><line x1="268.9" x2="268.9" y1="114" y2="119" class="tick"/><line x1="289.5" x2="289.5" y1="114" y2="119" class="tick"/><text x="289.5" y="136" text-anchor="middle" class="axis">06</text><line x1="310.0" x2="310.0" y1="114" y2="119" class="tick"/>
+</svg>
+          <dl class="facts">
+            <div><dt>Cloud, average</dt><dd>50 %<small>range 25–100 %</small></dd></div>
+            <div><dt>Rain chance, peak</dt><dd>20 %<small>forecast</small></dd></div>
+            <div><dt>Moon</dt><dd>100 %<small>up all darkness</small></dd></div>
+            <div><dt>Darkness</dt><dd>11 h 07 min<small>18:14–05:20 EST</small></dd></div>
+          </dl>
+          <p class="tip">Each block is one forecast hour. Solid means overcast. Thin band is the Moon above the horizon. Hours are EST.</p><p class="src">Open-Meteo forecast (CC BY 4.0), model data, not on-site measurements. Retrieved 14:11.</p>
+        </div>
+      </div>
+      <details class="panel score-d"><summary><span class="more">Why this score</span></summary><ul class="comp"><li><div class="row"><span>Cloud cover <em class="tag">Forecast</em></span><span class="num">31.5<i> / 45</i></span></div><p class="fine">Mean forecast cloud cover 30% in the best window</p></li><li><div class="row"><span>Rain risk <em class="tag">Forecast</em></span><span class="num">20.6<i> / 25</i></span></div><p class="fine">Mean precipitation probability 18% (0% does not guarantee dry skies)</p></li><li><div class="row"><span>Moonlight <em class="tag">Calculated</em></span><span class="num">0.1<i> / 20</i></span></div><p class="fine">Moon up 100% of the window, 99% illuminated</p></li><li><div class="row"><span>Darkness available <em class="tag">Calculated</em></span><span class="num">10<i> / 10</i></span></div><p class="fine">11.2 h with the Sun below -18° (6 h earns full points)</p></li></ul></details>
+    </div>
+    <div class="scen" data-scen="none" data-chip='<b>Sun 20</b> to Mon 21<span class="dt-month"> Dec</span>'>
+      <p class="lead">Night of Sun 20 to morning of Mon 21 Dec</p>
+      <div class="heroB">
+        <div class="panel big"><div class="n none">No score</div><p class="for">Without a forecast there is no weather-backed total. Calculated parts only: 21.8 of 30. <em class="tag">Heuristic</em></p><p class="then"><b>No forecast yet</b>Open-Meteo forecasts extend about 16 days ahead (to 2026-11-24 UTC). Astronomy for this night is still calculated.</p></div>
+        <div class="panel stripbox">
+<svg viewBox="0 0 752 164" class="strip wide" role="img" aria-label="Night from sunset to sunrise">
+  <defs><linearGradient id="skynonew"><stop offset="0.0000" style="stop-color:var(--strip-day)"/><stop offset="0.0464" style="stop-color:var(--strip-day)"/><stop offset="0.0779" style="stop-color:var(--strip-civil)"/><stop offset="0.1130" style="stop-color:var(--strip-nautical)"/><stop offset="0.1470" style="stop-color:var(--strip-dark)"/><stop offset="0.8530" style="stop-color:var(--strip-dark)"/><stop offset="0.8870" style="stop-color:var(--strip-nautical)"/><stop offset="0.9221" style="stop-color:var(--strip-civil)"/><stop offset="0.9536" style="stop-color:var(--strip-day)"/><stop offset="1.0000" style="stop-color:var(--strip-day)"/></linearGradient>
+  <clipPath id="roundnonew"><rect x="0" y="26" width="752" height="104" rx="10"/></clipPath></defs>
+  <rect x="0" y="26" width="752" height="104" rx="10" fill="url(#skynonew)"/>
+  <g clip-path="url(#roundnonew)"></g>
+  <text x="376.0" y="82.0" text-anchor="middle" class="axis onstrip">No forecast this far ahead</text><rect x="0.0" y="134" width="590.2" height="5" rx="2.5" class="moonbar"/><line x1="5.2" x2="5.2" y1="140" y2="145" class="tick"/><text x="5.2" y="162" text-anchor="middle" class="axis">16</text><line x1="51.7" x2="51.7" y1="140" y2="145" class="tick"/><line x1="98.2" x2="98.2" y1="140" y2="145" class="tick"/><text x="98.2" y="162" text-anchor="middle" class="axis">18</text><line x1="144.6" x2="144.6" y1="140" y2="145" class="tick"/><line x1="191.1" x2="191.1" y1="140" y2="145" class="tick"/><text x="191.1" y="162" text-anchor="middle" class="axis">20</text><line x1="237.6" x2="237.6" y1="140" y2="145" class="tick"/><line x1="284.1" x2="284.1" y1="140" y2="145" class="tick"/><text x="284.1" y="162" text-anchor="middle" class="axis">22</text><line x1="330.6" x2="330.6" y1="140" y2="145" class="tick"/><line x1="377.1" x2="377.1" y1="140" y2="145" class="tick"/><text x="377.1" y="162" text-anchor="middle" class="axis">00</text><line x1="423.6" x2="423.6" y1="140" y2="145" class="tick"/><line x1="470.1" x2="470.1" y1="140" y2="145" class="tick"/><text x="470.1" y="162" text-anchor="middle" class="axis">02</text><line x1="516.6" x2="516.6" y1="140" y2="145" class="tick"/><line x1="563.0" x2="563.0" y1="140" y2="145" class="tick"/><text x="563.0" y="162" text-anchor="middle" class="axis">04</text><line x1="609.5" x2="609.5" y1="140" y2="145" class="tick"/><line x1="656.0" x2="656.0" y1="140" y2="145" class="tick"/><text x="656.0" y="162" text-anchor="middle" class="axis">06</text><line x1="702.5" x2="702.5" y1="140" y2="145" class="tick"/><line x1="749.0" x2="749.0" y1="140" y2="145" class="tick"/><text x="749.0" y="162" text-anchor="middle" class="axis">08</text>
+</svg>
+<svg viewBox="0 0 324 138" class="strip narrow" role="img" aria-label="Night from sunset to sunrise">
+  <defs><linearGradient id="skynonen"><stop offset="0.0000" style="stop-color:var(--strip-day)"/><stop offset="0.0464" style="stop-color:var(--strip-day)"/><stop offset="0.0779" style="stop-color:var(--strip-civil)"/><stop offset="0.1130" style="stop-color:var(--strip-nautical)"/><stop offset="0.1470" style="stop-color:var(--strip-dark)"/><stop offset="0.8530" style="stop-color:var(--strip-dark)"/><stop offset="0.8870" style="stop-color:var(--strip-nautical)"/><stop offset="0.9221" style="stop-color:var(--strip-civil)"/><stop offset="0.9536" style="stop-color:var(--strip-day)"/><stop offset="1.0000" style="stop-color:var(--strip-day)"/></linearGradient>
+  <clipPath id="roundnonen"><rect x="0" y="26" width="324" height="78" rx="10"/></clipPath></defs>
+  <rect x="0" y="26" width="324" height="78" rx="10" fill="url(#skynonen)"/>
+  <g clip-path="url(#roundnonen)"></g>
+  <text x="162.0" y="69.0" text-anchor="middle" class="axis onstrip">No forecast this far ahead</text><rect x="0.0" y="108" width="254.3" height="5" rx="2.5" class="moonbar"/><line x1="2.2" x2="2.2" y1="114" y2="119" class="tick"/><line x1="22.3" x2="22.3" y1="114" y2="119" class="tick"/><line x1="42.3" x2="42.3" y1="114" y2="119" class="tick"/><text x="42.3" y="136" text-anchor="middle" class="axis">18</text><line x1="62.3" x2="62.3" y1="114" y2="119" class="tick"/><line x1="82.4" x2="82.4" y1="114" y2="119" class="tick"/><line x1="102.4" x2="102.4" y1="114" y2="119" class="tick"/><text x="102.4" y="136" text-anchor="middle" class="axis">21</text><line x1="122.4" x2="122.4" y1="114" y2="119" class="tick"/><line x1="142.4" x2="142.4" y1="114" y2="119" class="tick"/><line x1="162.5" x2="162.5" y1="114" y2="119" class="tick"/><text x="162.5" y="136" text-anchor="middle" class="axis">00</text><line x1="182.5" x2="182.5" y1="114" y2="119" class="tick"/><line x1="202.5" x2="202.5" y1="114" y2="119" class="tick"/><line x1="222.6" x2="222.6" y1="114" y2="119" class="tick"/><text x="222.6" y="136" text-anchor="middle" class="axis">03</text><line x1="242.6" x2="242.6" y1="114" y2="119" class="tick"/><line x1="262.6" x2="262.6" y1="114" y2="119" class="tick"/><line x1="282.6" x2="282.6" y1="114" y2="119" class="tick"/><text x="282.6" y="136" text-anchor="middle" class="axis">06</text><line x1="302.7" x2="302.7" y1="114" y2="119" class="tick"/><line x1="322.7" x2="322.7" y1="114" y2="119" class="tick"/>
+</svg>
+          <dl class="facts">
+            <div><dt>Cloud, average</dt><dd>No data<small>beyond forecast range</small></dd></div>
+            <div><dt>Rain chance, peak</dt><dd>No data<small>beyond forecast range</small></dd></div>
+            <div><dt>Moon</dt><dd>88 %<small>up 90 % of darkness</small></dd></div>
+            <div><dt>Darkness</dt><dd>11 h 25 min<small>18:15–05:41 EST</small></dd></div>
+          </dl>
+          <p class="tip">Thin band is the Moon above the horizon. Hours are EST.</p><p class="src">Sun and Moon are calculated for this date. The forecast appears once the night is within range.</p>
+        </div>
+      </div>
+      <details class="panel score-d"><summary><span class="more">Why this score</span></summary><ul class="comp"><li><div class="row"><span>Cloud cover <em class="tag">Forecast</em></span><span class="num">not scored<i> / 45</i></span></div><p class="fine">Forecast unavailable</p></li><li><div class="row"><span>Rain risk <em class="tag">Forecast</em></span><span class="num">not scored<i> / 25</i></span></div><p class="fine">Forecast unavailable</p></li><li><div class="row"><span>Moonlight <em class="tag">Calculated</em></span><span class="num">11.8<i> / 20</i></span></div><p class="fine">Moon up 46% of the window, 90% illuminated</p></li><li><div class="row"><span>Darkness available <em class="tag">Calculated</em></span><span class="num">10<i> / 10</i></span></div><p class="fine">11.4 h with the Sun below -18° (6 h earns full points)</p></li></ul></details>
+    </div>
+     <p class="othernight">Target cards in this mockup use tonight's data only, so they are hidden on the other nights.</p>
+     <div class="targets">
+       <div class="sec"><h2>Best targets</h2></div>
+       <p class="secnote">42 of 58 catalog targets clear 30° during darkness, ranked by a heuristic score. The Moon is down all night, so it doesn't separate these.</p>
+       <div class="grid">
+    <article class="card press" data-id="ngc7331" tabindex="0" role="button" aria-label="Open NGC 7331">
+      <div class="thumbs"><svg viewBox="0 0 112 112" class="thumb frame-d" aria-hidden="true"><circle cx="56.0" cy="56.0" r="38.1" class="fov"/><ellipse cx="56.0" cy="56.0" rx="2.4" ry="1.2" class="obj"/></svg><img src="" alt="" class="thumb photo"><span class="scale">0.67°</span></div>
+      <div class="body">
+        <div class="top"><h3>NGC 7331</h3><div class="score"><b>97</b></div></div>
+        <p class="sub">Galaxy · Peg</p>
+        <p class="time">18:22–00:31</p>
+        <p class="clear">6 h 07 m clear <span class="dim">of 6 h 09 m up</span></p>
+        <div class="foot"><svg viewBox="0 0 120 32" class="spark" aria-hidden="true"><rect x="0.5" y="0" width="68.3" height="30" class="sparkwin"/><line x1="0" x2="120" y1="20.7" y2="20.7" class="sparklim"/><polyline points="0.5,5.9 2.4,5.4 4.2,4.9 6.1,4.4 7.9,4.0 9.8,3.7 11.7,3.7 13.5,3.9 15.4,4.2 17.2,4.6 19.1,5.1 21.0,5.7 22.8,6.2 24.7,6.8 26.5,7.4 28.4,8.0 30.3,8.6 32.1,9.2 34.0,9.8 35.9,10.4 37.7,11.0 39.6,11.6 41.4,12.1 43.3,12.7 45.2,13.4 47.0,13.9 48.9,14.5 50.7,15.1 52.6,15.7 54.5,16.3 56.3,16.9 58.2,17.5 60.0,18.0 61.9,18.6 63.8,19.2 65.6,19.7 67.5,20.3 69.4,20.9 71.2,21.4 73.1,21.9 74.9,22.5 76.8,23.0 78.7,23.6 80.5,24.1 82.4,24.6 84.2,25.1 86.1,25.6 88.0,26.1 89.8,26.6 91.7,27.1 93.5,27.5 95.4,28.0 97.3,28.4 99.1,28.9 101.0,29.3 102.9,29.7 104.7,30.0 106.6,30.0 108.4,30.0 110.3,30.0 112.2,30.0 114.0,30.0 115.9,30.0 117.7,30.0 119.6,30.0" class="sparkline"/></svg><span class="fit">Small in the field</span>
+          <button class="add press" aria-label="Add NGC 7331 to session" data-add>+</button></div>
+      </div>
+    </article>
+    <article class="card press" data-id="ngc7000" tabindex="0" role="button" aria-label="Open North America Nebula">
+      <div class="thumbs"><svg viewBox="0 0 112 112" class="thumb frame-d" aria-hidden="true"><circle cx="56.0" cy="56.0" r="38.1" class="fov"/><ellipse cx="56.0" cy="56.0" rx="31.0" ry="7.7" class="obj"/></svg><img src="" alt="" class="thumb photo"><span class="scale">2°</span></div>
+      <div class="body">
+        <div class="top"><h3>North America Nebula</h3><div class="score"><b>96</b></div></div>
+        <p class="sub">NGC 7000 · HII region · Cyg</p>
+        <p class="time">18:22–23:22</p>
+        <p class="clear">4 h 58 m clear <span class="dim">of 5 h 01 m up</span></p>
+        <div class="foot"><svg viewBox="0 0 120 32" class="spark" aria-hidden="true"><rect x="0.5" y="0" width="55.5" height="30" class="sparkwin"/><line x1="0" x2="120" y1="20.7" y2="20.7" class="sparklim"/><polyline points="0.5,4.8 2.4,5.3 4.2,5.8 6.1,6.3 7.9,6.9 9.8,7.4 11.7,7.9 13.5,8.5 15.4,9.1 17.2,9.6 19.1,10.2 21.0,10.7 22.8,11.3 24.7,11.8 26.5,12.4 28.4,12.9 30.3,13.5 32.1,14.0 34.0,14.6 35.9,15.1 37.7,15.6 39.6,16.2 41.4,16.7 43.3,17.2 45.2,17.7 47.0,18.3 48.9,18.8 50.7,19.3 52.6,19.8 54.5,20.3 56.3,20.8 58.2,21.3 60.0,21.7 61.9,22.2 63.8,22.7 65.6,23.1 67.5,23.6 69.4,24.0 71.2,24.5 73.1,24.9 74.9,25.3 76.8,25.7 78.7,26.1 80.5,26.5 82.4,26.9 84.2,27.2 86.1,27.6 88.0,27.9 89.8,28.3 91.7,28.6 93.5,28.9 95.4,29.2 97.3,29.5 99.1,29.7 101.0,30.0 102.9,30.0 104.7,30.0 106.6,30.0 108.4,30.0 110.3,30.0 112.2,30.0 114.0,30.0 115.9,30.0 117.7,30.0 119.6,30.0" class="sparkline"/></svg><span class="fit">Fills the field</span>
+          <button class="add press" aria-label="Add North America Nebula to session" data-add>+</button></div>
+      </div>
+    </article>
+    <article class="card press" data-id="ic5070" tabindex="0" role="button" aria-label="Open Pelican Nebula">
+      <div class="thumbs"><svg viewBox="0 0 112 112" class="thumb frame-d" aria-hidden="true"><circle cx="56.0" cy="56.0" r="38.1" class="fov"/><ellipse cx="56.0" cy="56.0" rx="15.5" ry="12.9" class="obj"/></svg><img src="" alt="" class="thumb photo"><span class="scale">1.5°</span></div>
+      <div class="body">
+        <div class="top"><h3>Pelican Nebula</h3><div class="score"><b>96</b></div></div>
+        <p class="sub">IC 5070 · HII region · Cyg</p>
+        <p class="time">18:22–23:14</p>
+        <p class="clear">4 h 49 m clear <span class="dim">of 4 h 52 m up</span></p>
+        <div class="foot"><svg viewBox="0 0 120 32" class="spark" aria-hidden="true"><rect x="0.5" y="0" width="53.8" height="30" class="sparkwin"/><line x1="0" x2="120" y1="20.7" y2="20.7" class="sparklim"/><polyline points="0.5,5.1 2.4,5.7 4.2,6.2 6.1,6.8 7.9,7.3 9.8,7.8 11.7,8.4 13.5,9.0 15.4,9.5 17.2,10.1 19.1,10.6 21.0,11.2 22.8,11.7 24.7,12.3 26.5,12.9 28.4,13.4 30.3,13.9 32.1,14.5 34.0,15.0 35.9,15.6 37.7,16.1 39.6,16.6 41.4,17.2 43.3,17.7 45.2,18.2 47.0,18.7 48.9,19.2 50.7,19.7 52.6,20.2 54.5,20.7 56.3,21.2 58.2,21.7 60.0,22.1 61.9,22.6 63.8,23.1 65.6,23.5 67.5,24.0 69.4,24.4 71.2,24.8 73.1,25.2 74.9,25.7 76.8,26.1 78.7,26.5 80.5,26.8 82.4,27.2 84.2,27.6 86.1,27.9 88.0,28.3 89.8,28.6 91.7,28.9 93.5,29.2 95.4,29.4 97.3,29.7 99.1,30.0 101.0,30.0 102.9,30.0 104.7,30.0 106.6,30.0 108.4,30.0 110.3,30.0 112.2,30.0 114.0,30.0 115.9,30.0 117.7,30.0 119.6,30.0" class="sparkline"/></svg><span class="fit">Fits the field</span>
+          <button class="add press" aria-label="Add Pelican Nebula to session" data-add>+</button></div>
+      </div>
+    </article>
+    <article class="card press" data-id="ngc6992" tabindex="0" role="button" aria-label="Open Eastern Veil Nebula">
+      <div class="thumbs"><svg viewBox="0 0 112 112" class="thumb frame-d" aria-hidden="true"><circle cx="56.0" cy="56.0" r="38.1" class="fov"/><ellipse cx="56.0" cy="56.0" rx="15.5" ry="2.1" class="obj"/></svg><img src="" alt="" class="thumb photo"><span class="scale">1.5°</span></div>
+      <div class="body">
+        <div class="top"><h3>Eastern Veil Nebula</h3><div class="score"><b>96</b></div></div>
+        <p class="sub">NGC 6992 · Supernova remnant · Cyg</p>
+        <p class="time">18:22–22:43</p>
+        <p class="clear">4 h 18 m clear <span class="dim">of 4 h 21 m up</span></p>
+        <div class="foot"><svg viewBox="0 0 120 32" class="spark" aria-hidden="true"><rect x="0.5" y="0" width="48.1" height="30" class="sparkwin"/><line x1="0" x2="120" y1="20.7" y2="20.7" class="sparklim"/><polyline points="0.5,5.7 2.4,6.2 4.2,6.7 6.1,7.3 7.9,7.8 9.8,8.4 11.7,9.0 13.5,9.6 15.4,10.2 17.2,10.7 19.1,11.3 21.0,11.9 22.8,12.5 24.7,13.1 26.5,13.7 28.4,14.3 30.3,14.9 32.1,15.5 34.0,16.1 35.9,16.7 37.7,17.3 39.6,17.9 41.4,18.5 43.3,19.0 45.2,19.6 47.0,20.2 48.9,20.8 50.7,21.3 52.6,21.9 54.5,22.4 56.3,23.0 58.2,23.5 60.0,24.1 61.9,24.6 63.8,25.1 65.6,25.6 67.5,26.2 69.4,26.7 71.2,27.2 73.1,27.7 74.9,28.1 76.8,28.6 78.7,29.1 80.5,29.5 82.4,30.0 84.2,30.0 86.1,30.0 88.0,30.0 89.8,30.0 91.7,30.0 93.5,30.0 95.4,30.0 97.3,30.0 99.1,30.0 101.0,30.0 102.9,30.0 104.7,30.0 106.6,30.0 108.4,30.0 110.3,30.0 112.2,30.0 114.0,30.0 115.9,30.0 117.7,30.0 119.6,30.0" class="sparkline"/></svg><span class="fit">Fits the field</span>
+          <button class="add press" aria-label="Add Eastern Veil Nebula to session" data-add>+</button></div>
+      </div>
+    </article>
+    <article class="card press" data-id="ngc6960" tabindex="0" role="button" aria-label="Open Western Veil Nebula">
+      <div class="thumbs"><svg viewBox="0 0 112 112" class="thumb frame-d" aria-hidden="true"><circle cx="56.0" cy="56.0" r="38.1" class="fov"/><ellipse cx="56.0" cy="56.0" rx="54.2" ry="41.3" class="obj"/></svg><img src="" alt="" class="thumb photo"><span class="scale">2°</span></div>
+      <div class="body">
+        <div class="top"><h3>Western Veil Nebula</h3><div class="score"><b>95</b></div></div>
+        <p class="sub">NGC 6960 · Supernova remnant · Cyg</p>
+        <p class="time">18:22–22:29</p>
+        <p class="clear">4 h 05 m clear <span class="dim">of 4 h 08 m up</span></p>
+        <div class="foot"><svg viewBox="0 0 120 32" class="spark" aria-hidden="true"><rect x="0.5" y="0" width="45.6" height="30" class="sparkwin"/><line x1="0" x2="120" y1="20.7" y2="20.7" class="sparklim"/><polyline points="0.5,6.4 2.4,6.9 4.2,7.5 6.1,8.0 7.9,8.6 9.8,9.2 11.7,9.7 13.5,10.3 15.4,10.9 17.2,11.5 19.1,12.1 21.0,12.7 22.8,13.3 24.7,13.9 26.5,14.5 28.4,15.1 30.3,15.7 32.1,16.3 34.0,16.9 35.9,17.5 37.7,18.1 39.6,18.6 41.4,19.2 43.3,19.8 45.2,20.4 47.0,20.9 48.9,21.5 50.7,22.1 52.6,22.7 54.5,23.2 56.3,23.7 58.2,24.3 60.0,24.8 61.9,25.4 63.8,25.9 65.6,26.4 67.5,26.9 69.4,27.4 71.2,27.9 73.1,28.4 74.9,28.9 76.8,29.3 78.7,29.8 80.5,30.0 82.4,30.0 84.2,30.0 86.1,30.0 88.0,30.0 89.8,30.0 91.7,30.0 93.5,30.0 95.4,30.0 97.3,30.0 99.1,30.0 101.0,30.0 102.9,30.0 104.7,30.0 106.6,30.0 108.4,30.0 110.3,30.0 112.2,30.0 114.0,30.0 115.9,30.0 117.7,30.0 119.6,30.0" class="sparkline"/></svg><span class="fit warn">Larger than the field</span>
+          <button class="add press" aria-label="Add Western Veil Nebula to session" data-add>+</button></div>
+      </div>
+    </article>
+    <article class="card press" data-id="ic1396" tabindex="0" role="button" aria-label="Open IC 1396 (Elephant&#x27;s Trunk region)">
+      <div class="thumbs"><svg viewBox="0 0 112 112" class="thumb frame-d" aria-hidden="true"><circle cx="56.0" cy="56.0" r="38.1" class="fov"/><ellipse cx="56.0" cy="56.0" rx="3.6" ry="1.2" class="obj"/></svg><img src="" alt="" class="thumb photo"><span class="scale">0.67°</span></div>
+      <div class="body">
+        <div class="top"><h3>IC 1396 (Elephant&#x27;s Trunk region)</h3><div class="score"><b>94</b></div></div>
+        <p class="sub">IC 1396 · Star cluster + nebula · Cep</p>
+        <p class="time">18:22–00:46</p>
+        <p class="clear">6 h 21 m clear <span class="dim">of 6 h 24 m up</span></p>
+        <div class="foot"><svg viewBox="0 0 120 32" class="spark" aria-hidden="true"><rect x="0.5" y="0" width="71.0" height="30" class="sparkwin"/><line x1="0" x2="120" y1="20.7" y2="20.7" class="sparklim"/><polyline points="0.5,7.5 2.4,7.5 4.2,7.6 6.1,7.7 7.9,7.9 9.8,8.1 11.7,8.3 13.5,8.6 15.4,8.8 17.2,9.2 19.1,9.5 21.0,9.8 22.8,10.2 24.7,10.6 26.5,10.9 28.4,11.3 30.3,11.7 32.1,12.1 34.0,12.5 35.9,13.0 37.7,13.4 39.6,13.8 41.4,14.2 43.3,14.6 45.2,15.0 47.0,15.4 48.9,15.8 50.7,16.3 52.6,16.7 54.5,17.1 56.3,17.5 58.2,17.9 60.0,18.3 61.9,18.7 63.8,19.1 65.6,19.5 67.5,19.9 69.4,20.2 71.2,20.6 73.1,21.0 74.9,21.4 76.8,21.7 78.7,22.0 80.5,22.4 82.4,22.7 84.2,23.0 86.1,23.3 88.0,23.7 89.8,23.9 91.7,24.2 93.5,24.5 95.4,24.8 97.3,25.0 99.1,25.3 101.0,25.5 102.9,25.7 104.7,26.0 106.6,26.2 108.4,26.4 110.3,26.5 112.2,26.7 114.0,26.9 115.9,27.0 117.7,27.1 119.6,27.2" class="sparkline"/></svg><span class="fit">Small in the field</span>
+          <button class="add press" aria-label="Add IC 1396 (Elephant&#x27;s Trunk region) to session" data-add>+</button></div>
+      </div>
+    </article>
+    <article class="card press" data-id="m31" tabindex="0" role="button" aria-label="Open Andromeda Galaxy">
+      <div class="thumbs"><svg viewBox="0 0 112 112" class="thumb frame-d" aria-hidden="true"><circle cx="56.0" cy="56.0" r="38.1" class="fov"/><ellipse cx="56.0" cy="56.0" rx="45.9" ry="18.0" class="obj"/></svg><img src="" alt="" class="thumb photo"><span class="scale">2°</span></div>
+      <div class="body">
+        <div class="top"><h3>Andromeda Galaxy</h3><div class="score"><b>94</b></div></div>
+        <p class="sub">M 31 · Galaxy · And</p>
+        <p class="time">18:22–02:56</p>
+        <p class="clear">7 h 10 m clear <span class="dim">of 8 h 34 m up</span></p>
+        <div class="foot"><svg viewBox="0 0 120 32" class="spark" aria-hidden="true"><rect x="0.5" y="0" width="80.0" height="30" class="sparkwin"/><line x1="0" x2="120" y1="20.7" y2="20.7" class="sparklim"/><polyline points="0.5,12.7 2.4,12.1 4.2,11.6 6.1,11.0 7.9,10.4 9.8,9.8 11.7,9.2 13.5,8.7 15.4,8.1 17.2,7.5 19.1,6.9 21.0,6.3 22.8,5.7 24.7,5.1 26.5,4.6 28.4,4.0 30.3,3.4 32.1,2.9 34.0,2.5 35.9,2.6 37.7,3.1 39.6,3.7 41.4,4.2 43.3,4.8 45.2,5.4 47.0,6.0 48.9,6.6 50.7,7.2 52.6,7.8 54.5,8.3 56.3,8.9 58.2,9.5 60.0,10.1 61.9,10.6 63.8,11.2 65.6,11.8 67.5,12.4 69.4,13.0 71.2,13.5 73.1,14.1 74.9,14.6 76.8,15.2 78.7,15.8 80.5,16.3 82.4,16.8 84.2,17.4 86.1,17.9 88.0,18.5 89.8,19.0 91.7,19.5 93.5,20.0 95.4,20.6 97.3,21.1 99.1,21.6 101.0,22.1 102.9,22.6 104.7,23.1 106.6,23.6 108.4,24.0 110.3,24.5 112.2,24.9 114.0,25.4 115.9,25.8 117.7,26.3 119.6,26.7" class="sparkline"/></svg><span class="fit warn">Larger than the field</span>
+          <button class="add press" aria-label="Add Andromeda Galaxy to session" data-add>+</button></div>
+      </div>
+    </article>
+    <article class="card press" data-id="ngc6888" tabindex="0" role="button" aria-label="Open Crescent Nebula">
+      <div class="thumbs"><svg viewBox="0 0 112 112" class="thumb frame-d" aria-hidden="true"><circle cx="56.0" cy="56.0" r="38.1" class="fov"/><ellipse cx="56.0" cy="56.0" rx="5.2" ry="2.6" class="obj"/></svg><img src="" alt="" class="thumb photo"><span class="scale">0.67°</span></div>
+      <div class="body">
+        <div class="top"><h3>Crescent Nebula</h3><div class="score"><b>94</b></div></div>
+        <p class="sub">NGC 6888 · HII region · Cyg</p>
+        <p class="time">18:22–22:17</p>
+        <p class="clear">3 h 53 m clear <span class="dim">of 3 h 56 m up</span></p>
+        <div class="foot"><svg viewBox="0 0 120 32" class="spark" aria-hidden="true"><rect x="0.5" y="0" width="43.3" height="30" class="sparkwin"/><line x1="0" x2="120" y1="20.7" y2="20.7" class="sparklim"/><polyline points="0.5,7.3 2.4,7.9 4.2,8.5 6.1,9.1 7.9,9.7 9.8,10.3 11.7,10.9 13.5,11.5 15.4,12.0 17.2,12.6 19.1,13.2 21.0,13.8 22.8,14.4 24.7,14.9 26.5,15.5 28.4,16.1 30.3,16.7 32.1,17.2 34.0,17.8 35.9,18.3 37.7,18.9 39.6,19.4 41.4,20.0 43.3,20.5 45.2,21.0 47.0,21.6 48.9,22.1 50.7,22.6 52.6,23.1 54.5,23.6 56.3,24.1 58.2,24.6 60.0,25.1 61.9,25.6 63.8,26.0 65.6,26.5 67.5,26.9 69.4,27.4 71.2,27.8 73.1,28.2 74.9,28.6 76.8,29.0 78.7,29.3 80.5,29.7 82.4,30.0 84.2,30.0 86.1,30.0 88.0,30.0 89.8,30.0 91.7,30.0 93.5,30.0 95.4,30.0 97.3,30.0 99.1,30.0 101.0,30.0 102.9,30.0 104.7,30.0 106.6,30.0 108.4,30.0 110.3,30.0 112.2,30.0 114.0,30.0 115.9,30.0 117.7,30.0 119.6,30.0" class="sparkline"/></svg><span class="fit">Small in the field</span>
+          <button class="add press" aria-label="Add Crescent Nebula to session" data-add>+</button></div>
+      </div>
+    </article>
+    <article class="card press" data-id="ngc7789" tabindex="0" role="button" aria-label="Open Caroline&#x27;s Rose">
+      <div class="thumbs"><svg viewBox="0 0 112 112" class="thumb frame-d" aria-hidden="true"><circle cx="56.0" cy="56.0" r="38.1" class="fov"/><ellipse cx="56.0" cy="56.0" rx="3.7" ry="3.7" class="obj"/></svg><img src="" alt="" class="thumb photo"><span class="scale">0.67°</span></div>
+      <div class="body">
+        <div class="top"><h3>Caroline&#x27;s Rose</h3><div class="score"><b>93</b></div></div>
+        <p class="sub">NGC 7789 · Open cluster · Cas</p>
+        <p class="time">18:22–03:02</p>
+        <p class="clear">7 h 10 m clear <span class="dim">of 8 h 40 m up</span></p>
+        <div class="foot"><svg viewBox="0 0 120 32" class="spark" aria-hidden="true"><rect x="0.5" y="0" width="80.0" height="30" class="sparkwin"/><line x1="0" x2="120" y1="20.7" y2="20.7" class="sparklim"/><polyline points="0.5,10.7 2.4,10.3 4.2,9.9 6.1,9.6 7.9,9.2 9.8,8.9 11.7,8.6 13.5,8.3 15.4,8.0 17.2,7.8 19.1,7.6 21.0,7.4 22.8,7.4 24.7,7.3 26.5,7.3 28.4,7.3 30.3,7.4 32.1,7.5 34.0,7.7 35.9,7.9 37.7,8.1 39.6,8.4 41.4,8.7 43.3,9.0 45.2,9.4 47.0,9.7 48.9,10.1 50.7,10.5 52.6,10.9 54.5,11.3 56.3,11.7 58.2,12.1 60.0,12.5 61.9,13.0 63.8,13.4 65.6,13.8 67.5,14.2 69.4,14.7 71.2,15.1 73.1,15.5 74.9,15.9 76.8,16.4 78.7,16.8 80.5,17.2 82.4,17.6 84.2,18.0 86.1,18.4 88.0,18.8 89.8,19.2 91.7,19.6 93.5,20.0 95.4,20.4 97.3,20.8 99.1,21.1 101.0,21.5 102.9,21.9 104.7,22.2 106.6,22.6 108.4,22.9 110.3,23.2 112.2,23.5 114.0,23.8 115.9,24.2 117.7,24.4 119.6,24.7" class="sparkline"/></svg><span class="fit">Small in the field</span>
+          <button class="add press" aria-label="Add Caroline&#x27;s Rose to session" data-add>+</button></div>
+      </div>
+    </article></div>
+       <p class="legend" id="legend"></p>
+     </div>
+   </div></div>
+   <nav class="tabs"><span class="on">Tonight</span><span>Explore</span><span>Variables</span><span>AstroLog</span><span>Settings</span></nav>
+   <div class="scrim" id="scrim"></div>
+   <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dname">
+     <div class="dtop" id="dtop"><div class="grab"></div>
+       <div class="dhead"><div><h2 id="dname"></h2><p class="sub" id="dsub"></p></div><button class="x press" id="dx" aria-label="Close">✕</button></div></div>
+     <div class="dpics"><div class="dphoto-w"><img class="dphoto" id="dphoto" alt=""><span class="scale" id="dwidth"></span></div>
+       <div class="dframe"><div id="dthumb"></div><p><b id="dfit"></b><br>Dashed circle: S30's 2.46° field, axis unverified.</p></div></div>
+     <dl class="stats" id="dstats"></dl>
+     <ul class="comp" id="drows" style="padding:0"></ul>
+   </aside>
+  </div>
+ </div>
+</div>
+</div>
+<script>
+const D={"ngc7331": {"name": "NGC 7331", "sub": "Galaxy \u00b7 Peg", "window": "18:22\u201300:31", "score": 97, "peak": "85\u00b0 at 19:20", "clear": "6 h 07 m", "size": "9\u2032 \u00d7 4\u2032", "ra": "339.267\u00b0", "dec": "+34.416\u00b0", "rows": "<li><div class=\"row\"><span>Altitude <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">27.9<i> / 30<\/i><\/span><\/div><p class=\"fine\">Median airmass 1.11 (median altitude 65\u00b0) in the window<\/p><\/li><li><div class=\"row\"><span>Imaging time <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">6.2 h contiguous above 30\u00b0 in darkness (4 h = full)<\/p><\/li><li><div class=\"row\"><span>Moon interference <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">20<i> / 20<\/i><\/span><\/div><p class=\"fine\">Moon below the horizon throughout the window<\/p><\/li><li><div class=\"row\"><span>Forecast weather <em class=\"tag\">Forecast<\/em><\/span><span class=\"num\">24.2<i> / 25<\/i><\/span><\/div><p class=\"fine\">Mean cloud 4%, mean precipitation probability 0% in the window<\/p><\/li>", "frame": "<svg viewBox=\"0 0 112 112\" class=\"thumb frame-d\" aria-hidden=\"true\"><circle cx=\"56.0\" cy=\"56.0\" r=\"38.1\" class=\"fov\"/><ellipse cx=\"56.0\" cy=\"56.0\" rx=\"2.4\" ry=\"1.2\" class=\"obj\"/><\/svg>", "fit": "Small in the field", "width": "0.67\u00b0"}, "ngc7000": {"name": "North America Nebula", "sub": "NGC 7000 \u00b7 HII region \u00b7 Cyg", "window": "18:22\u201323:22", "score": 96, "peak": "81\u00b0 at 18:25", "clear": "4 h 58 m", "size": "120\u2032 \u00d7 30\u2032", "ra": "314.821\u00b0", "dec": "+44.529\u00b0", "rows": "<li><div class=\"row\"><span>Altitude <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25.7<i> / 30<\/i><\/span><\/div><p class=\"fine\">Median airmass 1.22 (median altitude 55\u00b0) in the window<\/p><\/li><li><div class=\"row\"><span>Imaging time <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">5.0 h contiguous above 30\u00b0 in darkness (4 h = full)<\/p><\/li><li><div class=\"row\"><span>Moon interference <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">20<i> / 20<\/i><\/span><\/div><p class=\"fine\">Moon below the horizon throughout the window<\/p><\/li><li><div class=\"row\"><span>Forecast weather <em class=\"tag\">Forecast<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">Mean cloud 0%, mean precipitation probability 0% in the window<\/p><\/li>", "frame": "<svg viewBox=\"0 0 112 112\" class=\"thumb frame-d\" aria-hidden=\"true\"><circle cx=\"56.0\" cy=\"56.0\" r=\"38.1\" class=\"fov\"/><ellipse cx=\"56.0\" cy=\"56.0\" rx=\"31.0\" ry=\"7.7\" class=\"obj\"/><\/svg>", "fit": "Fills the field", "width": "2\u00b0"}, "ic5070": {"name": "Pelican Nebula", "sub": "IC 5070 \u00b7 HII region \u00b7 Cyg", "window": "18:22\u201323:14", "score": 96, "peak": "80\u00b0 at 18:25", "clear": "4 h 49 m", "size": "60\u2032 \u00d7 50\u2032", "ra": "312.753\u00b0", "dec": "+44.401\u00b0", "rows": "<li><div class=\"row\"><span>Altitude <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25.5<i> / 30<\/i><\/span><\/div><p class=\"fine\">Median airmass 1.23 (median altitude 55\u00b0) in the window<\/p><\/li><li><div class=\"row\"><span>Imaging time <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">4.9 h contiguous above 30\u00b0 in darkness (4 h = full)<\/p><\/li><li><div class=\"row\"><span>Moon interference <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">20<i> / 20<\/i><\/span><\/div><p class=\"fine\">Moon below the horizon throughout the window<\/p><\/li><li><div class=\"row\"><span>Forecast weather <em class=\"tag\">Forecast<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">Mean cloud 0%, mean precipitation probability 0% in the window<\/p><\/li>", "frame": "<svg viewBox=\"0 0 112 112\" class=\"thumb frame-d\" aria-hidden=\"true\"><circle cx=\"56.0\" cy=\"56.0\" r=\"38.1\" class=\"fov\"/><ellipse cx=\"56.0\" cy=\"56.0\" rx=\"15.5\" ry=\"12.9\" class=\"obj\"/><\/svg>", "fit": "Fits the field", "width": "1.5\u00b0"}, "ngc6992": {"name": "Eastern Veil Nebula", "sub": "NGC 6992 \u00b7 Supernova remnant \u00b7 Cyg", "window": "18:22\u201322:43", "score": 96, "peak": "78\u00b0 at 18:25", "clear": "4 h 18 m", "size": "60\u2032 \u00d7 8\u2032", "ra": "314.079\u00b0", "dec": "+31.743\u00b0", "rows": "<li><div class=\"row\"><span>Altitude <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25.5<i> / 30<\/i><\/span><\/div><p class=\"fine\">Median airmass 1.23 (median altitude 55\u00b0) in the window<\/p><\/li><li><div class=\"row\"><span>Imaging time <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">4.4 h contiguous above 30\u00b0 in darkness (4 h = full)<\/p><\/li><li><div class=\"row\"><span>Moon interference <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">20<i> / 20<\/i><\/span><\/div><p class=\"fine\">Moon below the horizon throughout the window<\/p><\/li><li><div class=\"row\"><span>Forecast weather <em class=\"tag\">Forecast<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">Mean cloud 0%, mean precipitation probability 0% in the window<\/p><\/li>", "frame": "<svg viewBox=\"0 0 112 112\" class=\"thumb frame-d\" aria-hidden=\"true\"><circle cx=\"56.0\" cy=\"56.0\" r=\"38.1\" class=\"fov\"/><ellipse cx=\"56.0\" cy=\"56.0\" rx=\"15.5\" ry=\"2.1\" class=\"obj\"/><\/svg>", "fit": "Fits the field", "width": "1.5\u00b0"}, "ngc6960": {"name": "Western Veil Nebula", "sub": "NGC 6960 \u00b7 Supernova remnant \u00b7 Cyg", "window": "18:22\u201322:29", "score": 95, "peak": "76\u00b0 at 18:25", "clear": "4 h 05 m", "size": "210\u2032 \u00d7 160\u2032", "ra": "311.492\u00b0", "dec": "+30.595\u00b0", "rows": "<li><div class=\"row\"><span>Altitude <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25.2<i> / 30<\/i><\/span><\/div><p class=\"fine\">Median airmass 1.24 (median altitude 54\u00b0) in the window<\/p><\/li><li><div class=\"row\"><span>Imaging time <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">4.1 h contiguous above 30\u00b0 in darkness (4 h = full)<\/p><\/li><li><div class=\"row\"><span>Moon interference <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">20<i> / 20<\/i><\/span><\/div><p class=\"fine\">Moon below the horizon throughout the window<\/p><\/li><li><div class=\"row\"><span>Forecast weather <em class=\"tag\">Forecast<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">Mean cloud 0%, mean precipitation probability 0% in the window<\/p><\/li>", "frame": "<svg viewBox=\"0 0 112 112\" class=\"thumb frame-d\" aria-hidden=\"true\"><circle cx=\"56.0\" cy=\"56.0\" r=\"38.1\" class=\"fov\"/><ellipse cx=\"56.0\" cy=\"56.0\" rx=\"54.2\" ry=\"41.3\" class=\"obj\"/><\/svg>", "fit": "Larger than the field", "width": "2\u00b0"}, "ic1396": {"name": "IC 1396 (Elephant's Trunk region)", "sub": "IC 1396 \u00b7 Star cluster + nebula \u00b7 Cep", "window": "18:22\u201300:46", "score": 94, "peak": "72\u00b0 at 18:25", "clear": "6 h 21 m", "size": "14\u2032 \u00d7 4\u2032", "ra": "324.740\u00b0", "dec": "+57.489\u00b0", "rows": "<li><div class=\"row\"><span>Altitude <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25.5<i> / 30<\/i><\/span><\/div><p class=\"fine\">Median airmass 1.22 (median altitude 55\u00b0) in the window<\/p><\/li><li><div class=\"row\"><span>Imaging time <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">6.4 h contiguous above 30\u00b0 in darkness (4 h = full)<\/p><\/li><li><div class=\"row\"><span>Moon interference <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">20<i> / 20<\/i><\/span><\/div><p class=\"fine\">Moon below the horizon throughout the window<\/p><\/li><li><div class=\"row\"><span>Forecast weather <em class=\"tag\">Forecast<\/em><\/span><span class=\"num\">24<i> / 25<\/i><\/span><\/div><p class=\"fine\">Mean cloud 6%, mean precipitation probability 0% in the window<\/p><\/li>", "frame": "<svg viewBox=\"0 0 112 112\" class=\"thumb frame-d\" aria-hidden=\"true\"><circle cx=\"56.0\" cy=\"56.0\" r=\"38.1\" class=\"fov\"/><ellipse cx=\"56.0\" cy=\"56.0\" rx=\"3.6\" ry=\"1.2\" class=\"obj\"/><\/svg>", "fit": "Small in the field", "width": "0.67\u00b0"}, "m31": {"name": "Andromeda Galaxy", "sub": "M 31 \u00b7 Galaxy \u00b7 And", "window": "18:22\u201302:56", "score": 94, "peak": "88\u00b0 at 21:30", "clear": "7 h 10 m", "size": "178\u2032 \u00d7 70\u2032", "ra": "10.685\u00b0", "dec": "+41.269\u00b0", "rows": "<li><div class=\"row\"><span>Altitude <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">28.1<i> / 30<\/i><\/span><\/div><p class=\"fine\">Median airmass 1.10 (median altitude 66\u00b0) in the window<\/p><\/li><li><div class=\"row\"><span>Imaging time <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">8.6 h contiguous above 30\u00b0 in darkness (4 h = full)<\/p><\/li><li><div class=\"row\"><span>Moon interference <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">20<i> / 20<\/i><\/span><\/div><p class=\"fine\">Moon below the horizon throughout the window<\/p><\/li><li><div class=\"row\"><span>Forecast weather <em class=\"tag\">Forecast<\/em><\/span><span class=\"num\">20.8<i> / 25<\/i><\/span><\/div><p class=\"fine\">Mean cloud 24%, mean precipitation probability 0% in the window<\/p><\/li>", "frame": "<svg viewBox=\"0 0 112 112\" class=\"thumb frame-d\" aria-hidden=\"true\"><circle cx=\"56.0\" cy=\"56.0\" r=\"38.1\" class=\"fov\"/><ellipse cx=\"56.0\" cy=\"56.0\" rx=\"45.9\" ry=\"18.0\" class=\"obj\"/><\/svg>", "fit": "Larger than the field", "width": "2\u00b0"}, "ngc6888": {"name": "Crescent Nebula", "sub": "NGC 6888 \u00b7 HII region \u00b7 Cyg", "window": "18:22\u201322:17", "score": 94, "peak": "73\u00b0 at 18:25", "clear": "3 h 53 m", "size": "20\u2032 \u00d7 10\u2032", "ra": "303.027\u00b0", "dec": "+38.355\u00b0", "rows": "<li><div class=\"row\"><span>Altitude <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">24.3<i> / 30<\/i><\/span><\/div><p class=\"fine\">Median airmass 1.28 (median altitude 51\u00b0) in the window<\/p><\/li><li><div class=\"row\"><span>Imaging time <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">24.5<i> / 25<\/i><\/span><\/div><p class=\"fine\">3.9 h contiguous above 30\u00b0 in darkness (4 h = full)<\/p><\/li><li><div class=\"row\"><span>Moon interference <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">20<i> / 20<\/i><\/span><\/div><p class=\"fine\">Moon below the horizon throughout the window<\/p><\/li><li><div class=\"row\"><span>Forecast weather <em class=\"tag\">Forecast<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">Mean cloud 0%, mean precipitation probability 0% in the window<\/p><\/li>", "frame": "<svg viewBox=\"0 0 112 112\" class=\"thumb frame-d\" aria-hidden=\"true\"><circle cx=\"56.0\" cy=\"56.0\" r=\"38.1\" class=\"fov\"/><ellipse cx=\"56.0\" cy=\"56.0\" rx=\"5.2\" ry=\"2.6\" class=\"obj\"/><\/svg>", "fit": "Small in the field", "width": "0.67\u00b0"}, "ngc7789": {"name": "Caroline's Rose", "sub": "NGC 7789 \u00b7 Open cluster \u00b7 Cas", "window": "18:22\u201303:02", "score": 93, "peak": "73\u00b0 at 20:40", "clear": "7 h 10 m", "size": "14\u2032", "ra": "359.350\u00b0", "dec": "+56.708\u00b0", "rows": "<li><div class=\"row\"><span>Altitude <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">27.5<i> / 30<\/i><\/span><\/div><p class=\"fine\">Median airmass 1.12 (median altitude 63\u00b0) in the window<\/p><\/li><li><div class=\"row\"><span>Imaging time <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">25<i> / 25<\/i><\/span><\/div><p class=\"fine\">8.7 h contiguous above 30\u00b0 in darkness (4 h = full)<\/p><\/li><li><div class=\"row\"><span>Moon interference <em class=\"tag\">Calculated<\/em><\/span><span class=\"num\">20<i> / 20<\/i><\/span><\/div><p class=\"fine\">Moon below the horizon throughout the window<\/p><\/li><li><div class=\"row\"><span>Forecast weather <em class=\"tag\">Forecast<\/em><\/span><span class=\"num\">20.6<i> / 25<\/i><\/span><\/div><p class=\"fine\">Mean cloud 25%, mean precipitation probability 0% in the window<\/p><\/li>", "frame": "<svg viewBox=\"0 0 112 112\" class=\"thumb frame-d\" aria-hidden=\"true\"><circle cx=\"56.0\" cy=\"56.0\" r=\"38.1\" class=\"fov\"/><ellipse cx=\"56.0\" cy=\"56.0\" rx=\"3.7\" ry=\"3.7\" class=\"obj\"/><\/svg>", "fit": "Small in the field", "width": "0.67\u00b0"}}, $=i=>document.getElementById(i), F=$('frame'), dr=$('drawer'), sc=$('scrim'), col=$('col'), legend=$('legend');
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const LEG={sky:"Sky images: Digitized Sky Survey, red plates, scaled to each object with the width marked on the picture. © AURA and the plate copyright holders; used for non-profit purposes.",none:"Shown when a sky image can't be fetched. Dashed circle is the S30's published 2.46° field (axis unverified). Blue is the catalog size, orientation not shown."};
+function chip(){$('datechip').innerHTML=document.querySelector(`.scen[data-scen=${F.dataset.night}]`).dataset.chip}
+legend.textContent=LEG.none;chip();
+document.querySelectorAll('[data-ctl]').forEach(g=>g.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const go=()=>{F.dataset[g.dataset.ctl]=b.dataset.v;g.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));legend.textContent=LEG[F.dataset.card];chip()};
+  if(g.dataset.ctl==='vision'&&document.startViewTransition&&!reduce)document.startViewTransition(go);else go()}));
+document.querySelectorAll('.stripbox').forEach(box=>{const tip=box.querySelector('.tip'),base=tip.textContent;box.querySelectorAll('.cell').forEach(c=>{c.addEventListener('pointerenter',()=>tip.textContent=c.dataset.tip);c.addEventListener('pointerdown',()=>tip.textContent=c.dataset.tip);c.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')tip.textContent=base})})});
+let last=null,closeT=0;
+function openD(id,card){const d=D[id];last=card;$('dname').textContent=d.name;$('dsub').textContent=d.sub;$('dthumb').innerHTML=d.frame;$('dfit').textContent=d.fit;$('drows').innerHTML=d.rows;$('dphoto').src=card.querySelector('img.photo').src;$('dwidth').textContent=d.width;
+  $('dstats').innerHTML=[['Best window',d.window+' EST'],['Forecast-clear',d.clear],['Peak in darkness',d.peak],['Score',d.score+' / 100 (heuristic)'],['RA, J2000',d.ra],['Dec, J2000',d.dec],['Catalog size',d.size]].map(([a,b])=>`<div><dt>${a}</dt><dd>${b}</dd></div>`).join('');
+  clearTimeout(closeT);dr.style.transform='';sc.style.opacity='';dr.scrollTop=0;col.classList.remove('closing');col.classList.add('open');$('dx').focus({preventScroll:true})}
+function closeD(){col.classList.remove('open');col.classList.add('closing');dr.style.transform='';sc.style.opacity='';clearTimeout(closeT);closeT=setTimeout(()=>col.classList.remove('closing'),220);if(last)last.focus({preventScroll:true})}
+const grid=document.querySelector('.grid');
+grid.addEventListener('click',e=>{const add=e.target.closest('[data-add]');if(add){add.textContent=add.toggleAttribute('data-on')?'✓':'+';return}const c=e.target.closest('.card');if(c)openD(c.dataset.id,c)});
+grid.addEventListener('keydown',e=>{const c=e.target.closest('.card');if(c&&e.target===c&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openD(c.dataset.id,c)}});
+sc.addEventListener('click',closeD);$('dx').addEventListener('click',closeD);addEventListener('keydown',e=>{if(e.key==='Escape'&&col.classList.contains('open'))closeD()});
+/* phone sheet: 1:1 tracking, catchable mid-flight, dismiss on distance or flick, scrim linked to progress */
+const top_=$('dtop');let st=null;
+top_.addEventListener('pointerdown',e=>{if(F.dataset.size!=='phone'||e.target.closest('button'))return;top_.setPointerCapture(e.pointerId);const base=new DOMMatrixReadOnly(getComputedStyle(dr).transform).m42;clearTimeout(closeT);col.classList.remove('closing');col.classList.add('open');st={y:e.clientY-base,t:performance.now(),v:0,d:base};dr.style.transition='none';sc.style.transition='none';dr.style.transform=`translate3d(0,${base}px,0)`});
+top_.addEventListener('pointermove',e=>{if(!st)return;const now=performance.now(),dy=e.clientY-st.y;st.v=(dy-st.d)/Math.max(now-st.t,1);st.d=dy;st.t=now;const pos=dy>0?dy:-Math.pow(-dy,.6);dr.style.transform=`translate3d(0,${pos}px,0)`;sc.style.opacity=String(1-Math.max(pos,0)/dr.offsetHeight)});
+function endDrag(){if(!st)return;const dy=st.d,v=st.v;st=null;dr.style.transition='';sc.style.transition='';if(dy>dr.offsetHeight*.35||v>.5)closeD();else{dr.style.transform='';sc.style.opacity=''}}
+top_.addEventListener('pointerup',endDrag);top_.addEventListener('pointercancel',endDrag);
+</script>
+</body>
+</html>

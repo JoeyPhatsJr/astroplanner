@@ -25,6 +25,8 @@ export interface Target {
   source: string;
   source_id: string;
   source_url: string;
+  /** Side of the survey cutout in arcminutes (backend-chosen); null when the server has sky images switched off. */
+  sky_field_arcmin?: number | null;
 }
 
 export interface CatalogMeta {
@@ -145,11 +147,19 @@ export interface TonightScore {
   summary: string;
 }
 
+export interface NightClear {
+  start_utc: string;
+  end_utc: string;
+  minutes: number;
+  rule: string;
+}
+
 export interface TonightResponse {
   computed_at_utc: string;
   night: NightSummary;
   forecast: ForecastPayload;
   score: TonightScore;
+  night_clear: NightClear | null;
 }
 
 export type VisibilityStatus =
@@ -331,7 +341,7 @@ export interface GeocodeResult {
 }
 
 export interface AboutResponse {
-  data_sources: { name: string; use: string; url: string; license: string; version?: string }[];
+  data_sources: { name: string; use: string; url: string; license: string; version?: string; acknowledgment?: string }[];
   score_weights: { tonight: Record<string, number>; target: Record<string, number> };
   darkness_thresholds_deg: Record<string, number>;
 }

@@ -25,6 +25,8 @@ vi.mock("../../state/activeSession", () => ({
   useActiveSession: () => ({ inSession: () => false, isAdding: false, error: null, addTarget: mocks.addTarget }),
 }));
 
+import { Row as ExploreRow } from "../../pages/ExplorePage";
+import type { Recommendation } from "../../api/types";
 import { StarPage } from "../../pages/StarPage";
 import { TargetLogPage } from "../../pages/TargetLogPage";
 import { VariableHunterPage } from "../../pages/VariableHunterPage";
@@ -115,6 +117,46 @@ describe("Variable Hunter list", () => {
   });
 });
 
+describe("Variable Hunter list: zero nights", () => {
+  it("omits the nights line when the count is zero", async () => {
+    routes["GET /api/variables"] = () => listBody;
+    for (const sl of SLUGS) routes[`GET /api/variables/${sl}/visibility`] = () => visBody();
+    renderAt("/variables", <VariableHunterPage />, "/variables");
+    const list = await screen.findByRole("list", { name: "Variable stars" });
+    expect(within(list).queryByText("Your nights: 0")).toBeNull();
+    expect(within(list).getAllByText(/Your nights: \d/)).toHaveLength(3);
+  });
+});
+
+describe("Explore rows", () => {
+  const rec = (name: string, designation: string, status: string): Recommendation =>
+    ({
+      target: { id: "t1", name, primary_designation: designation, kind: "galaxy", constellation: "Andromeda", angular_major_arcmin: 10, angular_minor_arcmin: 5 },
+      visibility: {
+        status, status_text: status === "observable" ? "Observable during darkness" : "Below the minimum altitude", status_detail: "detail",
+        best_window: status === "observable" ? { start_utc: "2026-11-03T00:30:00Z", end_utc: "2026-11-03T05:30:00Z", minutes: 300 } : null,
+        max_alt_dark_deg: 60,
+      },
+      score: { total: null, max_total: 100 },
+      sparkline_alt_deg: [],
+    }) as unknown as Recommendation;
+  const show = (r: Recommendation) =>
+    renderAt("/", <ul><ExploreRow rec={r} tz="America/New_York" minAlt={30} onOpen={() => {}} /></ul>, "/");
+
+  it("hides the designation when it equals the name and does not repeat 'Observable' on observable rows", () => {
+    const { container } = show(rec("M31", "M31", "observable"));
+    expect(container.textContent).not.toMatch(/M31 · M31/);
+    expect(screen.queryByText("Observable during darkness")).toBeNull();
+    expect(container.textContent).toMatch(/peak/);
+  });
+
+  it("keeps the designation when it differs and the status badge on non-observable rows", () => {
+    const { container } = show(rec("Andromeda Galaxy", "M31", "below_threshold"));
+    expect(container.textContent).toContain("M31 · galaxy");
+    expect(screen.getByText("Below the minimum altitude")).toBeInTheDocument();
+  });
+});
+
 describe("Variable Hunter list: edge states", () => {
   it("shows plain no-location text with no nested anchors", async () => {
     mocks.observer = null;
@@ -156,7 +198,7 @@ describe("Star page", () => {
     expect(link).toHaveAttribute("target", "_blank");
     expect(link.getAttribute("rel")).toContain("noopener");
     expect(container.querySelector("svg.recharts-surface, canvas, [data-testid=light-curve]")).toBeNull();
-    expect(screen.getByText("Planned for a later phase")).toBeInTheDocument();
+    expect(screen.queryByText("Planned for a later phase")).toBeNull();
     expect(screen.getByText(/International Variable Star Index/)).toBeInTheDocument();
   });
 
@@ -264,7 +306,7 @@ describe("Star page: Seestar note", () => {
       routes["GET /api/variables/ss-cyg"] = () => starBody({ seestar_fit: { estimate_range: [7, 12.5], label: "estimate, not yet measured", text: "x" } });
       routes["GET /api/variables/ss-cyg/visibility"] = () => visBody();
       renderAt("/variables/ss-cyg", <StarPage />, "/variables/:slug");
-      expect(await screen.findByRole("heading", { name: "Seestar fit · Seestar S30 (original)" })).toBeInTheDocument();
+      expect(await screen.findByText("Seestar fit · Seestar S30 (original)")).toBeInTheDocument();
     } finally {
       mocks.equipment = { id: "seestar-s30", name: "Seestar S30" };
     }

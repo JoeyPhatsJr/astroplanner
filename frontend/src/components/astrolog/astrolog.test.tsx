@@ -111,6 +111,25 @@ describe("TargetTile", () => {
     expect(screen.getByText("nights unknown")).toBeInTheDocument();
     expect(screen.queryByText(/0 nights/)).toBeNull();
   });
+
+  it("marks the library picture for the night-vision red filter", () => {
+    render(<MemoryRouter><TargetTile row={row({ thumb_url: "/api/astrolog/final-images/f1/thumb" })} /></MemoryRouter>);
+    expect(screen.getByAltText("Final picture of Bubble Nebula").className).toContain("vision-img");
+  });
+});
+
+describe("TargetLogPage final picture", () => {
+  it("marks the final picture for the night-vision red filter", () => {
+    mocks.target = page({
+      final_image: {
+        id: "f1", source_filename: "final.jpg", format: "JPEG", width: 800, height: 600, stack_id: null,
+        chosen_at: "2026-09-12T03:00:00Z", preview_url: "/api/astrolog/final-images/f1/preview", thumb_url: "/api/astrolog/final-images/f1/thumb",
+      },
+    });
+    mocks.sessions = [];
+    renderTarget();
+    expect(screen.getByAltText("Final picture of Bubble Nebula").className).toContain("vision-img");
+  });
 });
 
 const stackOut = (id: string, source_filename: string, stack_count: number | null) => ({

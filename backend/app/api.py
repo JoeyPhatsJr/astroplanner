@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import astropy
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -19,7 +20,8 @@ from .astrolog.library import capture_info, session_capture_info
 from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
 from .db import Database, EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
-from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, target_score, tonight_score
+from .sky_images import BUSY_RETRY_AFTER_S, SkyImageBusy, SkyImageProvider
+from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, night_clear, target_score, tonight_score
 from .visibility import DEFAULT_MIN_ALT_DEG, analyse_target, visibility_payload
 from .weather import OpenMeteoProvider, align_to_grid, forecast_payload
 
@@ -106,6 +108,25 @@ def health(db: Session = Depends(get_db)) -> dict[str, Any]:
     }
 
 
+DSS_ACKNOWLEDGMENT = (
+    "Investigators using these scans are requested to include these acknowledgments in any publications as appropriate.\n\n"
+    "The Digitized Sky Surveys were produced at the Space Telescope Science Institute under U.S. Government grant NAG W-2166. "
+    "The images of these surveys are based on photographic data obtained using the Oschin Schmidt Telescope on Palomar Mountain "
+    "and the UK Schmidt Telescope. The plates were processed into the present compressed digital form with the permission of these institutions.\n\n"
+    "The National Geographic Society - Palomar Observatory Sky Atlas (POSS-I) was made by the California Institute of Technology "
+    "with grants from the National Geographic Society.\n\n"
+    "The Second Palomar Observatory Sky Survey (POSS-II) was made by the California Institute of Technology with funds from the "
+    "National Science Foundation, the National Geographic Society, the Sloan Foundation, the Samuel Oschin Foundation, and the Eastman Kodak Corporation.\n\n"
+    "The Oschin Schmidt Telescope is operated by the California Institute of Technology and Palomar Observatory.\n\n"
+    "The UK Schmidt Telescope was operated by the Royal Observatory Edinburgh, with funding from the UK Science and Engineering Research Council "
+    "(later the UK Particle Physics and Astronomy Research Council), until 1988 June, and thereafter by the Anglo-Australian Observatory. "
+    "The blue plates of the southern Sky Atlas and its Equatorial Extension (together known as the SERC-J), as well as the Equatorial Red (ER), "
+    "and the Second Epoch [red] Survey (SES) were all taken with the UK Schmidt.\n\n"
+    "All data are subject to the copyright given in the copyright summary. Copyright information specific to individual plates is provided in the downloaded FITS headers.\n\n"
+    "Supplemental funding for sky-survey work at the ST ScI is provided by the European Southern Observatory."
+)
+
+
 @router.get("/about")
 def about() -> dict[str, Any]:
     meta = catalog.catalog_meta()
@@ -121,6 +142,10 @@ def about() -> dict[str, Any]:
              "license": "BSD-3-Clause", "version": astropy.__version__},
             {"name": "timezonefinder", "use": "Offline timezone for coordinates",
              "url": "https://github.com/jannikmi/timezonefinder", "license": "MIT"},
+            {"name": "Digitized Sky Surveys (STScI)", "use": "Sky images on target cards and details (red plates, cached locally)",
+             "url": "https://archive.stsci.edu/dss/acknowledging.html",
+             "license": "© AURA and the plate copyright holders; non-profit use",
+             "acknowledgment": DSS_ACKNOWLEDGMENT},
         ],
         "score_weights": {"tonight": TONIGHT_WEIGHTS, "target": TARGET_WEIGHTS},
         "darkness_thresholds_deg": DARKNESS_THRESHOLDS,
@@ -144,21 +169,45 @@ def timezone_lookup(lat: float = Query(..., ge=-90, le=90), lon: float = Query(.
 
 # ---- catalog -------------------------------------------------------------------
 
+def _client_target(t: dict[str, Any], request: Request) -> dict[str, Any]:
+    """A catalog target as sent to clients: no sky-image field width when images are off, so none are requested."""
+    if request.app.state.sky_images.enabled:
+        return t
+    return t | {"sky_field_arcmin": None}
+
+
 @router.get("/targets")
 def list_targets(
+    request: Request,
     query: str | None = Query(None, max_length=60),
     category: Literal["all", "galaxy", "nebula", "cluster"] = "all",
 ) -> dict[str, Any]:
-    items = catalog.search(query, category)
+    items = [_client_target(t, request) for t in catalog.search(query, category)]
     return {"count": len(items), "targets": items, "catalog": catalog.catalog_meta()}
 
 
 @router.get("/targets/{target_id}")
-def get_target(target_id: str) -> dict[str, Any]:
+def get_target(target_id: str, request: Request) -> dict[str, Any]:
     t = catalog.get_target(target_id)
     if t is None:
         raise HTTPException(404, f"Unknown target {target_id!r}")
-    return t
+    return _client_target(t, request)
+
+
+@router.get("/targets/{target_id}/sky-image")
+def target_sky_image(target_id: str, request: Request) -> FileResponse:
+    t = catalog.get_target(target_id)
+    if t is None:
+        raise HTTPException(404, f"Unknown target {target_id!r}")
+    provider: SkyImageProvider = request.app.state.sky_images
+    try:
+        path = provider.get(t["id"], t["ra_deg"], t["dec_deg"], t["sky_field_arcmin"])
+    except SkyImageBusy:
+        # Answer at once rather than hold one of the browser's few connections while another fetch runs.
+        raise HTTPException(503, "Sky survey image busy; retry shortly", headers={"Retry-After": str(BUSY_RETRY_AFTER_S)})
+    if path is None:
+        raise HTTPException(503, "Sky survey image unavailable right now")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "public, max-age=604800"})
 
 
 # ---- astronomy -----------------------------------------------------------------
@@ -189,6 +238,7 @@ def tonight(
         "night": night_summary(ctx, darkness),
         "forecast": forecast_payload(fc, start.timestamp(), end.timestamp(), _now(), _lead_ref(ctx, darkness)),
         "score": tonight_score(ctx, grid, darkness),
+        "night_clear": night_clear(ctx, grid, darkness),
     }
 
 
@@ -206,6 +256,7 @@ STATUS_ORDER = ["observable", "too_brief", "daylight_only", "below_threshold", "
 
 @router.get("/recommendations")
 def recommendations(
+    request: Request,
     o: Observer = Depends(observer_params),
     equipment_id: str | None = None,
     min_altitude_deg: float = Query(DEFAULT_MIN_ALT_DEG, ge=0, le=80),
@@ -229,7 +280,7 @@ def recommendations(
         idx = catalog.target_index(t["id"])
         vis = analyse_target(ctx, idx, t["dec_deg"], min_altitude_deg, darkness)
         items.append({
-            "target": t,
+            "target": _client_target(t, request),
             "visibility": visibility_payload(vis, ctx, min_altitude_deg, include_series=False),
             "score": target_score(ctx, vis, t, grid, eq, min_altitude_deg),
             "sparkline_alt_deg": np.round(ctx.target_alt[idx][spark_sel], 1).tolist(),
@@ -255,6 +306,7 @@ def recommendations(
 @router.get("/targets/{target_id}/visibility")
 def target_visibility(
     target_id: str,
+    request: Request,
     o: Observer = Depends(observer_params),
     min_altitude_deg: float = Query(DEFAULT_MIN_ALT_DEG, ge=0, le=80),
     darkness: Darkness = "astronomical",
@@ -275,7 +327,7 @@ def target_visibility(
     night = night_summary(ctx, darkness)
     return {
         "computed_at_utc": iso_utc(_now().timestamp()),
-        "target": t,
+        "target": _client_target(t, request),
         "visibility": payload,
         "score": target_score(ctx, vis, t, grid, _equipment_dict(db, equipment_id), min_altitude_deg),
         "night": {k: night[k] for k in ("events", "dark_intervals", "display_start_utc", "display_end_utc",

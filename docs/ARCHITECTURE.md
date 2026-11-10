@@ -149,6 +149,27 @@ documentation, tutorial default, or taste) and nothing is scored. Stacks, not ra
 that reaches the backend, and only when the user adds one; this extends the Phase 2 rule for stacks only and must be
 re-checked against hosting limits before any deployment.
 
+## Polish pass (2026-11)
+
+- **`night_clear`** (`scoring.py`): the longest run of darkness samples whose forecast is clear, using the same rule as a
+  target's favorable window (cloud and precipitation-probability limits). Missing forecast values never count as clear; it is
+  `null` without a forecast, without darkness or without a clear sample. It is a statement about the whole night
+  ("Clear until about 02:30") shown beside the Tonight's Score, and it does not change how any score is calculated.
+- **Sky images** (`sky_images.py`, `GET /api/targets/{id}/sky-image`): a `SkyImageProvider` on `app.state.sky_images` fetches a
+  Digitized Sky Survey cutout from STScI at most once per target and field size, reduces it to a small greyscale JPEG and caches it
+  under `backend/data/sky-images/` (ignored by version control). Requests are serialised and spaced out, failures back off, and nothing is
+  fetched when the switch is off (`ASTROPLANNER_SKY_IMAGES=off`; the route then answers 503). The card keeps the framing diagram as its
+  fallback and fades the picture in over it. Tests inject a fake fetcher, so none touches the network.
+- **Overlay and sheet** (`ui/Overlay.tsx`, `ui/useSheetDrag.ts`, `lib/sheetDrag.ts`): one native `<dialog>` (focus trap, Esc, inert page)
+  with a real scrim and panel, shared timing (in 280 ms, out 200 ms; modal 180/120), `data-state` open or closing. On phones a drawer is a
+  bottom sheet: the grabber and header are the drag region, the drag writes `transform` and scrim `opacity` straight to styles
+  (no React state or CSS variables), and releasing hands control back to the stylesheet transitions. A closing sheet can be caught mid-flight.
+- **Themed controls** (`ui/Select.tsx`, `ui/NightPicker.tsx`, popups built on Base UI): selects and the date picker are drawn from the palette
+  variables, so night vision keeps them red. Checkboxes and radios are drawn in `index.css` for the same reason (the native tick is white).
+  Ten native `<select>` elements remain; their open list is drawn by the browser.
+- **Night vision**: `:root[data-vision="night"]` redefines every colour token; pictures go through the red-channel-only SVG filter `#vision-red`.
+  Entering night vision is instant; leaving it crossfades over 200 ms (View Transitions, skipped under reduced motion).
+
 ## Persistence
 
 - Phase 1 tables: `observing_locations`, `equipment_profiles`, `sessions`,

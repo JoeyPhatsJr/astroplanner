@@ -1,5 +1,5 @@
 import { AlertTriangle, Check, ExternalLink, Plus, X } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import { useCurrentEquipment, useVisibility } from "../../api/hooks";
 import { formatDec, formatDeg, formatRA, formatSize } from "../../lib/format";
 import { formatDateTime, formatDuration, formatTime, tzAbbrev } from "../../lib/time";
@@ -8,26 +8,27 @@ import { usePrefs } from "../../state/prefs";
 import { AltitudeChart } from "../charts/LazyCharts";
 import { HistoryBadge } from "../astrolog/HistoryBadge";
 import { SegmentedScoreBar, ScoreBreakdown } from "../tonight/ScoreHero";
+import { Overlay, SheetTop } from "../ui/Overlay";
 import { ErrorState, Notice, Skeleton } from "../ui/States";
+import { FramingDiagram, framingNote } from "./FramingDiagram";
 import { ScoreChip } from "./TargetCard";
+import { SkyThumb } from "./SkyThumb";
 
-export function TargetDetail({ targetId, onClose }: { targetId: string | null; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
+type DetailProps = {
+  targetId: string | null;
+  onClose: () => void;
+  /** Phone sheet caught while closing and let go without dismissing: the page should open this target again. */
+  onReopen?: (id: string) => void;
+};
+
+export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
   const { prefs } = usePrefs();
-  const q = useVisibility(targetId);
+  // Keep showing the last target while the drawer animates out.
+  const [shownId, setShownId] = useState<string | null>(targetId);
+  if (targetId && targetId !== shownId) setShownId(targetId);
+  const q = useVisibility(shownId);
   const eq = useCurrentEquipment();
   const active = useActiveSession();
-
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (targetId && !d.open) {
-      if (typeof d.showModal === "function") d.showModal();
-      else d.setAttribute("open", "");
-    } else if (!targetId && d.open) {
-      d.close();
-    }
-  }, [targetId]);
 
   const data = q.data;
   const tz = data?.night.timezone ?? "UTC";
@@ -36,16 +37,17 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
   const inSession = t ? active.inSession(t.id) : false;
 
   return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      onClick={(e) => {
-        if (e.target === ref.current) onClose();
-      }}
-      aria-labelledby="target-detail-title"
-      className="m-0 ml-auto h-dvh max-h-dvh w-full max-w-[640px] overflow-y-auto border-l border-line bg-night p-0 text-ink backdrop:bg-black/60 sm:w-[min(640px,92vw)]"
+    <Overlay
+      open={targetId !== null}
+      onDismiss={onClose}
+      onClosed={() => setShownId(null)}
+      variant="drawer"
+      labelledBy="target-detail-title"
+      onReopen={onReopen && shownId ? () => onReopen(shownId) : undefined}
+      panelClassName="border-l border-line bg-night text-ink max-sm:border-l-0 max-sm:border-t"
     >
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-line-soft bg-night px-5 py-3.5">
+      <SheetTop className="border-b border-line-soft">
+      <div className="flex items-center gap-3 px-5 py-3.5">
         <h2 id="target-detail-title" className="min-w-0 flex-1 truncate font-semibold tracking-tight text-xl">
           {t ? t.name : "Target"}
         </h2>
@@ -64,6 +66,7 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
           <X className="size-5" aria-hidden />
         </button>
       </div>
+      </SheetTop>
 
       <div className="flex flex-col gap-5 p-5">
         {active.error && <Notice tone="warn">{active.error}</Notice>}
@@ -85,6 +88,17 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
                 {t.aliases.length > 0 && <p className="mt-1 text-xs leading-relaxed text-muted">Also: {t.aliases.join(", ")}</p>}
               </div>
               <ScoreChip total={data.score.total} max={data.score.max_total} />
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <SkyThumb key={t.id} target={t} fovDeg={eq?.fov_deg ?? null} size={168} fallback={false} />
+              {eq?.fov_deg && framingNote(t.angular_major_arcmin, eq.fov_deg) && (
+                <div className="relative size-[168px]">
+                  <FramingDiagram major={t.angular_major_arcmin} minor={t.angular_minor_arcmin} fovDeg={eq.fov_deg} size={168} />
+                  <span className="absolute bottom-1 left-1 rounded-[5px] bg-black/60 px-1.5 text-micro font-semibold text-ink">
+                    {framingNote(t.angular_major_arcmin, eq.fov_deg)!.text}
+                  </span>
+                </div>
+              )}
             </div>
             <HistoryBadge catalogId={t.id} />
 
@@ -163,7 +177,7 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
           </>
         )}
       </div>
-    </dialog>
+    </Overlay>
   );
 }
 
