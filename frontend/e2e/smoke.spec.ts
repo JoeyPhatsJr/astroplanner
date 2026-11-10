@@ -121,6 +121,13 @@ test("Phone: one-row header chip opens the controls sheet; details is a bottom s
   await expect(page.locator("dialog[open]")).toHaveCount(0);
 });
 
+test("Phone: the night strip says 'Tap', not 'Hover'", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "phone layout only");
+  await page.goto("/tonight");
+  await expect(page.getByText("Tap the strip for hourly values.")).toBeVisible();
+  await expect(page.getByText("Hover over the strip for hourly values.")).toBeHidden();
+});
+
 test("Phone: tapping outside an open select in the header sheet closes the select, not the sheet", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile", "phone layout only");
   await page.goto("/tonight");

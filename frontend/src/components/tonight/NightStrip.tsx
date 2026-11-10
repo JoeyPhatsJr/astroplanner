@@ -194,14 +194,6 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
         {showClear && (
           <g data-clearbar>
             <rect x={x(clearA as number)} y={13} width={Math.max(2, x(clearB as number) - x(clearA as number))} height={3} rx={1.5} style={{ fill: "var(--color-ice)" }} />
-            <text
-              x={(x(clearA as number) + x(clearB as number)) / 2}
-              y={9}
-              textAnchor="middle"
-              style={{ fill: "var(--color-ice)", fontSize: 11, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}
-            >
-              {`forecast clear · ${formatDuration(clear!.minutes)}`}
-            </text>
           </g>
         )}
 
@@ -234,6 +226,8 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
           </g>
         ))}
       </svg>
+
+      {showClear && <span className="sr-only">{`forecast clear · ${formatDuration(clear!.minutes)}`}</span>}
 
       <p data-testid="strip-tip" className="mt-2 min-h-[18px] text-label text-muted">
         {tip ??

@@ -8,11 +8,14 @@ export function PageHeader({
   subtitle,
   back,
   actions,
+  notice,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
   back?: { to: string; label: string };
   actions?: ReactNode;
+  /** A plain sentence under the subtitle, for a standing fact about the page such as the sample location. */
+  notice?: ReactNode;
 }) {
   return (
     <header className="flex flex-col gap-1">
@@ -25,6 +28,7 @@ export function PageHeader({
         <div className="min-w-0">
           <h1 className="text-3xl font-semibold text-ink md:text-display">{title}</h1>
           {subtitle && <div className="mt-1 max-w-prose text-sm text-ink-2">{subtitle}</div>}
+          {notice && <p className="mt-2 text-sm text-ink-2">{notice}</p>}
         </div>
         {actions}
       </div>
