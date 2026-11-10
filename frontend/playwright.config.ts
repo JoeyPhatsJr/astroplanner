@@ -19,7 +19,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `rm -rf e2e/.e2e.db e2e/.previews && ASTROPLANNER_DB=e2e/.e2e.db ASTROPLANNER_PREVIEWS_DIR=e2e/.previews ../backend/.venv/bin/uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port ${API_PORT}`,
+      command: `rm -rf e2e/.e2e.db e2e/.previews && ASTROPLANNER_SKY_IMAGES=off ASTROPLANNER_DB=e2e/.e2e.db ASTROPLANNER_PREVIEWS_DIR=e2e/.previews ../backend/.venv/bin/uvicorn app.main:app --app-dir ../backend --host 127.0.0.1 --port ${API_PORT}`,
       url: `http://127.0.0.1:${API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,

@@ -25,6 +25,8 @@ export interface Target {
   source: string;
   source_id: string;
   source_url: string;
+  /** Side of the survey cutout in arcminutes (backend-chosen). */
+  sky_field_arcmin?: number;
 }
 
 export interface CatalogMeta {
@@ -339,7 +341,7 @@ export interface GeocodeResult {
 }
 
 export interface AboutResponse {
-  data_sources: { name: string; use: string; url: string; license: string; version?: string }[];
+  data_sources: { name: string; use: string; url: string; license: string; version?: string; acknowledgment?: string }[];
   score_weights: { tonight: Record<string, number>; target: Record<string, number> };
   darkness_thresholds_deg: Record<string, number>;
 }

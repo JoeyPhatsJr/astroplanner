@@ -153,6 +153,9 @@ export function TonightPage() {
                 />
               ))}
             </div>
+            <p className="text-label text-muted">
+              Sky images: Digitized Sky Survey, red plates, scaled to each object with the width marked on the picture. © AURA and the plate copyright holders; used for non-profit purposes.
+            </p>
             </>
           )}
           {recs.data && (

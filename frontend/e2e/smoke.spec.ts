@@ -6,7 +6,8 @@ import { expect, test, type Page } from "@playwright/test";
 async function collectErrors(page: Page) {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  // A survey image that cannot load is a handled state (the diagram stays); the browser still logs its 503.
+  page.on("console", (m) => m.type() === "error" && !m.location().url.includes("/sky-image") && errors.push(m.text()));
   return errors;
 }
 
@@ -111,4 +112,26 @@ test("Variable Hunter route has no fake controls", async ({ page }) => {
   const main = page.locator("main");
   await expect(main.getByRole("button")).toHaveCount(0);
   await expect(main.getByRole("textbox")).toHaveCount(0);
+});
+
+// 1x1 JPEG, so the card has a real image to show.
+const TINY_JPEG = Buffer.from(
+  "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=",
+  "base64",
+);
+
+test("A target card shows its sky image when the survey answers", async ({ page }) => {
+  await page.route("**/sky-image", (route) => route.fulfill({ status: 200, contentType: "image/jpeg", body: TINY_JPEG }));
+  await page.goto("/");
+  const img = page.locator("article img[data-loaded]").first();
+  await expect(img).toBeAttached();
+  await expect(page.getByText(/Sky images: Digitized Sky Survey/)).toBeVisible();
+});
+
+test("A target card keeps the framing diagram when the survey is unavailable", async ({ page }) => {
+  await page.route("**/sky-image", (route) => route.fulfill({ status: 503, body: "unavailable" }));
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /^Add .* to session$/ }).first()).toBeVisible();
+  await expect(page.locator("article img")).toHaveCount(0);
+  await expect(page.locator("article svg[viewBox='0 0 112 112']").first()).toBeVisible();
 });

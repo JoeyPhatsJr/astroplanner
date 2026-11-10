@@ -2,7 +2,7 @@ import { AlertTriangle, Check, Plus } from "lucide-react";
 import type { Recommendation } from "../../api/types";
 import { formatDuration, formatTime, tzAbbrev } from "../../lib/time";
 import { HistoryBadge } from "../astrolog/HistoryBadge";
-import { FramingDiagram, framingNote } from "./FramingDiagram";
+import { SkyThumb } from "./SkyThumb";
 import { Sparkline } from "./Sparkline";
 
 export function ScoreChip({
@@ -49,7 +49,6 @@ export function TargetCard({
   const w = v.best_window;
   const clear = score.forecast_window?.minutes ?? null;
   const up = v.observable_minutes ?? null;
-  const note = framingNote(t.angular_major_arcmin, fovDeg);
   const showDesignation =
     t.primary_designation && t.primary_designation !== t.name;
   const sub = [
@@ -64,21 +63,7 @@ export function TargetCard({
     <article
       className={`panel relative flex min-w-0 gap-3 p-3 transition-transform duration-[120ms] ease-[var(--ease-out)] has-[.card-open:active]:scale-[0.97] motion-reduce:has-[.card-open:active]:scale-100 ${inSession ? "border-ice/50" : ""}`}
     >
-      {/* Picture slot: the diagram today; survey images layer into this same square later. */}
-      {note && (
-        <div className="relative size-[112px] flex-none self-start">
-          <FramingDiagram
-            major={t.angular_major_arcmin}
-            minor={t.angular_minor_arcmin}
-            fovDeg={fovDeg}
-          />
-          <span
-            className={`absolute bottom-1 left-1 rounded-[5px] bg-black/60 px-1.5 text-micro font-semibold ${note.warn ? "text-warn" : "text-ink"}`}
-          >
-            {note.text}
-          </span>
-        </div>
-      )}
+      <SkyThumb target={t} fovDeg={fovDeg} size={112} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex justify-between gap-2">
           <h3 className="min-w-0 font-semibold tracking-tight text-base leading-tight text-ink">

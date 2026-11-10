@@ -108,6 +108,25 @@ def health(db: Session = Depends(get_db)) -> dict[str, Any]:
     }
 
 
+DSS_ACKNOWLEDGMENT = (
+    "Investigators using these scans are requested to include these acknowledgments in any publications as appropriate.\n\n"
+    "The Digitized Sky Surveys were produced at the Space Telescope Science Institute under U.S. Government grant NAG W-2166. "
+    "The images of these surveys are based on photographic data obtained using the Oschin Schmidt Telescope on Palomar Mountain "
+    "and the UK Schmidt Telescope. The plates were processed into the present compressed digital form with the permission of these institutions.\n\n"
+    "The National Geographic Society - Palomar Observatory Sky Atlas (POSS-I) was made by the California Institute of Technology "
+    "with grants from the National Geographic Society.\n\n"
+    "The Second Palomar Observatory Sky Survey (POSS-II) was made by the California Institute of Technology with funds from the "
+    "National Science Foundation, the National Geographic Society, the Sloan Foundation, the Samuel Oschin Foundation, and the Eastman Kodak Corporation.\n\n"
+    "The Oschin Schmidt Telescope is operated by the California Institute of Technology and Palomar Observatory.\n\n"
+    "The UK Schmidt Telescope was operated by the Royal Observatory Edinburgh, with funding from the UK Science and Engineering Research Council "
+    "(later the UK Particle Physics and Astronomy Research Council), until 1988 June, and thereafter by the Anglo-Australian Observatory. "
+    "The blue plates of the southern Sky Atlas and its Equatorial Extension (together known as the SERC-J), as well as the Equatorial Red (ER), "
+    "and the Second Epoch [red] Survey (SES) were all taken with the UK Schmidt.\n\n"
+    "All data are subject to the copyright given in the copyright summary. Copyright information specific to individual plates is provided in the downloaded FITS headers.\n\n"
+    "Supplemental funding for sky-survey work at the ST ScI is provided by the European Southern Observatory."
+)
+
+
 @router.get("/about")
 def about() -> dict[str, Any]:
     meta = catalog.catalog_meta()
@@ -123,6 +142,10 @@ def about() -> dict[str, Any]:
              "license": "BSD-3-Clause", "version": astropy.__version__},
             {"name": "timezonefinder", "use": "Offline timezone for coordinates",
              "url": "https://github.com/jannikmi/timezonefinder", "license": "MIT"},
+            {"name": "Digitized Sky Surveys (STScI)", "use": "Sky images on target cards and details (red plates, cached locally)",
+             "url": "https://archive.stsci.edu/dss/acknowledging.html",
+             "license": "© AURA and the plate copyright holders; non-profit use",
+             "acknowledgment": DSS_ACKNOWLEDGMENT},
         ],
         "score_weights": {"tonight": TONIGHT_WEIGHTS, "target": TARGET_WEIGHTS},
         "darkness_thresholds_deg": DARKNESS_THRESHOLDS,

@@ -656,6 +656,12 @@ function AboutSection() {
                   {s.license}
                   {s.version ? ` · version ${s.version.slice(0, 12)}` : ""}
                 </span>
+                {s.acknowledgment && (
+                  <details className="mt-1.5 text-xs text-muted">
+                    <summary className="cursor-pointer text-ink-2">Required acknowledgment</summary>
+                    <p className="mt-1.5 whitespace-pre-line leading-relaxed">{s.acknowledgment}</p>
+                  </details>
+                )}
               </li>
             ))}
           </ul>

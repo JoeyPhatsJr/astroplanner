@@ -9,7 +9,9 @@ import { AltitudeChart } from "../charts/LazyCharts";
 import { HistoryBadge } from "../astrolog/HistoryBadge";
 import { SegmentedScoreBar, ScoreBreakdown } from "../tonight/ScoreHero";
 import { ErrorState, Notice, Skeleton } from "../ui/States";
+import { FramingDiagram, framingNote } from "./FramingDiagram";
 import { ScoreChip } from "./TargetCard";
+import { SkyThumb } from "./SkyThumb";
 
 export function TargetDetail({ targetId, onClose }: { targetId: string | null; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -85,6 +87,17 @@ export function TargetDetail({ targetId, onClose }: { targetId: string | null; o
                 {t.aliases.length > 0 && <p className="mt-1 text-xs leading-relaxed text-muted">Also: {t.aliases.join(", ")}</p>}
               </div>
               <ScoreChip total={data.score.total} max={data.score.max_total} />
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <SkyThumb key={t.id} target={t} fovDeg={eq?.fov_deg ?? null} size={168} fallback={false} />
+              {eq?.fov_deg && framingNote(t.angular_major_arcmin, eq.fov_deg) && (
+                <div className="relative size-[168px]">
+                  <FramingDiagram major={t.angular_major_arcmin} minor={t.angular_minor_arcmin} fovDeg={eq.fov_deg} size={168} />
+                  <span className="absolute bottom-1 left-1 rounded-[5px] bg-black/60 px-1.5 text-micro font-semibold text-ink">
+                    {framingNote(t.angular_major_arcmin, eq.fov_deg)!.text}
+                  </span>
+                </div>
+              )}
             </div>
             <HistoryBadge catalogId={t.id} />
 

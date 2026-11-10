@@ -1,11 +1,12 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { History } from "../api/astrolog";
 import { TargetCard } from "./targets/TargetCard";
+import { SkyThumb } from "./targets/SkyThumb";
 import { framingNote } from "./targets/FramingDiagram";
-import type { Recommendation } from "../api/types";
+import type { Recommendation, Target } from "../api/types";
 import { HistoryBadge } from "./astrolog/HistoryBadge";
 import type { SessionTarget, TonightScore } from "../api/types";
 import { pickSessionForNight, sessionTitleForNight } from "../state/activeSession";
@@ -298,5 +299,42 @@ describe("TargetCard layout", () => {
     expect(onOpen).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Bubble Nebula" }));
     expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("SkyThumb", () => {
+  const target = { id: "ngc7635", name: "Bubble Nebula", angular_major_arcmin: 15, angular_minor_arcmin: 8, sky_field_arcmin: 40 } as unknown as Target;
+  const diagram = (c: HTMLElement) => c.querySelector("svg[viewBox='0 0 112 112']");
+  it("shows the diagram until the image loads, then marks the image loaded with the width", () => {
+    const { container } = render(<SkyThumb target={target} fovDeg={2.46} size={112} />);
+    const img = container.querySelector("img")!;
+    expect(diagram(container)).not.toBeNull();
+    expect(img.hasAttribute("data-loaded")).toBe(false);
+    expect(screen.queryByText("0.67°")).toBeNull();
+    fireEvent.load(img);
+    expect(img.hasAttribute("data-loaded")).toBe(true);
+    expect(screen.getByText("0.67°")).toBeTruthy();
+    expect(diagram(container)).not.toBeNull();
+  });
+  it("is lazy and carries the night-vision picture class", () => {
+    const { container } = render(<SkyThumb target={target} fovDeg={2.46} size={112} />);
+    const img = container.querySelector("img")!;
+    expect(img.getAttribute("loading")).toBe("lazy");
+    expect(img.className).toContain("vision-img");
+  });
+  it("removes the image on error and keeps the diagram", () => {
+    const { container } = render(<SkyThumb target={target} fovDeg={2.46} size={112} />);
+    fireEvent.error(container.querySelector("img")!);
+    expect(container.querySelector("img")).toBeNull();
+    expect(diagram(container)).not.toBeNull();
+  });
+  it("still shows the image when the field of view is unknown", () => {
+    const { container } = render(<SkyThumb target={target} fovDeg={null} size={112} />);
+    expect(container.querySelector("img")).not.toBeNull();
+    expect(diagram(container)).toBeNull();
+  });
+  it("renders nothing when there is neither an image nor a diagram", () => {
+    const { container } = render(<SkyThumb target={{ ...target, sky_field_arcmin: undefined }} fovDeg={null} size={112} />);
+    expect(container.firstChild).toBeNull();
   });
 });

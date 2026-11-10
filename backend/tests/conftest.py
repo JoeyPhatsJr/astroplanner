@@ -42,6 +42,12 @@ class RecordingFetch:
         return self.responder(params)
 
 
+@pytest.fixture(autouse=True)
+def _no_live_sky_images(monkeypatch):
+    """create_app(db=db) builds a default sky-image provider; keep every test off the network."""
+    monkeypatch.setenv("ASTROPLANNER_SKY_IMAGES", "off")
+
+
 @pytest.fixture
 def clear_provider():
     return OpenMeteoProvider(fetch=RecordingFetch(synthetic_open_meteo), now=lambda: FIXED_NOW)
