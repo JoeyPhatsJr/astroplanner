@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { History } from "../api/astrolog";
 import { TargetCard } from "./targets/TargetCard";
+import { framingNote } from "./targets/FramingDiagram";
 import type { Recommendation } from "../api/types";
 import { HistoryBadge } from "./astrolog/HistoryBadge";
 import type { SessionTarget, TonightScore } from "../api/types";
@@ -225,5 +226,65 @@ describe("BasisBadge", () => {
     const { container: b } = render(<BasisBadge basis="heuristic" />);
     expect(a.firstElementChild?.className).not.toBe(b.firstElementChild?.className);
     expect(b.firstElementChild?.className).toContain("border-dashed");
+  });
+});
+
+describe("framingNote", () => {
+  it("applies the four thresholds on major / field width", () => {
+    expect(framingNote(130, 2)).toEqual({ text: "Larger than the field", warn: true });
+    expect(framingNote(120, 2)).toEqual({ text: "Fills the field", warn: false }); // ratio 1.0 is not above 1
+    expect(framingNote(90, 2)).toEqual({ text: "Fills the field", warn: false }); // 0.75
+    expect(framingNote(60, 2)).toEqual({ text: "Fits the field", warn: false });
+    expect(framingNote(18, 2)).toEqual({ text: "Small in the field", warn: false }); // 0.15
+  });
+  it("returns null without both inputs", () => {
+    expect(framingNote(null, 2)).toBeNull();
+    expect(framingNote(30, null)).toBeNull();
+  });
+});
+
+describe("TargetCard layout", () => {
+  const mk = (over: Record<string, unknown> = {}, name = "Bubble Nebula", des = "NGC 7635") =>
+    ({
+      target: { id: "ngc7635", name, primary_designation: des, kind: "nebula", category: "nebula", constellation: "Cas", angular_major_arcmin: 15, angular_minor_arcmin: 8 },
+      visibility: { best_window: { start_utc: "2026-11-03T00:35:00Z", end_utc: "2026-11-03T02:35:00Z" }, status_text: "", max_alt_dark_deg: 70, can_observe: true, observable_minutes: 300 },
+      score: { total: 91, max_total: 100, why: [], cautions: ["Moon near", "Second caution"], forecast_window: { minutes: 240 } },
+      sparkline_alt_deg: [],
+      ...over,
+    }) as unknown as Recommendation;
+  const show = (rec: Recommendation, onOpen = vi.fn(), onAdd = vi.fn()) => {
+    mockHistory.data = {};
+    render(
+      <MemoryRouter>
+        <TargetCard rec={rec} tz="UTC" minAlt={30} fovDeg={2.46} onOpen={onOpen} onAdd={onAdd} inSession={false} adding={false} />
+      </MemoryRouter>,
+    );
+    return { onOpen, onAdd };
+  };
+  it("shows name, score, window, and clear time against time up", () => {
+    show(mk());
+    expect(screen.getByRole("button", { name: "Bubble Nebula" })).toBeTruthy();
+    expect(screen.getByText("91")).toBeTruthy();
+    expect(screen.getByText(/00:35/)).toBeTruthy();
+    expect(screen.getByText("4 h clear")).toBeTruthy();
+    expect(screen.getByText("of 5 h up")).toBeTruthy();
+    expect(screen.getByText("Moon near")).toBeTruthy();
+    expect(screen.queryByText("Second caution")).toBeNull();
+  });
+  it("omits 'of up' when the clear run is within a minute of the time up", () => {
+    show(mk({ visibility: { best_window: null, status_text: "", max_alt_dark_deg: 70, can_observe: true, observable_minutes: 240.5 } }));
+    expect(screen.queryByText(/of .* up/)).toBeNull();
+  });
+  it("hides the designation when it equals the name", () => {
+    show(mk({}, "NGC 7635", "NGC 7635"));
+    expect(screen.getAllByText(/NGC 7635/)).toHaveLength(1);
+  });
+  it("opens details from the name; the add button does not", async () => {
+    const { onOpen, onAdd } = show(mk());
+    await userEvent.click(screen.getByRole("button", { name: "Add Bubble Nebula to session" }));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Bubble Nebula" }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 });

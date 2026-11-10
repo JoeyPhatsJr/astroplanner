@@ -1,7 +1,7 @@
 import { MapPin, MoonStar, Telescope } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useCurrentLocation, useNightDate, useRecommendations, useTonight } from "../api/hooks";
+import { useCurrentEquipment, useCurrentLocation, useNightDate, useRecommendations, useTonight } from "../api/hooks";
 import type { Category, TonightResponse } from "../api/types";
 import { SessionPlanPanel } from "../components/session/SessionPlanPanel";
 import { TargetCard } from "../components/targets/TargetCard";
@@ -30,6 +30,7 @@ export function TonightPage() {
   const recs = useRecommendations({ category });
   const [openId, setOpenId] = useState<string | null>(null);
   const active = useActiveSession();
+  const equipment = useCurrentEquipment();
 
   if (locLoading) return <PageSkeleton />;
   if (locError) return <ErrorState error={locError} onRetry={refetch} title="Couldn't load your locations" />;
@@ -44,6 +45,9 @@ export function TonightPage() {
   const data = tonight.data;
   const results = recs.data?.results ?? [];
   const shown = (observableOnly ? results.filter((r) => r.visibility.can_observe) : results).slice(0, TOP_N);
+
+  // A reason that holds for every card shown (for example "Moon stays below the horizon") is said once.
+  const shared = shown.length > 1 ? shown[0].score.why.filter((x) => shown.every((r) => r.score.why.includes(x))) : [];
 
   return (
     <div className="page-wide flex flex-col gap-6">
@@ -114,9 +118,9 @@ export function TonightPage() {
           </div>
           {active.error && <Notice tone="warn">{active.error}</Notice>}
           {recs.isLoading && (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-60" />
+                <Skeleton key={i} className="h-36" />
               ))}
             </div>
           )}
@@ -132,13 +136,16 @@ export function TonightPage() {
             </EmptyState>
           )}
           {shown.length > 0 && (
-            <div className={`grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3 ${recs.isFetching ? "opacity-70" : ""}`}>
+            <>
+            {shared.length > 0 && <p className="text-sm text-ink-2">For every target below: {shared.join("; ")}.</p>}
+            <div className={`grid grid-cols-1 gap-3 md:grid-cols-2 ${recs.isFetching ? "opacity-70" : ""}`}>
               {shown.map((r) => (
                 <TargetCard
                   key={r.target.id}
                   rec={r}
                   tz={tz}
                   minAlt={prefs.minAltitudeDeg}
+                  fovDeg={equipment?.fov_deg ?? null}
                   onOpen={() => setOpenId(r.target.id)}
                   onAdd={() => active.addTarget(r.target.id, r.score.forecast_window ?? r.visibility.best_window)}
                   inSession={active.inSession(r.target.id)}
@@ -146,6 +153,7 @@ export function TonightPage() {
                 />
               ))}
             </div>
+            </>
           )}
           {recs.data && (
             <Link to="/explore" className="inline-flex items-center gap-2 self-start text-sm text-ice hover:underline">
