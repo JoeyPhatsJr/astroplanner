@@ -17,6 +17,7 @@ from app.scoring import (
     cloud_points,
     darkness_points,
     duration_points,
+    fit_notes,
     moon_interference,
     moon_sky_points,
     night_clear,
@@ -173,11 +174,11 @@ def test_unobservable_targets_get_no_score(ctx):
     assert s["total"] is None and s["components"] == []
 
 
-def test_fov_notes_are_advisory_and_flag_unverified_axis(ctx):
+def test_fov_notes_are_advisory(ctx):
     eq = {"fov_deg": 2.46, "fov_definition": "unknown"}
     t, v = _target(ctx, "ngc6960")  # Western Veil, 210'
     s = target_score(ctx, v, t, flat_weather(ctx), eq, 30.0)
-    assert any("exceeds" in c and "unverified" in c for c in s["cautions"])
+    assert any(c.startswith("Larger than the ~148′ field") for c in s["cautions"])
     s2 = target_score(ctx, v, t, flat_weather(ctx), None, 30.0)
     assert s["total"] == s2["total"]  # framing never changes the score
 
@@ -236,3 +237,17 @@ def test_night_clear_longest_run(ctx):
 def test_night_clear_no_darkness():
     c = sky_context(*TROMSO, 0.0, date(2026, 6, 21), "Europe/Oslo")
     assert night_clear(c, flat_weather(c), "astronomical") is None
+
+
+@pytest.mark.parametrize("definition", ["unknown", "horizontal"])
+@pytest.mark.parametrize(
+    ("major", "expected"),
+    [
+        (178, "Larger than the ~148′ field (178′ across): expect partial framing or a mosaic."),
+        (120, "Fills most of the ~148′ field (120′ across)."),
+        (9.3, "Small in the ~148′ field: 9.3′ across."),
+    ],
+)
+def test_fit_notes_are_short_and_carry_no_axis_caveat(definition, major, expected):
+    notes = fit_notes({"angular_major_arcmin": major}, {"fov_deg": 2.46, "fov_definition": definition})
+    assert notes == [expected]

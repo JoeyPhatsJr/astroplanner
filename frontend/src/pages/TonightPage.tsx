@@ -111,6 +111,9 @@ export function TonightPage() {
               {recs.data && (
                 <p className="text-sm text-muted">
                   {recs.data.observable_count} of {results.length} catalog targets clear {prefs.minAltitudeDeg}° during darkness. Ranked by a heuristic recommendation score.
+                  {equipment && equipment.fov_definition === "unknown" && equipment.fov_deg != null && (
+                    <> Field sizes assume about {Math.round(equipment.fov_deg * 60)}′ across; the {equipment.name} FOV axis is unverified.</>
+                  )}
                 </p>
               )}
             </div>

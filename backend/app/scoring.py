@@ -235,20 +235,19 @@ def weather_points(cloud_pct, precip_pct) -> float:
 
 
 def fit_notes(target: dict[str, Any], equipment: dict[str, Any] | None) -> list[str]:
-    """Advisory framing notes. They never change the score: the S30 FOV axis is unverified."""
+    """Advisory framing notes. They never change the score; the FOV-axis caveat is stated once by the UI."""
     if not equipment or not equipment.get("fov_deg"):
         return []
     fov_arcmin = float(equipment["fov_deg"]) * 60
     major = target.get("angular_major_arcmin")
-    qual = "" if equipment.get("fov_definition") not in (None, "unknown") else " (FOV axis unverified)"
     if not major:
         return [f"Catalog size unavailable, so framing vs the ~{equipment['fov_deg']}° field is unknown."]
     if major > fov_arcmin:
-        return [f"Catalog size {major:.0f}′ exceeds the ~{fov_arcmin:.0f}′ field{qual}: expect partial framing or a mosaic."]
+        return [f"Larger than the ~{fov_arcmin:.0f}′ field ({major:.0f}′ across): expect partial framing or a mosaic."]
     if major > 0.75 * fov_arcmin:
-        return [f"Catalog size {major:.0f}′ fills most of the ~{fov_arcmin:.0f}′ field{qual}."]
+        return [f"Fills most of the ~{fov_arcmin:.0f}′ field ({major:.0f}′ across)."]
     if major < fov_arcmin / 15:
-        return [f"Small at this focal length: {major:.1f}′ across vs a ~{fov_arcmin:.0f}′ field{qual}."]
+        return [f"Small in the ~{fov_arcmin:.0f}′ field: {major:.1f}′ across."]
     return []
 
 
