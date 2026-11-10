@@ -68,12 +68,13 @@ Decisions made while the developer was away are marked "my call" in the spec.
 | Design pass 1 (2026-11-10, developer asked for the Apple design guidance): press feedback, Inter optical-size Display cut for headings with size-specific tracking, rem layout, frosted header, reduce-transparency / increase-contrast fallbacks, gentler reduced motion, clock bar on `transform` | done | `landing.css`, browser check of computed styles under each media setting |
 | Design pass 2 (2026-11-10, anti-slop checklist): hero lede cut to 18 words, one CTA, no scroll cue, one label ("See tonight’s sky") for every way into Tonight, one eyebrow on the page, gallery header stacked, footer as sentences, tinted shadows, story clock on IntersectionObserver (no scroll listener) | done | `LandingPage.test.tsx` (one-label test), `e2e/landing.spec.ts` (clock incl. jump to top), Lighthouse mobile: Accessibility 100, Best Practices 100; trace LCP 1.7 s, CLS 0.00 (4× CPU, Fast 4G) |
 
-| Merge with `main` after the polish pass (PR #4) | done | Conflicts resolved in `App.tsx` (imports), `AppShell.tsx` (phone wordmark is a home link with the polish pass's tighter header), `e2e/smoke.spec.ts` (polish-pass tests that opened `/` now open `/tonight`), docs |
+| Merge with `main` after the polish pass (PR #4) | done | Conflicts resolved in `App.tsx` (imports), `AppShell.tsx` (phone wordmark is a home link with the polish pass's tighter header), `e2e/smoke.spec.ts` (polish-pass tests that opened `/` now open `/tonight`), docs. Merged as PR #5 |
+| Landing screenshots re-shot (2026-11-10, branch `landing-screenshots`) | done | All five `frontend/public/landing/*-desktop.jpg` at 1440 × 900 from a scratch server (own ports, sky images off). Tonight, Explore (Orion Nebula) and SS Cygni: sample location, night of 10 Nov. AstroLog library and Compare: the developer's own Bubble (1,015 × 10 s) and Dumbbell (344 × 10 s) nights of 11 Sept, imported into a fresh scratch database under the sample location (their own coordinates were never stored); final pictures are the Seestar's own Bubble stack and the developer's M27 photo; Compare shows their Siril stack (654 × 10 s). Clock times, night label, footer and alt text updated to match |
 
-### Commands last run (after merging `main`, 2026-11-10)
+### Commands last run (after the screenshot re-shoot, 2026-11-10)
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q           # 453 passed, 12 skipped
+cd backend && .venv/bin/python -m pytest -q           # 453 passed, 12 skipped (run after the merge; the re-shoot changed no backend code)
 cd frontend && npx tsc -b --noEmit && npx vitest run  # typecheck clean; 276 passed (25 files)
 cd frontend && npm run build                          # built
 cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 36 passed, 2 skipped (phone-only tests on desktop), desktop + mobile
@@ -81,11 +82,12 @@ cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 36 pa
 
 ### Known limitations (landing page)
 
-- **Photo captions name the object only.** No telescope, exposure or date is shown for the five photos until the
-  developer supplies them. The North America Nebula file was named "NGC 7001" by its capture app; the caption
-  says NGC 7000 (what the picture shows) and should be confirmed.
-- **The app screenshots on the landing page are from 2 Nov**: the sidebar still says "Research Lab" and Tonight's
-  look predates the polish pass, which is now merged. Re-shoot `frontend/public/landing/*-desktop.jpg`.
+- **Photo captions name the object only**, by the developer's choice (2026-11-10). The North America Nebula file was
+  named "NGC 7001" by its capture app; the developer confirmed the caption NGC 7000.
+- **The landing screenshots are a snapshot of 10 Nov.** If Tonight, Explore, AstroLog, the coach or Variable Hunter
+  change look again, re-shoot them; the clock times in `components/landing/content.ts` must match the Tonight shot.
+- **The Compare shot shows one side measured.** Only the Siril stack was available; the Seestar's own stacked FITS
+  for that night was not, so its side shows the "add a stack" state.
 - **Old `/` bookmarks** now open the homescreen; Tonight is one click away (`/tonight`).
 - **No night-vision toggle on the landing page.** It honours the saved setting; the toggle lives in the app header.
 - The city-box e2e test uses live Open-Meteo geocoding and skips, with a reason, when it is unreachable.
@@ -97,10 +99,8 @@ cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 36 pa
 
 ### Exact next step (landing page)
 
-1. Re-shoot the landing page's app screenshots (`frontend/public/landing/*-desktop.jpg`) so they show the
-   polished Tonight and the current sidebar.
-2. Developer supplies caption details (scope, frames × exposure, date) for the five photos, or confirms
-   object-only captions, and confirms NGC 7000 for the file named "NGC 7001".
+1. Developer reviews and merges the re-shot screenshots (branch `landing-screenshots`). Nothing else is open for
+   the landing page; WebP/AVIF images and `robots.txt` wait for deployment.
 
 ## Previous work: polish pass (merged, PR #4)
 

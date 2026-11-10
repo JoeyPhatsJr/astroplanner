@@ -8,12 +8,13 @@ It is tuned first for the **ZWO Seestar S30** (original, not the S30 Pro).
 
 `/` is a landing page that tells the story before you touch a tool: the headline first, then a real
 capture (the developer's Andromeda Galaxy), then **one night, scrolled**. A sticky clock moves from sunset
-(16:57) through astronomical darkness (18:28) to sunrise (06:32) while the page sky darkens, and each
+(16:48) through astronomical darkness (18:21) to sunrise (06:41) while the page sky darkens, and each
 stop shows one part of the app (Tonight, Explore, AstroLog, Processing Coach, Variable Hunter). A gallery
 of real captures follows, then **Clear skies tonight?**: type a city and it opens Tonight for that place.
 It reuses a saved location within 1 km, never guesses a timezone, and hands the place to Settings if none
-can be found. The times come from a saved example night (Philadelphia, 2 Nov) and are labelled as such; the
-landing page shows no live data. Tonight itself now lives at **`/tonight`**.
+can be found. The times come from a saved example night (Philadelphia, 10 Nov) and are labelled as such; the
+landing page shows no live data. Its AstroLog and Processing Coach pictures are the developer's own Bubble and
+Dumbbell nights (11 Sept). Tonight itself now lives at **`/tonight`**.
 
 ![Landing page](docs/screenshots/landing-desktop.png)
 
