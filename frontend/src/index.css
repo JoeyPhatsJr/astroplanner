@@ -81,7 +81,7 @@
   --color-line-soft: #260707;
   --color-ink: #d9473c;
   --color-ink-2: #b83a31;
-  --color-muted: #8a2b22;
+  --color-muted: #a23a30;
   --color-ice: #e0352b;
   --color-ice-dim: #8f1f18;
   --color-on-accent: #140000;
@@ -152,9 +152,9 @@
 }
 
 @layer components {
-  /* Pictures in night vision: monochrome dim red, like everything else (matches the approved mockups). */
+  /* Pictures in night vision: luminance mapped to the red channel only (SVG filter #vision-red in index.html), so no green or blue survives. */
   :root[data-vision="night"] .vision-img {
-    filter: grayscale(1) sepia(1) saturate(5) hue-rotate(-50deg) brightness(0.55);
+    filter: url(#vision-red);
   }
   /* Two page widths only: wide 1120 px, reading 860 px. */
   .page-wide,

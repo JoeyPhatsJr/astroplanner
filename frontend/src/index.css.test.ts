@@ -69,3 +69,22 @@ describe("index.html viewport", () => {
     expect(viewport).not.toContain("maximum-scale");
   });
 });
+
+describe("night vision", () => {
+  const rule = (sheet.match(/\.vision-img\s*\{[^}]*\}/) ?? [""])[0];
+
+  it("filters pictures through the red-only SVG filter, not sepia", () => {
+    expect(rule).toContain("url(#vision-red)");
+    expect(rule).not.toContain("sepia(");
+  });
+
+  it("defines #vision-red as a colour matrix that keeps only the red channel", () => {
+    expect(html).toContain('id="vision-red"');
+    expect(html).toMatch(/<feColorMatrix[^>]*values="\s*\.17 \.33 \.06 0 0\s+0 0 0 0 0\s+0 0 0 0 0\s+0 0 0 1 0\s*"/);
+  });
+
+  it("uses a readable muted red in the night palette", () => {
+    const night = sheet.match(/:root\[data-vision="night"\]\s*\{[^}]*\}/)?.[0] ?? "";
+    expect(night).toContain("--color-muted: #a23a30");
+  });
+});
