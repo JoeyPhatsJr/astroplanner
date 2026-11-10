@@ -12,7 +12,7 @@ async function collectErrors(page: Page) {
 
 test("Tonight renders computed night, score state and recommendations", async ({ page }) => {
   const errors = await collectErrors(page);
-  await page.goto("/");
+  await page.goto("/tonight");
   await expect(page.getByRole("heading", { name: "Tonight", level: 1 })).toBeVisible();
   await expect(page.getByText("Tonight’s Score").first()).toBeVisible();
   await expect(page.getByText("Heuristic planning estimate").first()).toBeVisible();
@@ -25,7 +25,7 @@ test("Tonight renders computed night, score state and recommendations", async ({
 });
 
 test("Add targets, reorder, reload persists, delete with confirmation", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/tonight");
   const addButtons = page.getByRole("button", { name: /^Add .* to session$/ });
   await expect(addButtons.first()).toBeVisible();
   const first = (await addButtons.nth(0).getAttribute("aria-label"))!.replace(/^Add (.*) to session$/, "$1");
@@ -80,7 +80,7 @@ test("Explore search opens a target with its altitude chart", async ({ page }) =
 });
 
 test("Night vision turns the palette red and survives a reload", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/tonight");
   const html = page.locator("html");
   await expect(html).toHaveAttribute("data-vision", "normal");
   const ink = () => page.evaluate(() => getComputedStyle(document.body).color);
