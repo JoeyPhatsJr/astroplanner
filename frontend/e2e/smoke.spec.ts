@@ -176,7 +176,7 @@ test("Night vision turns the palette red and survives a reload", async ({ page }
 });
 
 test("night vision: inline links are underlined", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/tonight");
   await page.getByRole("button", { name: "Night vision" }).click();
   const link = page.getByRole("link", { name: "Set your own location" });
   await expect(link).toBeVisible();
@@ -368,7 +368,7 @@ test("A target card keeps the framing diagram when the survey is unavailable", a
 });
 
 test("type: digits are tabular only where they align", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/tonight");
   await expect(page.getByTestId("score-total").or(page.getByTestId("score-no-total"))).toBeVisible();
   const bodyFeatures = await page.evaluate(() => getComputedStyle(document.body).fontFeatureSettings);
   expect(bodyFeatures).not.toContain("tnum");

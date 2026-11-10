@@ -27,7 +27,7 @@ export function LandingPage() {
         <nav aria-label="Site" className="flex items-center justify-between gap-4 px-4 py-4 sm:px-10">
           <Link to="/" aria-label="AstroPlanner home" className="landing-press flex items-center gap-2.5">
             <Logo />
-            <span className="text-[1.1rem] font-semibold tracking-tight">AstroPlanner</span>
+            <span className="text-lg font-semibold">AstroPlanner</span>
           </Link>
           {/* Text over the blurred header is a step heavier so it stays legible as photos pass under it. */}
           <ul className="m-0 hidden list-none gap-7 p-0 text-sm font-medium text-ink-2 md:flex">

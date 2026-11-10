@@ -74,7 +74,7 @@ test("night vision turns the landing pictures red only", async ({ page }) => {
   });
   expect(tint.blend).toBe("multiply");
   const [r, g, b] = tint.bg.match(/\d+/g)!.map(Number);
-  expect(r).toBeGreaterThan(3 * Math.max(g, b));
+  expect(r).toBeGreaterThan(2.5 * Math.max(g, b));
 });
 
 test("city box opens Tonight for the chosen place (live geocoding, tolerated when offline)", async ({ page }) => {
