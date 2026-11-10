@@ -418,6 +418,10 @@
       filter: brightness(1.12);
       border-color: transparent;
     }
+    .btn-tinted:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--color-ice) 22%, transparent);
+      border-color: transparent;
+    }
     .btn-ghost:hover:not(:disabled) {
       background: var(--color-panel-2);
       border-color: transparent;
@@ -430,6 +434,11 @@
   .btn-primary {
     background: var(--color-ice);
     color: var(--color-on-accent);
+    border-color: transparent;
+  }
+  .btn-tinted {
+    background: color-mix(in srgb, var(--color-ice) 13%, transparent);
+    color: var(--color-ice);
     border-color: transparent;
   }
   .btn-ghost {

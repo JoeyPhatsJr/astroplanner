@@ -82,13 +82,6 @@ export function SkyThumb({
       {hasImage && loaded && width != null && (
         <span className="absolute left-1 top-1 rounded-[5px] bg-black/60 px-1.5 text-micro font-semibold text-ink">{width}°</span>
       )}
-      {note && (
-        <span
-          className={`absolute bottom-1 left-1 rounded-[5px] bg-black/60 px-1.5 text-micro font-semibold ${note.warn ? "text-warn" : "text-ink"}`}
-        >
-          {note.text}
-        </span>
-      )}
     </div>
   );
 }

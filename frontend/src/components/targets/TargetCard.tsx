@@ -120,7 +120,7 @@ export function TargetCard({
           <HistoryBadge catalogId={t.id} className="relative z-10" />
           <button
             type="button"
-            className={`btn btn-icon press relative z-10 ml-auto size-11 flex-none ${inSession ? "btn-ghost text-ice" : "btn-primary"}`}
+            className={`btn press relative z-10 ml-auto flex-none ${inSession ? "btn-icon btn-ghost size-11 text-ice" : "btn-tinted min-h-9 min-w-11"}`}
             onClick={onAdd}
             disabled={inSession || adding || !v.can_observe}
             aria-label={
@@ -132,7 +132,10 @@ export function TargetCard({
             {inSession ? (
               <Check className="size-4" aria-hidden />
             ) : (
-              <Plus className="size-4" aria-hidden />
+              <>
+                <Plus className="size-4" aria-hidden />
+                <span className="max-sm:sr-only">Add</span>
+              </>
             )}
           </button>
         </div>
