@@ -106,7 +106,7 @@ export function ScoreHero({ score, tz, headline }: { score: TonightScore; tz: st
       )}
 
       <details className="group text-sm text-ink-2">
-        <summary className="disclosure-summary press min-h-11 cursor-pointer select-none py-2.5 text-ice hover:underline">
+        <summary className="disclosure-summary press min-h-11 w-fit cursor-pointer select-none py-2.5 text-ice hover:underline">
           Why this score
           <ChevronDown className="disclosure-chevron size-4" aria-hidden />
         </summary>

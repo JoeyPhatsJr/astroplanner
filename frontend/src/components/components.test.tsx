@@ -96,6 +96,8 @@ describe("ScoreHero", () => {
     const { container } = render(<ScoreHero score={score} tz="America/New_York" headline={{ title: "Clear all night", detail: "9 h of 9 h" }} />);
     const details = container.querySelector("details");
     expect(details?.querySelector("summary")?.textContent).toBe("Why this score");
+    // The summary presses (scale 0.97) from its own box: as wide as its text, so it does not shrink toward the panel centre.
+    expect(details?.querySelector("summary")?.className).toMatch(/(^| )w-fit( |$)/);
     expect(details?.querySelector('ul[aria-label="Score components"]')).not.toBeNull();
     expect(screen.getByText("Clear all night")).toBeVisible();
   });

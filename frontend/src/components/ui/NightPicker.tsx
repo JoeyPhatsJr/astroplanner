@@ -151,7 +151,6 @@ export function NightPicker({
                           className="picker-day"
                           tabIndex={d === focused ? 0 : -1}
                           aria-label={DAY_FMT.format(toDate(d))}
-                          aria-current={d === value ? "date" : undefined}
                           onClick={() => choose(d)}
                         >
                           {Number(d.slice(8))}

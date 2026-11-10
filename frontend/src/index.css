@@ -145,9 +145,13 @@
   textarea {
     color-scheme: dark;
   }
-  /* Native date/select icons are drawn light grey by the browser; tint them red at night. */
+  /* Native date/select icons are drawn light grey by the browser; map them to red only at night. */
   :root[data-vision="night"] ::-webkit-calendar-picker-indicator {
-    filter: brightness(0.45) sepia(1) saturate(6) hue-rotate(-45deg);
+    filter: url(#vision-red);
+  }
+  /* Scrollbars follow the palette (scrollbar-color inherits), so the browser's grey thumb never shows at night. */
+  :root[data-vision="night"] {
+    scrollbar-color: var(--color-line) transparent;
   }
 }
 
@@ -312,13 +316,13 @@
     color: var(--color-ink);
     transition: background-color var(--dur-press) var(--ease-out);
   }
-  .picker-day[aria-current="date"] {
+  [aria-selected="true"] > .picker-day {
     background: var(--color-ice);
     color: var(--color-on-accent);
     font-weight: 600;
   }
   @media (hover: hover) and (pointer: fine) {
-    .picker-day:hover:not([aria-current="date"]) {
+    :not([aria-selected="true"]) > .picker-day:hover {
       background: var(--color-line);
     }
   }
@@ -370,8 +374,8 @@
   }
   .btn,
   .press {
-    transition: transform var(--dur-press) var(--ease-out), background-color 120ms ease,
-      border-color 120ms ease, filter 120ms ease;
+    transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-press) var(--ease-out),
+      border-color var(--dur-press) var(--ease-out), filter var(--dur-press) var(--ease-out);
   }
   .btn:active:not(:disabled),
   .press:active {
@@ -494,6 +498,10 @@
   background: rgb(0 0 0 / 0.6);
   opacity: 0;
   transition: opacity var(--ov-out) var(--ease-out);
+}
+/* The drawer's scrim fades on the drawer's own curve, so the dimming tracks the panel. */
+.overlay[data-variant="drawer"] .overlay-scrim {
+  transition-timing-function: var(--ease-drawer);
 }
 .overlay[data-variant="modal"] .overlay-scrim {
   background: color-mix(in srgb, var(--color-night-deep) 75%, transparent);

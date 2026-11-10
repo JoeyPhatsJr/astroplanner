@@ -6,8 +6,9 @@ import { VISION_EVENT } from "./vision";
 /**
  * Resolved theme colours for SVG chart attributes. Recharts writes colours into SVG
  * presentation attributes, where CSS var() support is inconsistent across browsers,
- * so charts read the computed values instead. Re-read whenever night vision toggles
- * (applyVision updates <html> synchronously before the re-render).
+ * so charts read the computed values instead. Re-read whenever night vision toggles and
+ * again on VISION_EVENT, because leaving night vision lands on <html> inside a view
+ * transition, after the re-render (see applyVision).
  */
 export interface ThemeColors {
   accent: string;

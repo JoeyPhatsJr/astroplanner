@@ -56,6 +56,15 @@ describe("NightPicker", () => {
     expect(screen.queryByRole("grid")).toBeNull();
     expect(picks).toEqual([]);
   });
+
+  it("marks the chosen night with aria-selected only, not aria-current (which means today)", async () => {
+    render(<PickerHarness onPick={() => {}} />);
+    await userEvent.click(screen.getByRole("button", { name: "Night date (evening of)" }));
+    const grid = await screen.findByRole("grid");
+    const chosen = within(grid).getByRole("button", { name: "Monday, 9 November 2026" });
+    expect(chosen.closest('[role="gridcell"]')).toHaveAttribute("aria-selected", "true");
+    expect(grid.querySelector("[aria-current]")).toBeNull();
+  });
 });
 
 describe("Select", () => {

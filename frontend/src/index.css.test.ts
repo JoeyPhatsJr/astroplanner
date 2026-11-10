@@ -55,6 +55,19 @@ describe("index.css motion and platform baseline", () => {
   it("removes the mobile tap highlight", () => {
     expect(sheet).toContain("-webkit-tap-highlight-color: transparent");
   });
+
+  it("times press colour changes with the press tokens, not literal 120ms ease", () => {
+    const press = sheet.match(/\.btn,\s*\.press\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(press).toContain("background-color var(--dur-press) var(--ease-out)");
+    expect(press).toContain("border-color var(--dur-press) var(--ease-out)");
+    expect(press).toContain("filter var(--dur-press) var(--ease-out)");
+    expect(sheet).not.toMatch(/\d+ms ease[,;\s]/);
+  });
+
+  it("moves the drawer scrim on the drawer's own curve", () => {
+    const rule = sheet.match(/\.overlay\[data-variant="drawer"\]\s+\.overlay-scrim\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toContain("var(--ease-drawer)");
+  });
 });
 
 describe("index.html viewport", () => {
@@ -86,6 +99,17 @@ describe("night vision", () => {
   it("uses a readable muted red in the night palette", () => {
     const night = sheet.match(/:root\[data-vision="night"\]\s*\{[^}]*\}/)?.[0] ?? "";
     expect(night).toContain("--color-muted: #a23a30");
+  });
+
+  it("tints native date-picker icons through the red-only filter", () => {
+    const rule = sheet.match(/:root\[data-vision="night"\]\s*::-webkit-calendar-picker-indicator\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(rule).toContain("url(#vision-red)");
+    expect(rule).not.toContain("sepia(");
+  });
+
+  it("draws scrollbars from the night palette", () => {
+    const rule = sheet.match(/:root\[data-vision="night"\]\s*\{[^}]*scrollbar-color[^}]*\}/)?.[0] ?? "";
+    expect(rule).toContain("scrollbar-color: var(--color-line) transparent");
   });
 
   it("draws checkboxes and radios from the palette, with no native white tick", () => {
