@@ -1,0 +1,241 @@
+/*
+ * Landing page (/). Colours are theme tokens only, so night vision turns the whole page dim red.
+ * Motion is entrance-only (no loops, no twinkle) and is switched off under prefers-reduced-motion.
+ */
+
+:root {
+  --landing-ease: cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+/* The page sky shifts through the twilight bands as the story scrolls (set inline on <body>). */
+body.landing-sky {
+  transition: background-color 900ms ease;
+}
+
+.landing-eyebrow {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
+}
+.landing-h1 {
+  font-size: clamp(2.6rem, 6.4vw, 5.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.038em;
+  font-weight: 650;
+  text-wrap: balance;
+}
+.landing-h1 > span {
+  display: block;
+}
+.landing-h2 {
+  font-size: clamp(1.9rem, 4.4vw, 3.25rem);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  font-weight: 650;
+  text-wrap: balance;
+}
+.landing-lede {
+  font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
+  line-height: 1.5;
+  color: var(--color-ink-2);
+  text-wrap: pretty;
+}
+
+.landing-pill {
+  border-radius: 999px;
+  padding: 0.75rem 1.25rem;
+}
+.landing-cta-primary {
+  background: var(--color-ink);
+  color: var(--color-night);
+  border-color: transparent;
+}
+.landing-cta-primary:hover:not(:disabled) {
+  filter: brightness(0.9);
+  border-color: transparent;
+}
+
+/* Header first: the text rises in, then the photo fades up a beat later. */
+.landing-rise {
+  opacity: 0;
+  transform: translateY(14px);
+  animation: landing-rise 800ms var(--landing-ease) forwards;
+  animation-delay: var(--landing-delay, 0ms);
+}
+@keyframes landing-rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.landing-hero-photo {
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  border-radius: 24px;
+  border: 1px solid var(--color-line-soft);
+  background: var(--color-night);
+}
+.landing-hero-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.04);
+  animation: landing-reveal 1600ms var(--landing-ease) 450ms forwards;
+}
+@keyframes landing-reveal {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (max-width: 640px) {
+  .landing-hero-photo {
+    aspect-ratio: 4 / 3;
+    border-radius: 18px;
+  }
+  .landing-hero-photo img {
+    object-position: 48% 45%;
+  }
+}
+
+/* App screenshots */
+.landing-shot {
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  border-radius: 16px;
+  border: 1px solid var(--color-line);
+  background: var(--color-night-deep);
+  box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.9);
+}
+.landing-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+
+/* One night, scrolled */
+.landing-story {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 40px;
+}
+.landing-clock {
+  position: sticky;
+  top: 110px;
+  align-self: start;
+}
+.landing-clock-time {
+  font-size: 2.75rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.landing-clock-moment {
+  font-size: 0.875rem;
+  color: var(--color-ink-2);
+  margin-top: 2px;
+  min-height: 1.4em;
+}
+.landing-clock-bar {
+  position: relative;
+  margin-top: 18px;
+  height: 160px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-line);
+}
+.landing-clock-bar i {
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-ink);
+  transition: height 600ms var(--landing-ease);
+}
+.landing-clock-note {
+  margin-top: 16px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--color-muted);
+}
+.landing-chapter {
+  min-height: 88svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 60px 0;
+}
+.landing-chapter .landing-shot {
+  width: 100%;
+  opacity: 0.35;
+  transform: translateY(24px) scale(0.985);
+  transition: opacity 700ms var(--landing-ease), transform 700ms var(--landing-ease);
+}
+.landing-chapter[data-seen] .landing-shot {
+  opacity: 1;
+  transform: none;
+}
+@media (max-width: 860px) {
+  .landing-story {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .landing-clock {
+    top: 64px;
+    z-index: 5;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 0;
+    background: color-mix(in srgb, var(--color-night) 80%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  .landing-clock-time {
+    font-size: 1.625rem;
+  }
+  .landing-clock-bar,
+  .landing-clock-note {
+    display: none;
+  }
+  .landing-chapter {
+    min-height: auto;
+    padding: 48px 0;
+  }
+}
+
+/* Gallery */
+.landing-photo {
+  overflow: hidden;
+  aspect-ratio: 3 / 4;
+  border-radius: 16px;
+  border: 1px solid var(--color-line-soft);
+  background: var(--color-night);
+}
+.landing-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 700ms var(--landing-ease);
+}
+@media (hover: hover) {
+  figure:hover > .landing-photo img {
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise,
+  .landing-hero-photo img {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .landing-chapter .landing-shot {
+    opacity: 1;
+    transform: none;
+  }
+}

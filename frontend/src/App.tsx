@@ -1,11 +1,13 @@
 import { lazy, Suspense } from "react";
-import { Link, Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { Link, Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { EmptyState } from "./components/ui/States";
+import { LandingPage } from "./pages/LandingPage";
 import { TonightPage } from "./pages/TonightPage";
 
-// Tonight is the landing page and stays in the main bundle; other sections load on demand.
+// The landing page (/) and Tonight, its main call to action, stay in the main bundle;
+// other sections load on demand.
 const ExplorePage = lazy(() => import("./pages/ExplorePage").then((m) => ({ default: m.ExplorePage })));
 const VariableHunterPage = lazy(() => import("./pages/VariableHunterPage").then((m) => ({ default: m.VariableHunterPage })));
 const StarPage = lazy(() => import("./pages/StarPage").then((m) => ({ default: m.StarPage })));
@@ -29,37 +31,54 @@ function PageLoading() {
   );
 }
 
-export default function App() {
+/** Every app page shares the shell (sidebar, header controls, tab bar); the landing page does not. */
+function ShellLayout() {
   const loc = useLocation();
   return (
     <AppShell>
       <ErrorBoundary resetKey={loc.pathname}>
         <Suspense fallback={<PageLoading />}>
-          <Routes>
-            <Route path="/" element={<TonightPage />} />
-            <Route path="/explore" element={<ExplorePage />} />
-            <Route path="/variables" element={<VariableHunterPage />} />
-            <Route path="/variables/:slug" element={<StarPage />} />
-            <Route path="/research" element={<Navigate to="/variables" replace />} />
-            <Route path="/astrolog" element={<LibraryPage />} />
-            <Route path="/astrolog/targets/:targetId" element={<TargetLogPage />} />
-            <Route path="/astrolog/import" element={<AstroLogImportPage />} />
-            <Route path="/astrolog/nights" element={<AstroLogPage />} />
-            <Route path="/astrolog/nights/:sessionId" element={<AstroLogPage />} />
-            <Route path="/astrolog/process/:captureSetId" element={<ProcessingCoachPage />} />
-            <Route path="/astrolog/:sessionId" element={<NightRedirect />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route
-              path="*"
-              element={
-                <EmptyState title="Page not found" action={<Link to="/" className="btn btn-primary">Go to Tonight</Link>}>
-                  That address doesn’t match a page in AstroPlanner.
-                </EmptyState>
-              }
-            />
-          </Routes>
+          <Outlet />
         </Suspense>
       </ErrorBoundary>
     </AppShell>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <ErrorBoundary resetKey="/">
+            <LandingPage />
+          </ErrorBoundary>
+        }
+      />
+      <Route element={<ShellLayout />}>
+        <Route path="/tonight" element={<TonightPage />} />
+        <Route path="/explore" element={<ExplorePage />} />
+        <Route path="/variables" element={<VariableHunterPage />} />
+        <Route path="/variables/:slug" element={<StarPage />} />
+        <Route path="/research" element={<Navigate to="/variables" replace />} />
+        <Route path="/astrolog" element={<LibraryPage />} />
+        <Route path="/astrolog/targets/:targetId" element={<TargetLogPage />} />
+        <Route path="/astrolog/import" element={<AstroLogImportPage />} />
+        <Route path="/astrolog/nights" element={<AstroLogPage />} />
+        <Route path="/astrolog/nights/:sessionId" element={<AstroLogPage />} />
+        <Route path="/astrolog/process/:captureSetId" element={<ProcessingCoachPage />} />
+        <Route path="/astrolog/:sessionId" element={<NightRedirect />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route
+          path="*"
+          element={
+            <EmptyState title="Page not found" action={<Link to="/tonight" className="btn btn-primary">Go to Tonight</Link>}>
+              That address doesn’t match a page in AstroPlanner.
+            </EmptyState>
+          }
+        />
+      </Route>
+    </Routes>
   );
 }
