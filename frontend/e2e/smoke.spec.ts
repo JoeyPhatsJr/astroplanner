@@ -151,7 +151,8 @@ test("Night vision: the location and date popups show only red", async ({ page }
     await page.getByRole("button", { name: /·/ }).filter({ has: page.locator("span.truncate") }).click();
   }
 
-  // Every visible element in the popup: no green or blue channel above red, in text, background or border.
+  // Every visible element in the popup: no green or blue channel above red in text, background, border,
+  // focus outline, shadow, or SVG stroke and fill.
   const offenders = () =>
     page.evaluate(() => {
       const bad: string[] = [];
@@ -161,6 +162,7 @@ test("Night vision: the location and date popups show only red", async ({ page }
         const [r, g, b, a = 1] = m;
         return a > 0 && (g > r || b > r);
       };
+      const checkAll = (v: string) => (v.match(/rgba?\([^)]*\)/g) ?? []).some(check);
       for (const root of document.querySelectorAll(".pop")) {
         for (const el of [root, ...root.querySelectorAll("*")]) {
           const box = el.getBoundingClientRect();
@@ -169,26 +171,87 @@ test("Night vision: the location and date popups show only red", async ({ page }
           const name = `${el.tagName}.${el.getAttribute("class") ?? ""}`;
           if (check(cs.color)) bad.push(`${name} color ${cs.color}`);
           if (check(cs.backgroundColor)) bad.push(`${name} background ${cs.backgroundColor}`);
-          if (parseFloat(cs.borderTopWidth) > 0 && check(cs.borderTopColor)) bad.push(`${name} border ${cs.borderTopColor}`);
+          for (const side of ["Top", "Right", "Bottom", "Left"] as const) {
+            if (parseFloat(cs[`border${side}Width`]) > 0 && check(cs[`border${side}Color`])) bad.push(`${name} border ${cs[`border${side}Color`]}`);
+          }
+          if (cs.outlineStyle !== "none" && parseFloat(cs.outlineWidth) > 0 && check(cs.outlineColor)) bad.push(`${name} outline ${cs.outlineColor}`);
+          if (cs.boxShadow !== "none" && checkAll(cs.boxShadow)) bad.push(`${name} shadow ${cs.boxShadow}`);
+          if (el instanceof SVGElement) {
+            if (cs.stroke !== "none" && checkAll(cs.stroke)) bad.push(`${name} stroke ${cs.stroke}`);
+            if (cs.fill !== "none" && checkAll(cs.fill)) bad.push(`${name} fill ${cs.fill}`);
+          }
         }
       }
       return bad;
     });
 
-  await page.getByLabel("Observing location").click();
+  // Location select: open, focus an option by keyboard (so the focus ring is scanned), then Esc returns focus.
+  const location = page.getByLabel("Observing location");
+  await location.click();
   const popup = page.locator(".pop").first();
   await expect(popup).toBeVisible();
   await expect(popup.getByRole("option").first()).toBeVisible();
+  await page.keyboard.press("ArrowDown");
+  expect(await page.evaluate(() => !!document.activeElement?.closest(".pop"))).toBe(true);
   expect(await offenders()).toEqual([]);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(location).toBeFocused();
 
-  await page.getByLabel("Night date (evening of)").click();
-  await expect(page.getByRole("grid")).toBeVisible();
+  // Date picker: the grid opens on the chosen night, a day is focused by keyboard, then colours are scanned.
+  const night = page.getByLabel("Night date (evening of)");
+  const before = (await night.textContent())!.trim();
+  await night.click();
+  const grid = page.getByRole("grid");
+  await expect(grid).toBeVisible();
+  await page.keyboard.press("ArrowRight");
   expect(await offenders()).toEqual([]);
+
+  // Days sit under their weekday header: the 1st of the month is in the column of its weekday.
+  const cols = await page.evaluate(() => {
+    const heads = [...document.querySelectorAll('.pop [role="columnheader"]')].map((h) => {
+      const r = h.getBoundingClientRect();
+      return { name: h.textContent!, centre: r.left + r.width / 2 };
+    });
+    const first = document.querySelector<HTMLElement>('.pop [data-date$="-01"]')!;
+    const r = first.getBoundingClientRect();
+    const weekday = new Date(first.dataset.date + "T00:00:00Z").getUTCDay();
+    return { heads, centre: r.left + r.width / 2, expected: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][weekday] };
+  });
+  const nearest = cols.heads.reduce((a, b) => (Math.abs(b.centre - cols.centre) < Math.abs(a.centre - cols.centre) ? b : a));
+  expect(nearest.name).toBe(cols.expected);
+
+  // Esc closes without choosing and returns focus to the trigger.
+  await page.keyboard.press("Escape");
+  await expect(grid).toHaveCount(0);
+  await expect(night).toBeFocused();
+  expect((await night.textContent())!.trim()).toBe(before);
+
+  // Enter on a moved day chooses it: the trigger shows the new night, the date is no longer automatic, focus returns.
+  await night.click();
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("grid")).toHaveCount(0);
+  await expect(grid).toHaveCount(0);
+  await expect(night).toBeFocused();
+  await expect(night).not.toHaveText(before);
+  const tonight = page.getByRole("button", { name: "Tonight", exact: true });
+  await expect(tonight).toBeVisible();
+  await tonight.click();
+  await expect(night).toHaveText(before);
+});
+
+test("Themed select works from the keyboard", async ({ page }) => {
+  await page.goto("/explore");
+  const type = page.getByLabel("Type", { exact: true });
+  await expect(type).toHaveText(/All types/);
+  await type.focus();
+  await page.keyboard.press("ArrowDown"); // opens
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await page.keyboard.press("ArrowDown"); // highlights the next option
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(type).toBeFocused();
+  await expect(type).not.toHaveText(/All types/);
 });
 
 test("Variable Hunter route has no fake controls", async ({ page }) => {

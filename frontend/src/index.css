@@ -248,6 +248,12 @@
   .picker-row > [role="gridcell"] {
     display: contents;
   }
+  /* Blank leading/trailing cells need a real box so days stay under their weekday header. */
+  .picker-row > .picker-blank {
+    display: block;
+    width: 2.25rem;
+    height: 2.25rem;
+  }
   .picker-head {
     font-size: var(--text-micro);
     color: var(--color-muted);
@@ -260,7 +266,7 @@
     font-size: 0.875rem;
     font-variant-numeric: tabular-nums;
     color: var(--color-ink);
-    transition: background-color 120ms ease;
+    transition: background-color var(--dur-press) var(--ease-out);
   }
   .picker-day[aria-current="date"] {
     background: var(--color-ice);
@@ -273,7 +279,8 @@
     }
   }
   @media (pointer: coarse) {
-    .picker-day {
+    .picker-day,
+    .picker-row > .picker-blank {
       width: 2.5rem;
       height: 2.5rem;
     }

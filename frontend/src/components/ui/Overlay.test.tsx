@@ -103,4 +103,17 @@ describe("Overlay", () => {
     fireEvent.click(container.querySelector(".overlay-scrim")!);
     expect(dialog(container).dataset.state).toBe("closing");
   });
+
+  it("a click inside a themed popup portaled into the dialog does not dismiss it", () => {
+    const onDismiss = vi.fn();
+    const { container } = render(ui(true, () => {}, onDismiss));
+    const positioner = document.createElement("div");
+    positioner.className = "pop-positioner";
+    const item = document.createElement("button");
+    positioner.appendChild(item);
+    dialog(container).appendChild(positioner); // outside the panel, as a portal container puts it
+    fireEvent.click(item);
+    expect(onDismiss).not.toHaveBeenCalled();
+    expect(dialog(container).dataset.state).toBe("open");
+  });
 });

@@ -144,7 +144,10 @@ export function Overlay({ open, onClosed, onDismiss, onReopen, variant, labelled
         dismiss();
       }}
       onClick={(e) => {
-        if (!panelEl.current?.contains(e.target as Node)) dismiss();
+        const target = e.target as Element;
+        // Select and date popups portal into this dialog (outside the panel); a click in one is not a scrim click.
+        if (target.closest?.(".pop-positioner")) return;
+        if (!panelEl.current?.contains(target)) dismiss();
       }}
       onTransitionEnd={(e) => {
         if (e.target === panelEl.current && ref.current?.dataset.state === "closing") finish();

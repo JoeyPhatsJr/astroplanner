@@ -158,7 +158,7 @@ export function NightPicker({
                         </button>
                       </div>
                     ) : (
-                      <span key={`e${j}`} role="gridcell" />
+                      <span key={`e${j}`} role="gridcell" className="picker-blank" />
                     ),
                   )}
                 </div>
