@@ -2,11 +2,13 @@
  * Landing page copy and pictures, kept as data so every claim is reviewable in one place.
  *
  * Accuracy rules (CLAUDE.md): every sentence describes shipped behaviour, and every time below comes from
- * the saved example night the screenshots show (Philadelphia, PA, night of Mon 2 Nov 2026: sunset 16:57,
- * astronomical darkness from 18:28, sunrise 06:32). None of it is presented as live data.
+ * the saved example night the screenshots show (Philadelphia, PA, night of Tue 10 Nov 2026: sunset 16:48,
+ * astronomical darkness from 18:21, sunrise 06:41). None of it is presented as live data. The AstroLog and
+ * processing screenshots show the developer's own Bubble and Dumbbell nights (11 Sept 2026), imported into a
+ * scratch copy of the app; their final pictures are the Seestar's own Bubble stack and the developer's M27 photo.
  */
 
-export const EXAMPLE_NIGHT_LABEL = "Times from an example night in Philadelphia, 2 Nov";
+export const EXAMPLE_NIGHT_LABEL = "Times from an example night in Philadelphia, 10 Nov";
 
 /** Twilight band shown behind the page while a chapter is in view (theme tokens, so night vision turns them red). */
 export type Sky = "civil" | "nautical" | "astronomical" | "dark";
@@ -28,13 +30,13 @@ export interface Chapter {
 export const CHAPTERS: Chapter[] = [
   {
     id: "tonight",
-    time: "16:57",
+    time: "16:48",
     moment: "Sunset",
     title: "Know if tonight is worth it.",
     body: "Clouds, rain, the Moon and real darkness for your exact spot, each one shown and each one labelled forecast or calculated. No mystery score.",
     shot: {
       src: "/landing/tonight-desktop.jpg",
-      alt: "The Tonight screen: a score with its four parts, cards for clouds, rain, the Moon and darkness, and a dusk-to-dawn chart.",
+      alt: "The Tonight screen: a heuristic score for the best two hours, an hour-by-hour strip from sunset to sunrise marking the forecast-clear stretch, and the night’s cloud, rain, Moon and darkness.",
     },
     // One label per destination across the page: every way into Tonight reads "See tonight’s sky".
     link: { to: "/tonight", label: "See tonight’s sky" },
@@ -43,13 +45,13 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     id: "targets",
-    time: "18:28",
+    time: "18:21",
     moment: "Astronomical darkness",
     title: "Know what to point at, and when.",
     body: "58 deep-sky targets ranked for your sky tonight, with the hours each is high enough to shoot and how it fits the Seestar S30’s field.",
     shot: {
       src: "/landing/target-detail-desktop.jpg",
-      alt: "Explore with a target open: its altitude through the night, rise and set times, and why it scored as it did.",
+      alt: "Explore with the Orion Nebula open: how it fits the Seestar’s field, its best window, its altitude through the night, and rise and set times.",
     },
     link: { to: "/explore", label: "Browse targets" },
     sky: "astronomical",
@@ -57,7 +59,7 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     id: "astrolog",
-    time: "06:32",
+    time: "06:41",
     moment: "Sunrise, pack up",
     title: "Every night, remembered.",
     body: "Drop in the Seestar’s folder. AstroLog reads the file headers, not your pictures, and files the night under each target you shot.",
@@ -77,7 +79,7 @@ export const CHAPTERS: Chapter[] = [
     body: "A ten-step coach for Siril, written for your exact files, that ends with your stack beside the Seestar’s own, measured the same way.",
     shot: {
       src: "/landing/processing-compare-desktop.jpg",
-      alt: "The processing coach on its last step, comparing a Siril stack with the Seestar’s stack using measured numbers.",
+      alt: "The processing coach on its last step for a Bubble Nebula night: the Siril stack shown with the same preview stretch, and a place to add the Seestar’s own stack beside it.",
     },
     sky: "astronomical",
     progress: 84,

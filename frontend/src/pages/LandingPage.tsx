@@ -129,8 +129,8 @@ export function LandingPage() {
 
       <footer className="mx-auto mt-28 max-w-[1160px] border-t border-line-soft px-4 pt-7 pb-16 text-xs leading-relaxed text-muted sm:px-10">
         <p className="m-0">
-          Photos are the developer’s own captures. App screens show a saved example night (Philadelphia, 2 Nov), not live
-          data.
+          Photos, and the AstroLog and processing screens, come from the developer’s own nights. The planning screens show
+          a saved example night (Philadelphia, 10 Nov), not live data.
         </p>
         <p className="mt-2 mb-0">
           Targets from{" "}
