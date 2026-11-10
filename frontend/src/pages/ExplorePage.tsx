@@ -14,15 +14,6 @@ import { formatTime } from "../lib/time";
 import { usePrefs } from "../state/prefs";
 import { PageHeader } from "../components/ui/PageHeader";
 
-const STATUS_TONE: Record<string, string> = {
-  observable: "border-ice/40 text-ice",
-  too_brief: "border-ice/40 text-ice",
-  daylight_only: "border-line text-ink-2",
-  below_threshold: "border-line text-muted",
-  never_rises: "border-line text-muted",
-  no_darkness: "border-line text-muted",
-};
-
 export function ExplorePage() {
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState(params.get("q") ?? "");
@@ -63,6 +54,8 @@ export function ExplorePage() {
 
   const tz = location?.timezone ?? "UTC";
   const results = recs.data?.results ?? [];
+  const observable = results.filter((r) => r.visibility.status === "observable");
+  const hidden = results.filter((r) => r.visibility.status !== "observable");
 
   return (
     <div className="page-wide flex flex-col gap-5">
@@ -110,12 +103,22 @@ export function ExplorePage() {
           Nothing in the {recs.data ? "58-target" : ""} catalog matches “{debounced}”. Try a Messier number like M31 or a constellation name.
         </EmptyState>
       )}
-      {results.length > 0 && (
-        <ul className={`flex flex-col gap-2 ${recs.isFetching ? "opacity-70" : ""}`} aria-label="Targets">
-          {results.map((r) => (
+      {observable.length > 0 && (
+        <ul className={`panel divide-y divide-line-soft overflow-hidden ${recs.isFetching ? "opacity-70" : ""}`} aria-label="Targets">
+          {observable.map((r) => (
             <Row key={r.target.id} rec={r} tz={tz} minAlt={prefs.minAltitudeDeg} onOpen={() => setOpen(r.target.id)} />
           ))}
         </ul>
+      )}
+      {hidden.length > 0 && (
+        <>
+          <h2 className="text-xl font-semibold">Not observable tonight</h2>
+          <ul className={`panel divide-y divide-line-soft overflow-hidden ${recs.isFetching ? "opacity-70" : ""}`} aria-label="Not observable tonight">
+            {hidden.map((r) => (
+              <Row key={r.target.id} rec={r} tz={tz} minAlt={prefs.minAltitudeDeg} onOpen={() => setOpen(r.target.id)} />
+            ))}
+          </ul>
+        </>
       )}
       <TargetDetail targetId={openId} onClose={() => setOpen(null)} onReopen={setOpen} />
     </div>
@@ -129,7 +132,7 @@ export function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: stri
       <button
         type="button"
         onClick={onOpen}
-        className="panel grid w-full grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-3 text-left transition-colors hover:border-ice/40 md:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_auto_auto]"
+        className="grid w-full grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 px-4 py-3 text-left transition-colors hover:bg-panel-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ice md:grid-cols-[minmax(0,2fr)_minmax(0,2.2fr)_auto_auto]"
       >
         <span className="min-w-0">
           <span className="block truncate font-medium text-ink">{t.name}</span>
@@ -139,12 +142,15 @@ export function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: stri
           </span>
         </span>
         <span className="order-3 col-span-2 min-w-0 text-xs md:order-none md:col-span-1 tabular-nums">
-          {v.status !== "observable" && <span className={`badge ${STATUS_TONE[v.status]}`}>{v.status_text}</span>}
-          <span className={v.status !== "observable" ? "ml-2 text-ink-2" : "text-ink-2"}>
-            {v.best_window
-              ? `${formatTime(v.best_window.start_utc, tz)}–${formatTime(v.best_window.end_utc, tz)}, peak ${formatDeg(v.max_alt_dark_deg)}`
-              : v.status_detail}
-          </span>
+          {v.status === "observable" && v.best_window ? (
+            <span className="text-ink-2">
+              {formatTime(v.best_window.start_utc, tz)}–{formatTime(v.best_window.end_utc, tz)}, peak {formatDeg(v.max_alt_dark_deg)}
+            </span>
+          ) : (
+            <span className="text-sm text-ink-2">
+              {v.status_text}. {v.status_detail}
+            </span>
+          )}
         </span>
         <span className="hidden md:block">
           <Sparkline values={rec.sparkline_alt_deg} minAlt={minAlt} width={100} height={28} />

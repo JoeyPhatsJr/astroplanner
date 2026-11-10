@@ -150,10 +150,11 @@ describe("Explore rows", () => {
     expect(container.textContent).toMatch(/peak/);
   });
 
-  it("keeps the designation when it differs and the status badge on non-observable rows", () => {
+  it("keeps the designation when it differs and shows the status as a plain sentence on non-observable rows", () => {
     const { container } = show(rec("Andromeda Galaxy", "M31", "below_threshold"));
     expect(container.textContent).toContain("M31 · galaxy");
-    expect(screen.getByText("Below the minimum altitude")).toBeInTheDocument();
+    expect(screen.getByText("Below the minimum altitude. detail")).toBeInTheDocument();
+    expect(container.querySelector(".badge")).toBeNull();
   });
 });
 
