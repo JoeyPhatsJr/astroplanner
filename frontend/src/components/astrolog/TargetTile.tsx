@@ -28,7 +28,7 @@ export function TargetTile({ row }: { row: LibraryRow }) {
     >
       <div className="flex aspect-[4/3] items-center justify-center overflow-hidden border-b border-line bg-ink/5 text-sm text-muted">
         {row.thumb_url ? (
-          <img src={imageSrc(row.thumb_url)} alt={`Final picture of ${row.display_name}`} loading="lazy" className="size-full object-cover" />
+          <img src={imageSrc(row.thumb_url)} alt={`Final picture of ${row.display_name}`} loading="lazy" className="vision-img size-full object-cover" />
         ) : (
           <span>No final picture yet</span>
         )}

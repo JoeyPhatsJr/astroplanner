@@ -52,7 +52,7 @@ function TargetBody({ data }: { data: TargetPage }) {
         <div className="flex flex-col gap-3">
           {fi ? (
             <figure className="panel overflow-hidden">
-              <img src={imageSrc(fi.preview_url)} alt={`Final picture of ${t.display_name}`} className="w-full" width={fi.width} height={fi.height} />
+              <img src={imageSrc(fi.preview_url)} alt={`Final picture of ${t.display_name}`} className="vision-img w-full" width={fi.width} height={fi.height} />
               <figcaption className="px-3 py-2 text-xs text-muted">Final picture: {fi.source_filename}</figcaption>
             </figure>
           ) : (
