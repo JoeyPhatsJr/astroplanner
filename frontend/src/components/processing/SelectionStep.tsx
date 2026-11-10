@@ -68,7 +68,7 @@ export function SelectionStep({
                   {TAG[o.id] && <b className="text-ice">{TAG[o.id]}</b>}
                   <span className="font-medium text-ink">{o.label}</span>
                   <span className="badge">{BASIS_LABEL[o.basis]}</span>
-                  {o.heuristic && <span className="badge border-ice/40 text-ice">Heuristic</span>}
+                  {o.heuristic && <span className="badge badge-accent">Heuristic</span>}
                 </span>
                 <span className="mt-1 block text-sm text-ink">
                   {o.kept.toLocaleString()} frames &middot; {formatIntegration(o.seconds)}

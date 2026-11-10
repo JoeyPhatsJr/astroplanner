@@ -66,4 +66,15 @@ describe("type scale", () => {
     const offenders = components.filter(([, src]) => /\bleading-(tight|snug|none)\b/.test(src)).map(([path]) => path);
     expect(offenders).toEqual([]);
   });
+  it("defines .badge-accent and no inline accent badge variant remains", () => {
+    expect(css).toMatch(/\.badge-accent\s*{/);
+    const offenders = components.filter(([, src]) => src.includes("border-ice/40 text-ice")).map(([path]) => path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("no user-visible string contains an em-dash (comments are ignored)", () => {
+    const stripComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
+    const offenders = components.filter(([, src]) => stripComments(src).includes("\u2014")).map(([path]) => path);
+    expect(offenders).toEqual([]);
+  });
 });

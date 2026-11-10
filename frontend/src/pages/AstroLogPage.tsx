@@ -58,7 +58,7 @@ function SessionList({ sessions }: { sessions: ObservingSession[] }) {
                 <span className="text-sm text-ink-2">
                   {s.target_count} target{s.target_count === 1 ? "" : "s"}
                 </span>
-                <span className={`badge ${s.status === "planned" ? "border-ice/40 text-ice" : ""}`}>{STATUS_LABEL[s.status]}</span>
+                <span className={s.status === "planned" ? "badge badge-accent" : "badge"}>{STATUS_LABEL[s.status]}</span>
               </Link>
             </li>
           ))}

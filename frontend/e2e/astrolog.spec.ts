@@ -92,7 +92,7 @@ test("import a folder, review it, commit, and see the target history", async ({ 
   const row = page.getByRole("row", { name: new RegExp(cfg.object) });
   await expect(row).toContainText("20");
   await expect(row).toContainText("3 m 20 s exposure");
-  await expect(page.getByText("1 image not imported — choose a final picture on the target page.")).toBeVisible();
+  await expect(page.getByText("1 image not imported: choose a final picture on the target page.")).toBeVisible();
   await page.getByRole("button", { name: /^Import 20 new frames and 1 stack$/ }).click();
 
   await expect(page).toHaveURL(/\/astrolog\/targets\//);

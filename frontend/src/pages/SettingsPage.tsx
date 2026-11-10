@@ -91,7 +91,7 @@ function LocationsSection() {
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
                   {l.label}
-                  {l.is_sample && <span className="badge border-ice/40 text-ice">Sample</span>}
+                  {l.is_sample && <span className="badge badge-accent">Sample</span>}
                 </p>
                 <p className="text-xs text-muted">
                   {formatLatLon(l.latitude_deg, l.longitude_deg)}
@@ -103,7 +103,7 @@ function LocationsSection() {
                   Use
                 </button>
               ) : (
-                <span className="badge border-ice/40 text-ice">In use</span>
+                <span className="badge badge-accent">In use</span>
               )}
               <button type="button" className="btn btn-ghost btn-icon" aria-label={`Edit ${l.label}`} onClick={() => setEditing(l)}>
                 <Pencil className="size-4" aria-hidden />
@@ -409,7 +409,7 @@ function EquipmentSection() {
                 <p className="text-xs text-muted">{eq.manufacturer ?? "Custom profile"}</p>
               </div>
               {eq.is_preset ? (
-                <span className="badge border-ice/40 text-ice">
+                <span className="badge badge-accent">
                   <BadgeCheck className="size-3.5" aria-hidden /> Manufacturer specs
                 </span>
               ) : (
@@ -432,7 +432,7 @@ function EquipmentSection() {
                   Use
                 </button>
               ) : (
-                <span className="badge border-ice/40 text-ice">In use</span>
+                <span className="badge badge-accent">In use</span>
               )}
               {eq.is_preset ? (
                 <>

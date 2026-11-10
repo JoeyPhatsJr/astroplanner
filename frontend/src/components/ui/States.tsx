@@ -57,7 +57,7 @@ export function BasisBadge({ basis }: { basis: "forecast" | "calculated" | "heur
   const label = { forecast: "Forecast", calculated: "Calculated", heuristic: "Heuristic" }[basis];
   const tone =
     basis === "forecast"
-      ? "border-ice/40 text-ice"
+      ? "badge-accent"
       : basis === "calculated"
         ? "border-line text-ink-2"
         : "border-dashed border-ink-2 text-ink-2";

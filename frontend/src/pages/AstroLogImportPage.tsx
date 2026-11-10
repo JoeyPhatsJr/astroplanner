@@ -40,7 +40,7 @@ function toB64(bytes: Uint8Array): string {
 }
 
 function imagesNote(n: number): string {
-  return `${n} image${n === 1 ? "" : "s"} not imported — choose a final picture on the target page.`;
+  return `${n} image${n === 1 ? "" : "s"} not imported: choose a final picture on the target page.`;
 }
 
 function describe(e: unknown): string {
@@ -514,7 +514,7 @@ export function AstroLogImportPage() {
                         <span className="block text-xs text-muted">{formatIntegration(g.captured_s)} exposure</span>
                       </td>
                       <td className="px-4 py-2 text-right">
-                        <span className={`badge ${g.new_frames ? "border-ice/40 text-ice" : ""}`}>{g.new_frames}</span>
+                        <span className={g.new_frames ? "badge badge-accent" : "badge"}>{g.new_frames}</span>
                       </td>
                       <td className="px-4 py-2">
                         {isCanonGroup(g) && (
@@ -558,7 +558,7 @@ export function AstroLogImportPage() {
                   <li key={s.path} className="flex flex-wrap items-center gap-2">
                     <span className="text-ink">{s.source_filename}</span>
                     <span>{s.target.display_name}</span>
-                    <span className={`badge ${s.new ? "border-ice/40 text-ice" : ""}`}>{s.new ? "New" : "Already imported"}</span>
+                    <span className={s.new ? "badge badge-accent" : "badge"}>{s.new ? "New" : "Already imported"}</span>
                     {s.livetime_s !== null && <span className="text-xs text-muted">{formatIntegration(s.livetime_s)} integration</span>}
                   </li>
                 ))}
