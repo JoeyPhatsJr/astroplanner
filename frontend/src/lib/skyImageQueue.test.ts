@@ -24,7 +24,8 @@ function manualFetch() {
   return { fetchImpl, pending, peak: () => peak };
 }
 
-const jpeg = () => new Response(new Blob([new Uint8Array([0xff, 0xd8])], { type: "image/jpeg" }), { status: 200 });
+// Bytes rather than a Blob body: Node 22's Response rejects jsdom's Blob (no .stream()).
+const jpeg = () => new Response(new Uint8Array([0xff, 0xd8]), { status: 200, headers: { "content-type": "image/jpeg" } });
 const busy = (s = "5") => new Response("busy", { status: 503, headers: { "Retry-After": s } });
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
@@ -44,7 +45,8 @@ describe("sky image queue", () => {
     const blobs = await Promise.all(loads);
     expect(f.fetchImpl).toHaveBeenCalledTimes(9);
     expect(f.peak()).toBe(2);
-    expect(blobs.every((b) => b instanceof Blob)).toBe(true);
+    // Shape, not instanceof: under jsdom on Node 22, res.blob() returns Node's Blob class, not the jsdom global.
+    expect(blobs.every((b) => b?.type === "image/jpeg" && b.size === 2)).toBe(true);
   });
 
   it("retries a busy 503 once after its Retry-After, with the slot freed while it waits", async () => {
@@ -53,7 +55,7 @@ describe("sky image queue", () => {
     const fetchImpl = vi.fn(() => Promise.resolve(responses.shift()!));
     const q = createSkyImageQueue({ fetchImpl, wait: (ms) => (waits.push(ms), Promise.resolve()) });
     const blob = await q.load("/api/targets/m31/sky-image");
-    expect(blob).toBeInstanceOf(Blob);
+    expect(blob).toMatchObject({ type: "image/jpeg", size: 2 });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(waits).toEqual([5000]);
   });
