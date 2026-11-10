@@ -227,6 +227,28 @@ body.landing-sky {
   }
 }
 
+/*
+ * Night vision for landing pictures: greyscale, then multiplied by the accent red, so every pixel is
+ * red-dominant (R ≫ G, B). The shared .vision-img sepia/hue-rotate filter turns bright cores such as
+ * Andromeda's yellow-green, so landing pictures use this instead.
+ */
+.landing-hero-photo,
+.landing-photo,
+.landing-shot {
+  position: relative;
+}
+:root[data-vision="night"] :is(.landing-hero-photo, .landing-photo, .landing-shot) img {
+  filter: grayscale(1) brightness(0.6);
+}
+:root[data-vision="night"] :is(.landing-hero-photo, .landing-photo, .landing-shot)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--color-ice);
+  mix-blend-mode: multiply;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-rise,
   .landing-hero-photo img {

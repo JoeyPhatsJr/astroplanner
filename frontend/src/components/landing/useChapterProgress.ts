@@ -26,37 +26,53 @@ export function usePageSky(sky: Sky) {
 }
 
 /**
- * Which chapter sits in the middle band of the viewport, and which have been seen.
- * Without IntersectionObserver every chapter counts as seen, so nothing stays dimmed.
+ * Index of the active chapter: the last one whose top has passed the middle of the viewport, else the
+ * first. Derived from positions on every scroll, so it stays right however the reader gets there
+ * (wheel, keyboard, a jump back to the top, an anchor link).
  */
+export function activeIndex(tops: number[], viewportHeight: number): number {
+  let idx = 0;
+  tops.forEach((top, i) => {
+    if (top <= viewportHeight / 2) idx = i;
+  });
+  return idx;
+}
+
+/** Which chapter is active, and which have been reached so far (their screenshots stay revealed). */
 export function useChapterProgress(ids: string[]) {
-  const supported = typeof window !== "undefined" && "IntersectionObserver" in window;
-  const [active, setActive] = useState<string>(ids[0]);
-  const [seen, setSeen] = useState<Set<string>>(() => new Set(supported ? [] : ids));
-  const nodes = useRef(new Map<string, HTMLElement>());
+  const [active, setActive] = useState(0);
+  const [reached, setReached] = useState(0);
+  const nodes = useRef<(HTMLElement | null)[]>([]);
 
   useEffect(() => {
-    if (!supported) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          if (!e.isIntersecting) continue;
-          const id = (e.target as HTMLElement).dataset.chapter;
-          if (!id) continue;
-          setActive(id);
-          setSeen((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
-        }
-      },
-      { rootMargin: "-45% 0px -45% 0px" },
-    );
-    nodes.current.forEach((n) => io.observe(n));
-    return () => io.disconnect();
-  }, [supported]);
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const els = nodes.current;
+      if (els.length === 0 || els.some((n) => !n)) return;
+      const i = activeIndex(
+        els.map((n) => n!.getBoundingClientRect().top),
+        window.innerHeight,
+      );
+      setActive(i);
+      setReached((r) => Math.max(r, i));
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
 
-  const register = (id: string) => (el: HTMLElement | null) => {
-    if (el) nodes.current.set(id, el);
-    else nodes.current.delete(id);
+  const register = (index: number) => (el: HTMLElement | null) => {
+    nodes.current[index] = el;
   };
 
-  return { active, seen, register };
+  return { active: ids[active], seen: (index: number) => index <= reached, register };
 }

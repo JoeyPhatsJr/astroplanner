@@ -24,12 +24,12 @@ export function StoryChapters({ onSky }: { onSky: (sky: Sky) => void }) {
       </div>
 
       <ol className="m-0 list-none p-0">
-        {CHAPTERS.map((c) => (
+        {CHAPTERS.map((c, i) => (
           <li
             key={c.id}
-            ref={register(c.id)}
+            ref={register(i)}
             data-chapter={c.id}
-            data-seen={seen.has(c.id) ? "" : undefined}
+            data-seen={seen(i) ? "" : undefined}
             className="landing-chapter"
             aria-labelledby={`chapter-${c.id}`}
           >
@@ -51,7 +51,7 @@ export function StoryChapters({ onSky }: { onSky: (sky: Sky) => void }) {
               </Link>
             )}
             <div className="landing-shot">
-              <img src={c.shot.src} alt={c.shot.alt} loading="lazy" decoding="async" width={1440} height={900} className="vision-img" />
+              <img src={c.shot.src} alt={c.shot.alt} loading="lazy" decoding="async" width={1440} height={900} />
             </div>
           </li>
         ))}

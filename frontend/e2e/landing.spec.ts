@@ -43,6 +43,39 @@ test("landing page tells the story first, with real pictures, and hands off to T
   expect(errors).toEqual([]);
 });
 
+test("the story clock follows the scroll and starts over at the top", async ({ page }) => {
+  await page.goto("/");
+  const clock = page.locator(".landing-clock-time");
+  await expect(clock).toHaveText("16:57");
+  await page.locator('[data-chapter="astrolog"]').evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await expect(clock).toHaveText("06:32");
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect(clock).toHaveText("Next");
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(clock).toHaveText("16:57");
+});
+
+test("night vision turns the landing pictures red only", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    const k = "astroplanner.prefs.v1";
+    const p = JSON.parse(localStorage.getItem(k) ?? "{}");
+    localStorage.setItem(k, JSON.stringify({ ...p, nightVision: true }));
+  });
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-vision", "night");
+  const frame = page.locator(".landing-hero-photo");
+  // Greyscale picture multiplied by the accent red: no yellow-green cores, no white or blue light
+  expect(await frame.locator("img").evaluate((el) => getComputedStyle(el).filter)).toContain("grayscale(1)");
+  const tint = await frame.evaluate((el) => {
+    const s = getComputedStyle(el, "::after");
+    return { blend: s.mixBlendMode, bg: s.backgroundColor };
+  });
+  expect(tint.blend).toBe("multiply");
+  const [r, g, b] = tint.bg.match(/\d+/g)!.map(Number);
+  expect(r).toBeGreaterThan(3 * Math.max(g, b));
+});
+
 test("city box opens Tonight for the chosen place (live geocoding, tolerated when offline)", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Your city").fill("Denver");

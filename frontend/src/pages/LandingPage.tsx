@@ -77,7 +77,6 @@ export function LandingPage() {
               alt={HERO_PHOTO.alt}
               fetchPriority="high"
               decoding="async"
-              className="vision-img"
             />
           </div>
           <figcaption className="mt-3.5 px-1 text-[0.8125rem] text-muted">
@@ -113,7 +112,7 @@ export function LandingPage() {
                 <li key={p.src}>
                   <figure className="m-0">
                     <div className="landing-photo">
-                      <img src={p.src} alt={p.alt} loading="lazy" decoding="async" style={{ objectPosition: p.focus }} className="vision-img" />
+                      <img src={p.src} alt={p.alt} loading="lazy" decoding="async" style={{ objectPosition: p.focus }} />
                     </div>
                     <figcaption className="mt-2.5 text-sm font-semibold">
                       {p.name}

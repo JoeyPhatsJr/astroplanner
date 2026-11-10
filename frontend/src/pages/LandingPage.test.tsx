@@ -120,7 +120,7 @@ describe("LandingPage content", () => {
     }
   });
 
-  it("shows every chapter when IntersectionObserver is unavailable", () => {
+  it("reveals every chapter when there is no layout to measure", () => {
     const { container } = renderLanding();
     const chapters = container.querySelectorAll("[data-chapter]");
     expect(chapters).toHaveLength(CHAPTERS.length);
