@@ -112,7 +112,7 @@ export function NightPicker({
         className={`field select-trigger ${className}`}
       >
         <CalendarDays className="size-4 shrink-0 text-muted" aria-hidden />
-        <span className="min-w-0 flex-1 truncate text-left">{SHORT_FMT.format(toDate(value))}</span>
+        <span className="min-w-0 flex-1 truncate text-left tabular-nums">{SHORT_FMT.format(toDate(value))}</span>
       </Popover.Trigger>
       <Popover.Portal container={container ?? undefined}>
         <Popover.Positioner className="pop-positioner" sideOffset={6} align="start">

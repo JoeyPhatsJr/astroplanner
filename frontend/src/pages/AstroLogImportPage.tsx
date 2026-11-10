@@ -368,7 +368,7 @@ export function AstroLogImportPage() {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
       >
-        <h2 id="pick-h" className="font-semibold tracking-tight text-lg">
+        <h2 id="pick-h" className="font-semibold text-lg">
           Choose files
         </h2>
         <input
@@ -412,7 +412,7 @@ export function AstroLogImportPage() {
 
       {review && (
         <section className="flex flex-col gap-5" aria-labelledby="review-h">
-          <h2 id="review-h" className="font-semibold tracking-tight text-2xl">
+          <h2 id="review-h" className="font-semibold text-2xl">
             Review
           </h2>
 
@@ -552,7 +552,7 @@ export function AstroLogImportPage() {
 
           {stacks.length > 0 && (
             <div className="panel p-5">
-              <h3 className="font-semibold tracking-tight text-lg">Stacked images</h3>
+              <h3 className="font-semibold text-lg">Stacked images</h3>
               <ul className="mt-2 flex flex-col gap-1 text-sm text-ink-2">
                 {stacks.map((s) => (
                   <li key={s.path} className="flex flex-wrap items-center gap-2">
@@ -569,7 +569,7 @@ export function AstroLogImportPage() {
           {images > 0 && <Notice tone="info">{imagesNote(images)}</Notice>}
           {(skipped.length > 0 || ignored > 0) && (
             <details className="panel p-5" open={skipped.length > 0 && skipped.length <= 8}>
-              <summary className="disclosure-summary cursor-pointer font-semibold tracking-tight text-lg">
+              <summary className="disclosure-summary cursor-pointer font-semibold text-lg">
                 <span>
                   Skipped ({skipped.length}
                   {ignored > 0 ? `, plus ${ignored} working files ignored` : ""})

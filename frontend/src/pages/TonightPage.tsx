@@ -105,7 +105,7 @@ export function TonightPage() {
         <section className="flex min-w-0 flex-col gap-4" aria-labelledby="targets-heading">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 id="targets-heading" className="font-semibold tracking-tight text-2xl">
+              <h2 id="targets-heading" className="font-semibold text-2xl">
                 Best targets tonight
               </h2>
               {recs.data && (

@@ -47,7 +47,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className={`flex items-center gap-2.5 px-4 pb-6 pt-5 ${collapsed ? "justify-center px-0" : ""}`}>
           <Logo />
           {!collapsed && (
-            <span className="font-semibold tracking-tight text-[1.35rem] leading-none  text-ink">AstroPlanner</span>
+            <span className="font-semibold text-xl leading-none text-ink">AstroPlanner</span>
           )}
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3">
@@ -91,7 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3 px-4 py-2 md:px-6 md:py-3">
             <div className="flex items-center gap-2 md:hidden">
               <Logo />
-              <span className="sr-only font-semibold tracking-tight text-lg text-ink sm:not-sr-only">AstroPlanner</span>
+              <span className="sr-only font-semibold text-lg text-ink sm:not-sr-only">AstroPlanner</span>
             </div>
             <HeaderControls />
           </div>

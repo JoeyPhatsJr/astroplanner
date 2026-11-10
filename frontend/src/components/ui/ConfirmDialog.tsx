@@ -59,7 +59,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       >
         {pending && (
           <div className="flex flex-col gap-4 p-5">
-            <h2 id="confirm-title" className="font-semibold tracking-tight text-xl">
+            <h2 id="confirm-title" className="font-semibold text-xl">
               {pending.title}
             </h2>
             {pending.body && (

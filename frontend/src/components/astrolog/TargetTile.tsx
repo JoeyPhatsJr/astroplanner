@@ -38,7 +38,7 @@ export function TargetTile({ row }: { row: LibraryRow }) {
           {row.display_name}
         </span>
         <span className="flex flex-wrap items-baseline gap-x-2">
-          <span className="text-lg font-semibold tracking-tight text-ice">{formatIntegration(seconds)}</span>
+          <span className="text-lg font-semibold tabular-nums text-ice">{formatIntegration(seconds)}</span>
           {seconds !== null && <span className="text-xs text-ink-2">{headlineLabel(row.headline)}</span>}
         </span>
         <span className="text-xs text-muted">{nightsLabel(row.nights)}</span>

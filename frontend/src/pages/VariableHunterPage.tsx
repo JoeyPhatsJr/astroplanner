@@ -36,7 +36,7 @@ export function VariableHunterPage() {
             <li key={s.id} className="contents">
               <Link to={`/variables/${s.slug}`} className="panel press flex flex-col gap-2 p-4 hover:border-ice/40">
                 <span className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="font-semibold tracking-tight text-xl text-ink">{s.name}</span>
+                  <span className="font-semibold text-xl text-ink">{s.name}</span>
                   <span className="badge">{s.type_label}</span>
                 </span>
                 <span className="text-sm text-ink-2">

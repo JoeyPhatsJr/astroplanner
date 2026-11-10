@@ -15,7 +15,7 @@ export function ScoreChip({
   if (total === null || max === null) return null;
   return (
     <div className="flex-none text-right">
-      <p className="font-semibold tracking-tight text-2xl leading-none text-ink">
+      <p className="font-semibold text-2xl leading-none tabular-nums text-ink">
         {Math.round(total)}
         <span className="font-sans text-xs text-muted">/{max}</span>
       </p>
@@ -66,7 +66,7 @@ export function TargetCard({
       <SkyThumb target={t} fovDeg={fovDeg} size={112} />
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex justify-between gap-2">
-          <h3 className="min-w-0 [overflow-wrap:anywhere] font-semibold tracking-tight text-base leading-tight text-ink">
+          <h3 className="min-w-0 [overflow-wrap:anywhere] font-semibold text-base leading-tight text-ink">
             <button
               type="button"
               onClick={onOpen}
@@ -80,7 +80,7 @@ export function TargetCard({
         <p className="mt-0.5 truncate text-label text-muted" title={sub}>
           {sub}
         </p>
-        <p className="mt-1.5 text-sm font-medium text-ink">
+        <p className="mt-1.5 text-sm font-medium tabular-nums text-ink">
           {w ? (
             <>
               {formatTime(w.start_utc, tz)}–{formatTime(w.end_utc, tz)}{" "}
@@ -93,7 +93,7 @@ export function TargetCard({
           )}
         </p>
         {clear != null ? (
-          <p className="text-label font-medium text-ice">
+          <p className="text-label font-medium tabular-nums text-ice">
             {formatDuration(clear)} clear
             {up != null && up - clear > 1 && (
               <span className="ml-1 font-normal text-muted">
@@ -102,7 +102,7 @@ export function TargetCard({
             )}
           </p>
         ) : up != null && up > 0 ? (
-          <p className="text-label text-muted">{formatDuration(up)} up</p>
+          <p className="text-label tabular-nums text-muted">{formatDuration(up)} up</p>
         ) : null}
         {caution && (
           <p className="mt-1 flex gap-1.5 text-label leading-snug text-warn/90">

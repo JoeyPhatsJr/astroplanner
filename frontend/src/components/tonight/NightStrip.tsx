@@ -198,7 +198,7 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
               x={(x(clearA as number) + x(clearB as number)) / 2}
               y={9}
               textAnchor="middle"
-              style={{ fill: "var(--color-ice)", fontSize: 11, fontWeight: 600 }}
+              style={{ fill: "var(--color-ice)", fontSize: 11, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}
             >
               {`forecast clear · ${formatDuration(clear!.minutes)}`}
             </text>
@@ -212,7 +212,7 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
               x={(x(bestA as number) + x(bestB as number)) / 2}
               y={barBottom - 12}
               textAnchor="middle"
-              style={{ fill: "var(--color-ink)", fontSize: 11 }}
+              style={{ fill: "var(--color-ink)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}
             >
               {`best ${formatDuration(bestWindow!.minutes)}`}
             </text>
@@ -227,7 +227,7 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
           <g key={tk.t}>
             <line x1={x(tk.t)} x2={x(tk.t)} y1={tickY} y2={tickY + 5} style={{ stroke: "var(--color-line)" }} />
             {tk.label && (
-              <text x={x(tk.t)} y={H - 2} textAnchor="middle" style={{ fill: "var(--color-muted)", fontSize: 11 }}>
+              <text x={x(tk.t)} y={H - 2} textAnchor="middle" style={{ fill: "var(--color-muted)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
                 {tk.label}
               </text>
             )}

@@ -150,7 +150,7 @@ function SessionDetail({ session }: { session: ObservingSession }) {
       {err && <Notice tone="warn">{err instanceof Error ? err.message : String(err)}</Notice>}
 
       <section className="panel flex flex-col gap-4 p-5" aria-labelledby="sd-details">
-        <h2 id="sd-details" className="font-semibold tracking-tight text-xl">
+        <h2 id="sd-details" className="font-semibold text-xl">
           Details
         </h2>
         <div>
@@ -193,7 +193,7 @@ function SessionDetail({ session }: { session: ObservingSession }) {
       <CaptureSummary session={session} tz={loc?.timezone ?? null} />
 
       <section className="panel flex flex-col gap-3 p-5" aria-labelledby="sd-targets">
-        <h2 id="sd-targets" className="font-semibold tracking-tight text-xl">
+        <h2 id="sd-targets" className="font-semibold text-xl">
           Targets in order
         </h2>
         {session.targets.length ? (
@@ -228,7 +228,7 @@ function CaptureSummary({ session, tz }: { session: ObservingSession; tz: string
     <>
       {sets.length > 0 && (
         <section className="panel flex flex-col gap-3 p-5" aria-labelledby="sd-shot">
-          <h2 id="sd-shot" className="font-semibold tracking-tight text-xl">
+          <h2 id="sd-shot" className="font-semibold text-xl">
             Shot
           </h2>
           <ul className="flex flex-col gap-2">
@@ -251,7 +251,7 @@ function CaptureSummary({ session, tz }: { session: ObservingSession; tz: string
       )}
       {notShot.length > 0 && (
         <section className="panel flex flex-col gap-3 p-5" aria-labelledby="sd-notshot">
-          <h2 id="sd-notshot" className="font-semibold tracking-tight text-xl">
+          <h2 id="sd-notshot" className="font-semibold text-xl">
             Planned, not shot
           </h2>
           <ul className="flex flex-col gap-1.5 text-sm text-ink-2">

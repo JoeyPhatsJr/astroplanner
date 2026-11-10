@@ -41,7 +41,7 @@ export function EmptyState({
   return (
     <div className="panel flex flex-col items-start gap-3 p-6">
       {icon && <div className="text-ice">{icon}</div>}
-      <p className="font-semibold tracking-tight text-xl text-ink">{title}</p>
+      <p className="font-semibold text-xl text-ink">{title}</p>
       {children && <div className="max-w-prose text-sm leading-relaxed text-ink-2">{children}</div>}
       {action}
     </div>

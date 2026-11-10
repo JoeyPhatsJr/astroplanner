@@ -138,7 +138,7 @@ export function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: stri
             {t.kind} · {t.constellation} · {formatSize(t.angular_major_arcmin, t.angular_minor_arcmin)}
           </span>
         </span>
-        <span className="order-3 col-span-2 min-w-0 text-xs md:order-none md:col-span-1">
+        <span className="order-3 col-span-2 min-w-0 text-xs md:order-none md:col-span-1 tabular-nums">
           {v.status !== "observable" && <span className={`badge ${STATUS_TONE[v.status]}`}>{v.status_text}</span>}
           <span className={v.status !== "observable" ? "ml-2 text-ink-2" : "text-ink-2"}>
             {v.best_window

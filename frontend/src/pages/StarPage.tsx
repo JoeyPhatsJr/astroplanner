@@ -126,7 +126,7 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
 
       {data.missions.length > 0 && (
         <section className="flex flex-col gap-2" aria-labelledby="vh-missions">
-          <h2 id="vh-missions" className="font-semibold tracking-tight text-lg">
+          <h2 id="vh-missions" className="font-semibold text-lg">
             Missions
           </h2>
           <div className="grid gap-3 md:grid-cols-2">

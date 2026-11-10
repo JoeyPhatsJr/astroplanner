@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "@fontsource-variable/inter";
+@import "@fontsource-variable/inter/opsz.css";
 @import "./styles/starfield.css";
 
 /*
@@ -17,9 +17,26 @@
   --text-micro--letter-spacing: 0.02em;
   --text-label: 12.5px;
   --text-label--letter-spacing: 0.01em;
-  --text-display: 2.4rem;
-  --text-display--line-height: 1.08;
-  --text-display--letter-spacing: -0.025em;
+  --text-xs--line-height: 1.35;
+  --text-xs--letter-spacing: 0.01em;
+  --text-sm--line-height: 1.45;
+  --text-sm--letter-spacing: 0;
+  --text-base--line-height: 1.5;
+  --text-base--letter-spacing: 0;
+  --text-lg--line-height: 1.35;
+  --text-lg--letter-spacing: -0.005em;
+  --text-xl--line-height: 1.25;
+  --text-xl--letter-spacing: -0.008em;
+  --text-2xl--line-height: 1.2;
+  --text-2xl--letter-spacing: -0.011em;
+  --text-3xl--line-height: 1.15;
+  --text-3xl--letter-spacing: -0.014em;
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.02em;
+  --text-score: 4.75rem;
+  --text-score--line-height: 0.9;
+  --text-score--letter-spacing: -0.035em;
 
   --color-night: #02030a;
   --color-night-deep: #05070d;
@@ -129,8 +146,12 @@
     background-color: var(--color-night);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    font-feature-settings: "tnum" 1, "cv11" 1;
+    font-feature-settings: "cv11" 1;
     -webkit-font-smoothing: antialiased;
+  }
+  /* Recharts tick text: aligned digits on time and altitude axes */
+  .recharts-cartesian-axis-tick text {
+    font-variant-numeric: tabular-nums;
   }
   :focus-visible {
     outline: 2px solid var(--color-ice);

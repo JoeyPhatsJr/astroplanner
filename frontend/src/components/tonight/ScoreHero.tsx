@@ -71,7 +71,7 @@ export function ScoreHero({ score, tz, headline }: { score: TonightScore; tz: st
 
       {hasTotal ? (
         <div>
-          <p className="text-[4.5rem] font-semibold leading-[0.9] tracking-[-0.03em] text-ink tabular-nums" data-testid="score-total">
+          <p className="text-score font-semibold text-ink tabular-nums" data-testid="score-total">
             {Math.round(score.total!)}
             <span className="ml-1.5 align-top font-sans text-base font-medium tracking-normal text-muted"> / 100</span>
           </p>
@@ -84,7 +84,7 @@ export function ScoreHero({ score, tz, headline }: { score: TonightScore; tz: st
         </div>
       ) : (
         <div data-testid="score-no-total">
-          <p className="text-4xl font-semibold leading-none tracking-tight text-ink-2">No score</p>
+          <p className="text-display font-semibold leading-none text-ink-2">No score</p>
           <p className="mt-2 max-w-sm text-sm text-muted">
             {score.status === "no_weather" ? "Without a forecast there is no weather-backed total." : "There is no darkness on this night to score."}
             {score.partial_total !== undefined && (

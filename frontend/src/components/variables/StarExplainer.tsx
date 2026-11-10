@@ -5,7 +5,7 @@ const VAR_TYPES_URL = "https://vsx.aavso.org/index.php?view=about.vartypes";
 export function StarExplainer({ sourceUrl, starName }: { sourceUrl: string; starName: string }) {
   return (
     <section className="panel flex flex-col gap-2 p-4" aria-labelledby="vh-explainer">
-      <h2 id="vh-explainer" className="font-semibold tracking-tight text-lg">
+      <h2 id="vh-explainer" className="font-semibold text-lg">
         How to read a variable star
       </h2>
       <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-ink-2">

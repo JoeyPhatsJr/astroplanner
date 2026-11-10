@@ -9,7 +9,7 @@ const dur = formatIntegration; // floored, the same rule and format as AstroLog,
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
     <div>
-      <dt className="text-micro uppercase tracking-wider text-muted">{label}</dt>
+      <dt className="text-micro uppercase text-muted">{label}</dt>
       <dd className="m-0">
         <b className="text-[17px] text-ink">{value}</b>
         {note && <span className="ml-1.5 text-xs text-muted">{note}</span>}

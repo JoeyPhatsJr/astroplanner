@@ -75,7 +75,7 @@ function TargetBody({ data }: { data: TargetPage }) {
               Time on this target
             </h2>
             <div className="mt-1 flex flex-wrap items-end gap-x-3">
-              <span className="font-semibold tracking-tight text-5xl text-ink">{formatIntegration(headline.seconds)}</span>
+              <span className="font-semibold text-score tabular-nums text-ink">{formatIntegration(headline.seconds)}</span>
               {headline.seconds !== null && <span className="pb-1.5 text-sm text-ink-2">{headlineLabel(headline)}</span>}
             </div>
             {usage && nStack !== null && (
