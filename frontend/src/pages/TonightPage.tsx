@@ -12,7 +12,7 @@ import { NightStrip } from "../components/tonight/NightStrip";
 import { ScoreHero } from "../components/tonight/ScoreHero";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatLatLon } from "../lib/format";
-import { nightHeadline } from "../lib/nightHeadline";
+import { darkForecastGaps, nightHeadline } from "../lib/nightHeadline";
 import { nightLabel, nightPageTitle, tzAbbrev } from "../lib/time";
 import { useActiveSession } from "../state/activeSession";
 import { usePrefs } from "../state/prefs";
@@ -178,12 +178,18 @@ function TonightPanels({ data, tz, fetching }: { data: TonightResponse; tz: stri
   const { night, forecast, score } = data;
   const hasForecast = forecast.status === "ok";
   const dark = night.dark_intervals;
+  const gaps = darkForecastGaps(night, forecast.hourly, data.night_clear);
   const headline = nightHeadline({
     clear: data.night_clear,
     darkMinutes: night.dark_minutes,
     darkStartUtc: dark.length ? dark[0].start_utc : null,
     darkEndUtc: dark.length ? dark[dark.length - 1].end_utc : null,
+    hasDarkness: night.has_darkness,
+    darkness: score.darkness,
     hasForecast,
+    scoreStatus: score.status,
+    missingDarkMinutes: gaps.missingDarkMinutes,
+    clearEndsAtMissing: gaps.clearEndsAtMissing,
     forecastMessage: forecast.status === "ok" ? null : forecast.message,
     tz,
   });
@@ -192,7 +198,7 @@ function TonightPanels({ data, tz, fetching }: { data: TonightResponse; tz: stri
     <div className={`grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(280px,360px)_1fr] ${fetching ? "opacity-70" : ""}`}>
       <ScoreHero score={score} tz={tz} headline={headline} />
       <section className="panel flex min-w-0 flex-col gap-4 p-4 md:p-5" aria-label="Night from dusk to dawn">
-        <NightStrip night={night} forecast={forecast} clear={data.night_clear} bestWindow={hasForecast ? score.window : null} tz={tz} />
+        <NightStrip night={night} forecast={forecast} clear={data.night_clear} bestWindow={score.total !== null ? score.window : null} tz={tz} />
         <FactsRow night={night} forecast={forecast} />
         <p className="text-label text-muted">{stripTip}</p>
         <ForecastMeta forecast={forecast} tz={tz} />
