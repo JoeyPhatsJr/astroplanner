@@ -69,8 +69,21 @@ describe("ScoreHero", () => {
     expect(screen.getByTestId("score-total")).toHaveTextContent("98");
     expect(screen.getByText(/Components sum to 97.8/)).toBeInTheDocument();
     expect(screen.getByText(/19:35–21:35 EST/)).toBeInTheDocument();
-    expect(screen.getByText(/for the best 2 hours,/)).toBeInTheDocument();
+    expect(screen.getByText(/for the best 2 h,/)).toBeInTheDocument();
     expect(screen.getByText("Heuristic")).toBeVisible();
+  });
+
+  it("names the real window length when the best window is shorter than two hours", () => {
+    const score: TonightScore = {
+      ...base,
+      status: "ok",
+      total: 60,
+      window: { start_utc: "2026-11-03T00:35:00Z", end_utc: "2026-11-03T01:50:00Z", minutes: 75 },
+      components: [{ key: "cloud", label: "Cloud cover", points: 40, max: 45, basis: "forecast", detail: "" }],
+    };
+    render(<ScoreHero score={score} tz="America/New_York" />);
+    expect(screen.getByText(/for the best 1 h 15 min, 19:35–20:50 EST/)).toBeInTheDocument();
+    expect(screen.queryByText(/best 2 hours/)).toBeNull();
   });
 
   it("keeps the breakdown inside a 'Why this score' disclosure and shows the headline", () => {

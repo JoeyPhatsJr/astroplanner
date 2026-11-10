@@ -1,7 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import type { ScoreComponent, TonightScore } from "../../api/types";
 import { formatPoints } from "../../lib/format";
-import { formatTime, tzAbbrev } from "../../lib/time";
+import { formatDuration, formatTime, tzAbbrev } from "../../lib/time";
 import { BasisBadge } from "../ui/States";
 
 const SEGMENT_COLORS: Record<string, string> = {
@@ -77,7 +77,7 @@ export function ScoreHero({ score, tz, headline }: { score: TonightScore; tz: st
           </p>
           <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
             <span>
-              for the best 2 hours{win ? `, ${win}` : ""}
+              for the best {score.window ? formatDuration(score.window.minutes) : "window"}{win ? `, ${win}` : ""}
             </span>
             <BasisBadge basis="heuristic" />
           </p>
