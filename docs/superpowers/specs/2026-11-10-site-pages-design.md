@@ -69,12 +69,39 @@ Every statement must be traceable. Sources at the time of writing:
 
 If any of these change before the build, the page text changes with them.
 
+**Correcting approved copy (my call, from the builder check).** Headlines, structure and tone are fixed as in the mockup.
+Any sentence the code does not back up is corrected during the build: accuracy outranks the mockup's wording. Two known
+corrections:
+
+- Privacy, "Deleting": besides the database file and the preview folder, the browser keeps this site's saved preferences
+  (`astroplanner.prefs.v1`: chosen place and equipment, active session, night vision; `astroplanner.sidebar`). The text
+  becomes: "Everything AstroPlanner keeps about you sits in one database file and one preview folder on your computer,
+  plus a few saved preferences in your browser. Deleting them, and clearing this site's data in your browser, removes it
+  all." The database sentence stays true only for the default setup: if `DATABASE_URL` points elsewhere (Postgres), say
+  so in one short clause.
+- Terms: add "Updated 10 Nov 2026" under the lede, so the "Changes" sentence ("the date at the top changes too") is true.
+
+**Not shipped (my call):** the dashed "For the login design" box at the end of the mockup's Privacy view was a note to the
+developer, like the Accounts plan tab. It is not part of the public page (see Non-goals).
+
+**Also settled during the builder check (my calls):**
+- Header: extract the homescreen's existing `.landing-header` (which already has the reduced-transparency and
+  increased-contrast fallbacks) into the shared header, and add the 44 px pill and phone mark-only fold. The mockup's CSS
+  is a picture, not code to copy.
+- "Source on GitHub" links to the public repository, github.com/JoeyPhatsJr/astroplanner.
+- Credits uses the full DSS acknowledgment text that `/api/about` already returns.
+- Settings keeps its own "Data sources" list unchanged.
+- The app shell's existing attribution line gains links to How it works and Privacy, so app pages reach them too.
+
 ## Constraints
 
 - CLAUDE.md: attribution and license terms respected; accessible labels; responsive; no dead buttons; PROGRESS.md kept.
 - Existing look: tokens in `frontend/src/index.css`, homescreen styles in `frontend/src/styles/landing.css`.
 - The homescreen's own footer note ("Photos, and the AstroLog and processing screens, come from the developer’s own
   nights...") stays on `/`, above the shared footer.
+- Sequencing: polish pass 2 (PR #7, open on 2026-11-10) changes `LandingPage.tsx`, `landing.css`, `index.css`,
+  `AppShell.tsx` and the landing and smoke e2e specs. Build from `main` after PR #7 merges, and take the header and type
+  rules from that version, not from this mockup's copied values.
 - Tests that already pin homescreen behaviour (one label into Tonight, only real routes linked, e2e landing suite) must
   keep passing, extended to the new pages.
 
