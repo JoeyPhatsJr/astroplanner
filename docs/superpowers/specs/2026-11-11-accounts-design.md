@@ -13,9 +13,10 @@ computer. At deployment, Supabase Auth replaces this (ROADMAP "prerequisites bef
 ## Goals
 
 1. Create an account, sign in, sign out, change password, delete account.
-2. AstroLog (`/astrolog/**`) and the Processing Coach (`/astrolog/process/**`) require a signed-in user, in the UI and the
-   API. Everything else stays open: homescreen, site pages, Tonight, Explore, Variable Hunter, Settings.
-3. Each user sees only their own AstroLog and Processing Coach data.
+2. AstroLog (`/astrolog/**`), the Processing Coach (`/astrolog/process/**`) and **session plans** require a signed-in
+   user, in the UI and the API. Everything else stays open: homescreen, site pages, Tonight's sky, score and targets,
+   Explore, Variable Hunter star pages, Settings.
+3. Each user sees only their own plans, nights, AstroLog and Processing Coach data, and only their own progress.
 4. The header's empty sign-in slot (site header and app shell top bar) becomes "Sign in" when signed out and the account
    initial with a menu (AstroLog, Account, Sign out) when signed in, as in the mockup.
 5. Privacy gains a "Your account" section that states exactly what an account stores and how deleting works.
@@ -23,8 +24,10 @@ computer. At deployment, Supabase Auth replaces this (ROADMAP "prerequisites bef
 ## Non-goals
 
 - No Supabase, no hosting, no email sending, no social sign-in, no multi-factor auth, no admin UI.
-- Saved places, equipment and session plans stay shared and unowned in this build (they work signed out today). Syncing
-  them per account is a later decision.
+- Saved places and equipment stay shared and unowned in this build (they work signed out today). Syncing them per
+  account is a later decision. Known limitation, accepted for a single-computer install (my call): anyone using the
+  app can edit a saved place, and a night's times and the coach's altitude numbers are computed from its place, so
+  editing a place changes them. Document it in PROGRESS; revisit before deployment.
 - No change to how Tonight, Explore or Variable Hunter compute anything.
 
 ## Anti-goals
@@ -39,6 +42,13 @@ computer. At deployment, Supabase Auth replaces this (ROADMAP "prerequisites bef
 
 - By the developer: AstroLog and the Processing Coach require an account; local accounts in the backend now, Supabase
   Auth at deployment.
+- By the developer (builder check, 2026-11-11): **session plans need an account too.** In the code an AstroLog night is
+  a session plan (`sessions` rows; `capture_sets.session_id`), so every plan and night belongs to one account. Signed
+  out, Tonight still shows the sky, score and targets, but "Add to session" and the session plan panel ask you to sign
+  in.
+- By the developer (builder check): **progress is personal.** Variable Hunter mission progress and night counts, and the
+  "You have … stacked" badges on Tonight and Explore, show only the signed-in user's own data; signed out, star pages
+  and cards show everything except personal progress (no badge, no streak, no error).
 - Approved in the mockup: screens and copy for Sign in, Create account, AstroLog signed out, Account (with type-DELETE
   confirmation), and the signed-in header menu; the design-skills pass (44 px targets, press feedback, account menu as a
   disclosure of links, reduced-motion / transparency / contrast fallbacks, 360 px wordmark fold).
@@ -64,19 +74,32 @@ computer. At deployment, Supabase Auth replaces this (ROADMAP "prerequisites bef
   client adds it); with `SameSite=Lax` this blocks cross-site form posts.
 - **Sign-in throttling:** after 5 failed attempts for an email within 15 minutes, further attempts for it are refused
   for 15 minutes with the same generic message plus "Try again in a few minutes." (in memory; resets on restart).
+  Sign-up is throttled the same way per client address.
+- **Existing email at sign-up (my call):** "An account with this email already exists. Sign in instead." (with a link).
+  The no-enumeration anti-goal applies to sign-in; with no email step, sign-up cannot hide it without being useless.
 - **API:** `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` (200 with
   `{email, created_at}` or 401), `POST /api/auth/password` (current + new), `POST /api/auth/delete` (password +
   `confirm: "DELETE"`). One FastAPI dependency (`current_user`) resolves the cookie; every AstroLog and coach route uses
   it and returns 401 without a session. Swapping to Supabase later means replacing that dependency.
-- **Ownership:** `owner_id` (FK to users, indexed) on every AstroLog and coach table that holds a person's data
-  (library targets, capture sets, frames, stacks, final images, processing runs, and any other table those routes write).
-  Every query filters by owner; a row owned by someone else answers 404, not 403. Preview files are served only through
-  routes that check ownership.
-- **Existing data:** rows that exist before accounts have no owner. The first account created on an install takes them
-  over, once, and the Account page says "Your existing AstroLog library was added to this account." No other account
-  ever sees them.
-- **Delete account:** removes the user, their sessions, their owned rows and their preview files. Original files on the
-  computer are never touched (they were never uploaded).
+- **Ownership:** `owner_id` (FK to users, indexed) on `sessions` (plans and nights) and on every AstroLog and coach table
+  that holds a person's data (library targets, capture sets, frames, stacks, final images, processing runs, and any
+  other table those routes write). Every query filters by owner, including cross-row ones (the importer's night
+  matching, plan candidates, the coach's previous-run lookups); a row owned by someone else answers 404, not 403.
+  Unique keys that are global today become per owner (library target normalised key, including the single "Unsorted"
+  row; frame and stack dedup keys), so two people importing the same files do not collide. Preview files are served
+  only through routes that check ownership.
+- **Session API:** `/api/sessions/**` requires a signed-in user and returns only that user's plans and nights (the
+  Tonight session panel and the AstroLog Nights page both use it). An import attaches only to the importer's own plans.
+- **Open routes that read personal data** (Variable Hunter missions and night counts, `/api/astrolog/history` for the
+  badges): use an optional-user dependency; signed out they return no personal data (and no 401), signed in only the
+  user's own. The frontend requests badges only when signed in.
+- **Existing data:** rows that exist before accounts have no owner (sessions included). The first account created on an
+  install takes them over, once, and the Account page says "Your existing plans and AstroLog library were added to this
+  account." No other account ever sees them.
+- **Delete account:** removes the user, their sign-in sessions, their owned rows (plans and nights included) and their
+  preview files, deleting in dependency order in code (foreign keys stay RESTRICT). This is the one deliberate exception
+  to ROADMAP's rule that imported observations are never deleted as a side effect: here the deletion is the explicit,
+  confirmed request. Record it as a ROADMAP decision row. Original files on the computer are never touched.
 - **Migration:** an Alembic migration adds the tables and columns, works on SQLite and Postgres (`DATABASE_URL`), and
   keeps existing rows (owner null until claimed).
 - **Frontend:** a session query (`/api/auth/me`) drives the header slot and the AstroLog gate. Routes `/login` and
@@ -103,7 +126,10 @@ computer. At deployment, Supabase Auth replaces this (ROADMAP "prerequisites bef
   dependency; routes in the existing API style) and the CLI entry for password reset.
 - Frontend component structure (suggested `components/account/`), and whether the AstroLog gate wraps routes or pages.
 - Exact table names, as long as they follow existing naming.
+- Cross-origin `VITE_API_BASE` mode is not supported with accounts in this build (the dev proxy and e2e servers are
+  same-origin, so cookies work as is); say so in the README.
 - Test shape, as long as it covers: hashing and verification; session creation, expiry and revocation; generic sign-in
-  errors; throttling; every AstroLog and coach route returning 401 signed out; two users unable to see or change each
-  other's data (including preview files); first-account claim of existing data; delete account removing owned rows and
+  errors; throttling; every AstroLog, coach and session route returning 401 signed out; two users unable to see or change each
+  other's data (plans, nights, imports with identical files, preview files, mission progress, badges); signed-out
+  Variable Hunter and badge routes returning no personal data; first-account claim of existing data; delete account removing owned rows and
   files; an e2e flow (create account, open AstroLog, sign out, AstroLog shows the signed-out screen, sign in again).
