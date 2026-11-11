@@ -6,6 +6,8 @@ import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { EmptyState } from "./components/ui/States";
 import { LandingPage } from "./pages/LandingPage";
 import { HowItWorksPage } from "./pages/site/HowItWorksPage";
+import { PrivacyPage } from "./pages/site/PrivacyPage";
+import { TermsPage } from "./pages/site/TermsPage";
 import { TonightPage } from "./pages/TonightPage";
 
 // The landing page (/) and Tonight, its main call to action, stay in the main bundle;
@@ -70,6 +72,8 @@ export default function App() {
       <Route element={<SiteLayout />}>
         <Route path="/" element={<LandingPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
       </Route>
       <Route element={<ShellLayout />}>
         <Route path="/tonight" element={<TonightPage />} />

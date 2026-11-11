@@ -55,3 +55,28 @@ describe("How it works", () => {
     noDashes(container);
   });
 });
+
+describe("Privacy", () => {
+  it("says what is kept and how to delete it", () => {
+    const { container } = renderAt("/privacy");
+    expect(screen.getByRole("heading", { level: 1, name: "Your pictures stay yours." })).toBeInTheDocument();
+    for (const name of ["Never leaves your computer", "What it keeps", "Sent to other services", "Not in AstroPlanner"]) {
+      expect(screen.getByRole("heading", { name })).toBeInTheDocument();
+    }
+    expect(screen.getByText(/saved preferences in your browser/)).toHaveTextContent(/clearing this site's data in your browser/);
+    expect(screen.getByText(/DATABASE_URL/)).toBeInTheDocument();
+    expect(screen.queryByText(/For the login design/)).toBeNull();
+    expect(screen.getByText(/Updated 10 Nov 2026/)).toBeInTheDocument();
+    noDashes(container);
+  });
+});
+
+describe("Terms", () => {
+  it("is a dated draft", () => {
+    const { container } = renderAt("/terms");
+    expect(screen.getByRole("heading", { level: 1, name: "Plain terms." })).toBeInTheDocument();
+    expect(screen.getByText(/Updated 10 Nov 2026/)).toBeInTheDocument();
+    expect(screen.getByText("Draft: plain-language summary, not legal advice. Review before a public launch.")).toBeInTheDocument();
+    noDashes(container);
+  });
+});
