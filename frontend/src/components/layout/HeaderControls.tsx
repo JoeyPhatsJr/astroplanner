@@ -71,7 +71,7 @@ export function HeaderControls() {
         >
           <SheetTop className="border-b border-line-soft">
           <div className="flex items-center gap-3 px-5 py-3">
-            <h2 id="hdr-sheet-title" className="min-w-0 flex-1 truncate text-lg font-semibold tracking-tight">
+            <h2 id="hdr-sheet-title" className="min-w-0 flex-1 truncate text-lg font-semibold">
               Location and scope
             </h2>
             <button type="button" className="btn btn-ghost btn-icon" aria-label="Close" onClick={() => setSheetOpen(false)}>
@@ -161,7 +161,7 @@ function Controls({ stacked = false }: { stacked?: boolean }) {
             </button>
             {!stacked && (
               <span className="hidden items-center gap-2 lg:flex">
-                <span className="text-sm text-ink-2" title={`Times shown in ${location.timezone}`}>
+                <span className="text-sm tabular-nums text-ink-2" title={`Times shown in ${location.timezone}`}>
                   {nightLabel(nightDate)}
                 </span>
               </span>

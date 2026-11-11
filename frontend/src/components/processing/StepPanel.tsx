@@ -42,7 +42,7 @@ export function StepPanel({
         <p className="text-xs text-muted">
           Step {step.n} of {total}
         </p>
-        <h2 id="coach-step-title" className="mt-0.5 font-semibold tracking-tight text-2xl text-ink">
+        <h2 id="coach-step-title" className="mt-0.5 font-semibold text-2xl text-ink">
           {step.title}
         </h2>
       </div>

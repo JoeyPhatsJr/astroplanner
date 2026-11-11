@@ -4,11 +4,11 @@ const VAR_TYPES_URL = "https://vsx.aavso.org/index.php?view=about.vartypes";
 
 export function StarExplainer({ sourceUrl, starName }: { sourceUrl: string; starName: string }) {
   return (
-    <section className="panel flex flex-col gap-2 p-4" aria-labelledby="vh-explainer">
-      <h2 id="vh-explainer" className="font-semibold tracking-tight text-lg">
+    <section className="flex flex-col gap-2" aria-labelledby="vh-explainer">
+      <h2 id="vh-explainer" className="font-semibold text-lg">
         How to read a variable star
       </h2>
-      <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-ink-2">
+      <ul className="flex max-w-[68ch] list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-ink-2">
         <li>A light curve plots brightness over time. Magnitudes run backwards: a smaller number is brighter, so brighter is up.</li>
         <li>Brightness is measured against comparison stars in the same frame whose magnitudes are known. Your own number is only as good as those references.</li>
         <li>Stars that are too bright saturate the sensor, and a saturated star cannot be measured. Check your frames before trusting a value.</li>

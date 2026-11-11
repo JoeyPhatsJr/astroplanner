@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -242,11 +242,12 @@ describe("PageHeader", () => {
 });
 
 describe("BasisBadge", () => {
-  it("styles forecast and heuristic differently", () => {
-    const { container: a } = render(<BasisBadge basis="forecast" />);
-    const { container: b } = render(<BasisBadge basis="heuristic" />);
-    expect(a.firstElementChild?.className).not.toBe(b.firstElementChild?.className);
-    expect(b.firstElementChild?.className).toContain("border-dashed");
+  it("forecast is the accent badge; calculated and heuristic are plain, none dashed", () => {
+    const cls = (basis: "forecast" | "calculated" | "heuristic") =>
+      render(<BasisBadge basis={basis} />).container.firstElementChild?.className ?? "";
+    expect(cls("forecast")).toContain("badge-accent");
+    for (const basis of ["calculated", "heuristic"] as const) expect(cls(basis)).not.toContain("badge-accent");
+    for (const basis of ["forecast", "calculated", "heuristic"] as const) expect(cls(basis)).not.toContain("border-dashed");
   });
 });
 
@@ -312,6 +313,41 @@ describe("TargetCard layout", () => {
     expect(open[0]).toBe(screen.getByRole("button", { name: "Bubble Nebula" }));
     expect(screen.getByRole("button", { name: "Add Bubble Nebula to session" }).closest(".card-open")).toBeNull();
   });
+  it("shows a quiet tinted Add button: same name, visible label from sm up, not the primary fill", () => {
+    show(mk());
+    const add = screen.getByRole("button", { name: "Add Bubble Nebula to session" });
+    expect(add.className).toContain("btn-tinted");
+    expect(add.className).not.toContain("btn-primary");
+    expect(add.className).not.toContain("size-11");
+    expect(add.className).toContain("min-h-9");
+    expect(add.className).toContain("min-w-11");
+    const label = within(add).getByText("Add");
+    expect(label.className).toContain("max-sm:sr-only");
+  });
+  it("keeps the in-session button as it was", () => {
+    mockHistory.data = {};
+    render(
+      <MemoryRouter>
+        <TargetCard rec={mk()} tz="UTC" minAlt={30} fovDeg={2.46} onOpen={() => {}} onAdd={() => {}} inSession adding={false} />
+      </MemoryRouter>,
+    );
+    const done = screen.getByRole("button", { name: "Bubble Nebula is in your session" });
+    expect(done.className).toContain("btn-ghost");
+    expect(done.className).toContain("text-ice");
+    expect(done.className).toContain("size-11");
+    expect(done.className).not.toContain("btn-tinted");
+    expect(done).toBeDisabled();
+  });
+  it("keeps the score after a 40-character name, in the same row", () => {
+    const name = "Extraordinarily Long Nebula Name Number1";
+    expect(name).toHaveLength(40);
+    show(mk({}, name));
+    const heading = screen.getByRole("heading", { name });
+    const score = screen.getByText("91").closest("div")!;
+    expect(score.parentElement).toBe(heading.parentElement);
+    expect(heading.compareDocumentPosition(score) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(score.className).toContain("flex-none");
+  });
   it("opens details from the name; the add button does not", async () => {
     const { onOpen, onAdd } = show(mk());
     await userEvent.click(screen.getByRole("button", { name: "Add Bubble Nebula to session" }));
@@ -340,6 +376,21 @@ describe("SkyThumb", () => {
     expect(img.hasAttribute("data-loaded")).toBe(true);
     expect(screen.getByText("0.67°")).toBeTruthy();
     expect(diagram(container)).not.toBeNull();
+  });
+  it("shows no fit-status text on the thumbnail, only the field width", async () => {
+    const big = { ...target, angular_major_arcmin: 300 } as unknown as Target;
+    const { container } = render(<SkyThumb target={big} fovDeg={2.46} size={112} />);
+    fireEvent.load(await screen.findByAltText(/Digitized Sky Survey/));
+    expect(screen.getByText("0.67°")).toBeTruthy();
+    expect(screen.queryByText(/Larger than the field/)).toBeNull();
+    expect(container.textContent).toBe("0.67°");
+  });
+  it("shows no fit-status text on the diagram fallback either", async () => {
+    const big = { ...target, angular_major_arcmin: 300, sky_field_arcmin: null } as unknown as Target;
+    const { container } = render(<SkyThumb target={big} fovDeg={2.46} size={112} />);
+    await act(async () => {});
+    expect(diagram(container)).not.toBeNull();
+    expect(container.textContent).toBe("");
   });
   it("carries the night-vision picture class", async () => {
     render(<SkyThumb target={target} fovDeg={2.46} size={112} />);

@@ -118,6 +118,22 @@ describe("NightStrip", () => {
     expect(container.querySelector("[data-clearbar]")).toBeNull();
   });
 
+  it("names the forecast-clear run for screen readers only and offers a tap hint", () => {
+    render(
+      <NightStrip
+        night={night(() => -20)}
+        forecast={forecast(hours(13, () => 0))}
+        clear={{ start_utc: "2026-11-04T01:00:00Z", end_utc: "2026-11-04T04:00:00Z", minutes: 180, rule: "x" }}
+        bestWindow={null}
+        tz={TZ}
+      />,
+    );
+    const label = screen.getByText(/forecast clear/);
+    expect(label.closest(".sr-only")).not.toBeNull();
+    expect(label.textContent).toContain("3 h");
+    expect(screen.getByText("Tap the strip for hourly values.")).toBeTruthy();
+  });
+
   it("draws a Moon band only while the Moon is above the horizon", () => {
     const down = render(<NightStrip night={night(() => -20)} forecast={forecast(hours(13, () => 10))} clear={null} bestWindow={null} tz={TZ} />);
     expect(down.container.querySelector("[data-moon]")).toBeNull();

@@ -16,7 +16,7 @@ export function AdviceList({ advice }: { advice: Advice[] }) {
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="font-medium text-ink">{a.setting}</span>
             <span className="badge">{BASIS_LABEL[a.basis]}</span>
-            {a.heuristic && <span className="badge border-ice/40 text-ice">Heuristic</span>}
+            {a.heuristic && <span className="badge badge-accent">Heuristic</span>}
           </div>
           <p className="mt-1 text-sm leading-relaxed text-ink-2">{a.why}</p>
           {a.basis === "siril-docs" && a.source_url && (

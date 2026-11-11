@@ -13,7 +13,7 @@ import { ScoreHero } from "../components/tonight/ScoreHero";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatLatLon } from "../lib/format";
 import { darkForecastGaps, nightHeadline } from "../lib/nightHeadline";
-import { nightLabel, nightPageTitle, tzAbbrev } from "../lib/time";
+import { nightPageTitle, tzAbbrev } from "../lib/time";
 import { useActiveSession } from "../state/activeSession";
 import { usePrefs } from "../state/prefs";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -55,19 +55,19 @@ export function TonightPage() {
         title={nightPageTitle(nightDate, isAuto)}
         subtitle={
           <>
-            {nightDate ? nightLabel(nightDate) : ""} at {location.label}
-            <span className="text-muted"> · {formatLatLon(location.latitude_deg, location.longitude_deg)} · {tz}</span>
+            {location.label}
+            <span className="text-muted tabular-nums"> · {formatLatLon(location.latitude_deg, location.longitude_deg)}</span>
           </>
         }
-        actions={
+        notice={
           location.is_sample ? (
-            <Notice>
-              You are viewing the editable sample location.{" "}
+            <>
+              This is the editable sample location.{" "}
               <Link to="/settings" className="text-ice hover:underline">
                 Set your own location
               </Link>
               .
-            </Notice>
+            </>
           ) : undefined
         }
       />
@@ -105,12 +105,15 @@ export function TonightPage() {
         <section className="flex min-w-0 flex-col gap-4" aria-labelledby="targets-heading">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 id="targets-heading" className="font-semibold tracking-tight text-2xl">
+              <h2 id="targets-heading" className="font-semibold text-2xl">
                 Best targets tonight
               </h2>
               {recs.data && (
                 <p className="text-sm text-muted">
                   {recs.data.observable_count} of {results.length} catalog targets clear {prefs.minAltitudeDeg}° during darkness. Ranked by a heuristic recommendation score.
+                  {equipment && equipment.fov_definition === "unknown" && equipment.fov_deg != null && (
+                    <> Field sizes assume about {Math.round(equipment.fov_deg * 60)}′ across; the {equipment.name} FOV axis is unverified.</>
+                  )}
                 </p>
               )}
             </div>
@@ -176,7 +179,7 @@ export function TonightPage() {
   );
 }
 
-function TonightPanels({ data, tz, fetching }: { data: TonightResponse; tz: string; fetching: boolean }) {
+export function TonightPanels({ data, tz, fetching }: { data: TonightResponse; tz: string; fetching: boolean }) {
   const { night, forecast, score } = data;
   const hasForecast = forecast.status === "ok";
   const dark = night.dark_intervals;
@@ -197,23 +200,22 @@ function TonightPanels({ data, tz, fetching }: { data: TonightResponse; tz: stri
   });
   const stripTip = `${hasForecast ? "Each block is one forecast hour. Solid means overcast. " : ""}Thin band is the Moon above the horizon. Hours are ${tzAbbrev(night.display_start_utc, tz)}.`;
   return (
-    <div className={`grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(280px,360px)_1fr] ${fetching ? "opacity-70" : ""}`}>
-      <ScoreHero score={score} tz={tz} headline={headline} />
-      <section className="panel flex min-w-0 flex-col gap-4 p-4 md:p-5" aria-label="Night from dusk to dawn">
+    <section className={`panel grid grid-cols-1 gap-5 p-5 md:p-6 lg:grid-cols-[minmax(260px,320px)_1fr] lg:grid-rows-[auto_1fr] ${fetching ? "opacity-70" : ""}`} aria-label="Tonight’s conditions">
+      <div className="min-w-0 lg:row-span-2" data-testid="score-cell">
+        <ScoreHero score={score} tz={tz} headline={headline} />
+      </div>
+      <div className="min-w-0 self-start lg:col-start-2" role="group" aria-label="Night from dusk to dawn">
         <NightStrip night={night} forecast={forecast} clear={data.night_clear} bestWindow={score.total !== null ? score.window : null} tz={tz} />
+      </div>
+      <div className="flex min-w-0 flex-col gap-4 self-start border-t border-line-soft pt-4 lg:col-start-2" data-testid="facts-block">
         <FactsRow night={night} forecast={forecast} />
         <p className="text-label text-muted">{stripTip}</p>
         <ForecastMeta forecast={forecast} tz={tz} />
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }
 
 function PageSkeleton() {
-  return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(280px,360px)_1fr]">
-      <Skeleton className="h-[300px]" label="Loading score" />
-      <Skeleton className="h-[340px]" label="Loading night" />
-    </div>
-  );
+  return <Skeleton className="h-[420px]" label="Loading tonight" />;
 }

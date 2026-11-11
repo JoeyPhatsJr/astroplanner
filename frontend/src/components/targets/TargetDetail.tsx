@@ -48,7 +48,7 @@ export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
     >
       <SheetTop className="border-b border-line-soft">
       <div className="flex items-center gap-3 px-5 py-3.5">
-        <h2 id="target-detail-title" className="min-w-0 flex-1 truncate font-semibold tracking-tight text-xl">
+        <h2 id="target-detail-title" className="min-w-0 flex-1 truncate font-semibold text-xl">
           {t ? t.name : "Target"}
         </h2>
         {t && (
@@ -141,7 +141,7 @@ export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
 
             {data.score.components.length > 0 && (
               <section className="flex flex-col gap-3" aria-labelledby="ts-heading">
-                <h3 id="ts-heading" className="font-semibold tracking-tight text-lg">
+                <h3 id="ts-heading" className="font-semibold text-lg">
                   Why this score
                 </h3>
                 <SegmentedScoreBar components={data.score.components} height={10} />

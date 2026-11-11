@@ -150,10 +150,11 @@ describe("Explore rows", () => {
     expect(container.textContent).toMatch(/peak/);
   });
 
-  it("keeps the designation when it differs and the status badge on non-observable rows", () => {
+  it("keeps the designation when it differs and shows the status as a plain sentence on non-observable rows", () => {
     const { container } = show(rec("Andromeda Galaxy", "M31", "below_threshold"));
     expect(container.textContent).toContain("M31 · galaxy");
-    expect(screen.getByText("Below the minimum altitude")).toBeInTheDocument();
+    expect(screen.getByText("Below the minimum altitude. detail")).toBeInTheDocument();
+    expect(container.querySelector(".badge")).toBeNull();
   });
 });
 
@@ -200,6 +201,23 @@ describe("Star page", () => {
     expect(container.querySelector("svg.recharts-surface, canvas, [data-testid=light-curve]")).toBeNull();
     expect(screen.queryByText("Planned for a later phase")).toBeNull();
     expect(screen.getByText(/International Variable Star Index/)).toBeInTheDocument();
+  });
+
+  it("lays the facts out as a plain definition list and the explainer at reading width, unboxed", async () => {
+    routes["GET /api/variables/ss-cyg"] = () =>
+      starBody({ seestar_fit: { estimate_range: [7, 12.5], label: "estimate, not yet measured", text: "Estimated range." } });
+    open();
+    const dl = (await screen.findByText("Light curve")).closest("dl") as HTMLElement;
+    expect(dl).not.toBeNull();
+    expect(dl.className).not.toMatch(/\bpanel\b/);
+    expect(dl.className).toContain("sm:grid-cols-[10rem_1fr]");
+    const terms = Array.from(dl.querySelectorAll("dt")).map((t) => t.textContent ?? "");
+    expect(terms).toContain("Tonight");
+    expect(terms.some((t) => t.startsWith("Seestar fit"))).toBe(true);
+    expect(terms).toContain("Light curve");
+    const heading = screen.getByText("How to read a variable star");
+    expect(heading.closest(".panel")).toBeNull();
+    expect(heading.closest("section")?.querySelector("ul")?.className).toContain("max-w-[68ch]");
   });
 
   it("shows the star's missions and requests no AAVSO observations", async () => {

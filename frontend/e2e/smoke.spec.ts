@@ -121,6 +121,13 @@ test("Phone: one-row header chip opens the controls sheet; details is a bottom s
   await expect(page.locator("dialog[open]")).toHaveCount(0);
 });
 
+test("Phone: the night strip says 'Tap', not 'Hover'", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "phone layout only");
+  await page.goto("/tonight");
+  await expect(page.getByText("Tap the strip for hourly values.")).toBeVisible();
+  await expect(page.getByText("Hover over the strip for hourly values.")).toBeHidden();
+});
+
 test("Phone: tapping outside an open select in the header sheet closes the select, not the sheet", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile", "phone layout only");
   await page.goto("/tonight");
@@ -165,14 +172,22 @@ test("Night vision turns the palette red and survives a reload", async ({ page }
   // Body text must be red-dominant (no white/blue light): R well above G and B
   const [r, g, b] = (await ink()).match(/\d+/g)!.map(Number);
   expect(r).toBeGreaterThan(150);
-  expect(g).toBeLessThan(90);
-  expect(b).toBeLessThan(90);
+  expect(g).toBeLessThanOrEqual(0.45 * r + 4);
+  expect(b).toBeLessThanOrEqual(0.45 * r + 4);
   expect(await ink()).not.toBe(normalInk);
 
   await page.reload();
   await expect(html).toHaveAttribute("data-vision", "night"); // applied before React via index.html
   await page.getByRole("button", { name: "Night vision" }).click();
   await expect(html).toHaveAttribute("data-vision", "normal");
+});
+
+test("night vision: inline links are underlined", async ({ page }) => {
+  await page.goto("/tonight");
+  await page.getByRole("button", { name: "Night vision" }).click();
+  const link = page.getByRole("link", { name: "Set your own location" });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveCSS("text-decoration-line", "underline");
 });
 
 test("Night vision: the location and date popups show only red", async ({ page }, info) => {
@@ -357,4 +372,23 @@ test("A target card keeps the framing diagram when the survey is unavailable", a
   expect(peak).toBeLessThanOrEqual(2);
   await expect(page.locator("article img")).toHaveCount(0);
   await expect(page.locator("article svg[viewBox='0 0 112 112']").first()).toBeVisible();
+});
+
+test("type: digits are tabular only where they align", async ({ page }) => {
+  await page.goto("/tonight");
+  await expect(page.getByTestId("score-total").or(page.getByTestId("score-no-total"))).toBeVisible();
+  const bodyFeatures = await page.evaluate(() => getComputedStyle(document.body).fontFeatureSettings);
+  expect(bodyFeatures).not.toContain("tnum");
+  const score = page.getByTestId("score-total");
+  await expect(score).toBeVisible();
+  expect(await score.evaluate((el) => getComputedStyle(el).fontVariantNumeric)).toContain("tabular-nums");
+  // The strip's hour ticks align too
+  const tick = page.locator("svg text").filter({ hasText: /^\d{2}$/ }).first();
+  await expect(tick).toBeVisible();
+  expect(await tick.evaluate((el) => getComputedStyle(el).fontVariantNumeric)).toContain("tabular-nums");
+  const loaded = await page.evaluate(async () => {
+    await document.fonts.load('600 40px "Inter Variable"');
+    return document.fonts.check('600 40px "Inter Variable"');
+  });
+  expect(loaded).toBe(true);
 });

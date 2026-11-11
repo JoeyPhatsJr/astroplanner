@@ -15,7 +15,7 @@ export function SessionPlanPanel() {
   return (
     <section className="panel flex flex-col gap-4 p-5" aria-labelledby="plan-heading">
       <div className="flex items-baseline justify-between gap-2">
-        <h2 id="plan-heading" className="font-semibold tracking-tight text-xl">
+        <h2 id="plan-heading" className="font-semibold text-xl">
           Session plan
         </h2>
         <Link to={session ? `/astrolog/nights/${session.id}` : "/astrolog"} className="text-sm text-ice hover:underline">

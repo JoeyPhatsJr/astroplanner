@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "@fontsource-variable/inter";
+@import "@fontsource-variable/inter/opsz.css";
 @import "./styles/starfield.css";
 @import "./styles/landing.css";
 
@@ -18,9 +18,26 @@
   --text-micro--letter-spacing: 0.02em;
   --text-label: 12.5px;
   --text-label--letter-spacing: 0.01em;
-  --text-display: 2.4rem;
-  --text-display--line-height: 1.08;
-  --text-display--letter-spacing: -0.025em;
+  --text-xs--line-height: 1.35;
+  --text-xs--letter-spacing: 0.01em;
+  --text-sm--line-height: 1.45;
+  --text-sm--letter-spacing: 0;
+  --text-base--line-height: 1.5;
+  --text-base--letter-spacing: 0;
+  --text-lg--line-height: 1.35;
+  --text-lg--letter-spacing: -0.005em;
+  --text-xl--line-height: 1.25;
+  --text-xl--letter-spacing: -0.008em;
+  --text-2xl--line-height: 1.2;
+  --text-2xl--letter-spacing: -0.011em;
+  --text-3xl--line-height: 1.15;
+  --text-3xl--letter-spacing: -0.014em;
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.02em;
+  --text-score: 4.75rem;
+  --text-score--line-height: 0.9;
+  --text-score--letter-spacing: -0.035em;
 
   --color-night: #02030a;
   --color-night-deep: #05070d;
@@ -80,14 +97,14 @@
   --color-panel-2: #1c0505;
   --color-line: #3a0b0b;
   --color-line-soft: #260707;
-  --color-ink: #d9473c;
-  --color-ink-2: #b83a31;
-  --color-muted: #a23a30;
-  --color-ice: #e0352b;
+  --color-ink: #ee5a4b;
+  --color-ink-2: #d24c3f;
+  --color-muted: #d24c3f;
+  --color-ice: #ff5a47;
   --color-ice-dim: #8f1f18;
   --color-on-accent: #140000;
   --color-warn: #ef6a4a;
-  --color-ok: #c4453a;
+  --color-ok: #d24c3f;
   --color-seg-1: #d9473c;
   --color-seg-2: #a5352d;
   --color-seg-3: #72241e;
@@ -106,6 +123,12 @@
   --cloud: #9c2c23;
   --sky-glow-top: radial-gradient(120% 60% at 50% -12%, rgb(90 10 8 / 0.25), transparent 62%);
   --sky-glow-corner: none;
+}
+
+/* Inline text links need a non-colour cue when every colour is red. */
+:root[data-vision="night"] a.text-ice:not(.btn) {
+  text-decoration-line: underline;
+  text-underline-offset: 2px;
 }
 
 @layer base {
@@ -130,8 +153,12 @@
     background-color: var(--color-night);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    font-feature-settings: "tnum" 1, "cv11" 1;
+    font-feature-settings: "cv11" 1;
     -webkit-font-smoothing: antialiased;
+  }
+  /* Recharts tick text: aligned digits on time and altitude axes */
+  .recharts-cartesian-axis-tick text {
+    font-variant-numeric: tabular-nums;
   }
   :focus-visible {
     outline: 2px solid var(--color-ice);
@@ -391,6 +418,10 @@
       filter: brightness(1.12);
       border-color: transparent;
     }
+    .btn-tinted:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--color-ice) 22%, transparent);
+      border-color: transparent;
+    }
     .btn-ghost:hover:not(:disabled) {
       background: var(--color-panel-2);
       border-color: transparent;
@@ -403,6 +434,11 @@
   .btn-primary {
     background: var(--color-ice);
     color: var(--color-on-accent);
+    border-color: transparent;
+  }
+  .btn-tinted {
+    background: color-mix(in srgb, var(--color-ice) 13%, transparent);
+    color: var(--color-ice);
     border-color: transparent;
   }
   .btn-ghost {
@@ -430,6 +466,11 @@
     border: 1px solid var(--color-line);
     color: var(--color-ink-2);
     white-space: nowrap;
+  }
+  .badge-accent {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--color-ice) 13%, transparent);
+    color: var(--color-ice);
   }
   .skeleton {
     background: linear-gradient(90deg, var(--color-panel-2), var(--color-line-soft), var(--color-panel-2));

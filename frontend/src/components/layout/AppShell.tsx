@@ -53,7 +53,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <Logo />
           {!collapsed && (
-            <span className="font-semibold tracking-tight text-[1.35rem] leading-none  text-ink">AstroPlanner</span>
+            <span className="font-semibold text-xl text-ink">AstroPlanner</span>
           )}
         </Link>
         <nav className="flex flex-1 flex-col gap-1 px-3">
@@ -97,7 +97,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3 px-4 py-2 md:px-6 md:py-3">
             <Link to="/" aria-label="AstroPlanner home" className="flex shrink-0 items-center gap-2 md:hidden">
               <Logo />
-              <span className="sr-only font-semibold tracking-tight text-lg text-ink sm:not-sr-only">AstroPlanner</span>
+              <span className="sr-only font-semibold text-lg text-ink sm:not-sr-only">AstroPlanner</span>
             </Link>
             <HeaderControls />
           </div>

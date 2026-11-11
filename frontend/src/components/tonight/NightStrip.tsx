@@ -5,7 +5,7 @@ import { useElementWidth } from "../../lib/useElementWidth";
 
 const HOUR = 3600_000;
 const QUARTER = 900_000;
-const LABEL_H = 26;
+const LABEL_H = 20; // room for the clear bar (y 13 to 16) above the sky bar
 const MOON_GAP = 4;
 const MOON_H = 5;
 const AXIS_H = 24;
@@ -194,14 +194,6 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
         {showClear && (
           <g data-clearbar>
             <rect x={x(clearA as number)} y={13} width={Math.max(2, x(clearB as number) - x(clearA as number))} height={3} rx={1.5} style={{ fill: "var(--color-ice)" }} />
-            <text
-              x={(x(clearA as number) + x(clearB as number)) / 2}
-              y={9}
-              textAnchor="middle"
-              style={{ fill: "var(--color-ice)", fontSize: 11, fontWeight: 600 }}
-            >
-              {`forecast clear · ${formatDuration(clear!.minutes)}`}
-            </text>
           </g>
         )}
 
@@ -212,7 +204,7 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
               x={(x(bestA as number) + x(bestB as number)) / 2}
               y={barBottom - 12}
               textAnchor="middle"
-              style={{ fill: "var(--color-ink)", fontSize: 11 }}
+              style={{ fill: "var(--color-ink)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}
             >
               {`best ${formatDuration(bestWindow!.minutes)}`}
             </text>
@@ -227,13 +219,15 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
           <g key={tk.t}>
             <line x1={x(tk.t)} x2={x(tk.t)} y1={tickY} y2={tickY + 5} style={{ stroke: "var(--color-line)" }} />
             {tk.label && (
-              <text x={x(tk.t)} y={H - 2} textAnchor="middle" style={{ fill: "var(--color-muted)", fontSize: 11 }}>
+              <text x={x(tk.t)} y={H - 2} textAnchor="middle" style={{ fill: "var(--color-muted)", fontSize: 11, fontVariantNumeric: "tabular-nums" }}>
                 {tk.label}
               </text>
             )}
           </g>
         ))}
       </svg>
+
+      {showClear && <span className="sr-only">{`forecast clear · ${formatDuration(clear!.minutes)}`}</span>}
 
       <p data-testid="strip-tip" className="mt-2 min-h-[18px] text-label text-muted">
         {tip ??

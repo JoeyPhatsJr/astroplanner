@@ -159,11 +159,11 @@ describe("Compare step: stacks (measured)", () => {
     expect(screen.queryByText(/2 h 22/)).toBeNull();
   });
 
-  it('shows "—" and "not in file" where a header lacks the value, the same way on both sides', () => {
+  it('shows "–" and "not in file" where a header lacks the value, the same way on both sides', () => {
     renderStep({ ...STACKS, seestar_stack: stack("seestar.fit", { stack_count: null, livetime_s: null }) });
     const seestar = panel(/Seestar stack/);
     expect(within(seestar).getAllByText(/not in file/).length).toBe(2);
-    expect(within(seestar).getAllByText("—").length).toBe(2);
+    expect(within(seestar).getAllByText("–").length).toBe(2);
     expect(within(panel(/Siril stack/)).queryByText(/not in file/)).toBeNull();
   });
 

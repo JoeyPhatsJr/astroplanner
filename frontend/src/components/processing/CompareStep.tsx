@@ -126,11 +126,11 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
 
 const NOT_IN_FILE = (
   <>
-    <span>—</span> <span className="text-xs font-normal text-muted">not in file</span>
+    <span>–</span> <span className="text-xs font-normal text-muted">not in file</span>
   </>
 );
 
-/** Same rows, same labels, same method for both stacks. A missing header value is "—" with "not in file". */
+/** Same rows, same labels, same method for both stacks. A missing header value is "–" with "not in file". */
 function StackFacts({ m, note }: { m: CompareMeasurement; note: string | null }) {
   const rows: [string, ReactNode][] = [
     ["Frames", m.stack_count !== null ? m.stack_count.toLocaleString() : NOT_IN_FILE],
@@ -141,7 +141,7 @@ function StackFacts({ m, note }: { m: CompareMeasurement; note: string | null })
         `${m.star_fwhm_px.toFixed(2)} px`
       ) : (
         <>
-          <span>—</span> <span className="text-xs font-normal text-muted">too few usable stars</span>
+          <span>–</span> <span className="text-xs font-normal text-muted">too few usable stars</span>
         </>
       ),
     ],

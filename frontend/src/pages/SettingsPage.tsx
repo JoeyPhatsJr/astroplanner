@@ -56,7 +56,7 @@ function LocationsSection() {
   return (
     <section className="flex flex-col gap-3" aria-labelledby="set-loc">
       <div className="flex items-end justify-between gap-3">
-        <h2 id="set-loc" className="font-semibold tracking-tight text-2xl">
+        <h2 id="set-loc" className="font-semibold text-2xl">
           Observing locations
         </h2>
         {editing === null && (
@@ -91,7 +91,7 @@ function LocationsSection() {
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
                   {l.label}
-                  {l.is_sample && <span className="badge border-ice/40 text-ice">Sample</span>}
+                  {l.is_sample && <span className="badge badge-accent">Sample</span>}
                 </p>
                 <p className="text-xs text-muted">
                   {formatLatLon(l.latitude_deg, l.longitude_deg)}
@@ -103,7 +103,7 @@ function LocationsSection() {
                   Use
                 </button>
               ) : (
-                <span className="badge border-ice/40 text-ice">In use</span>
+                <span className="badge badge-accent">In use</span>
               )}
               <button type="button" className="btn btn-ghost btn-icon" aria-label={`Edit ${l.label}`} onClick={() => setEditing(l)}>
                 <Pencil className="size-4" aria-hidden />
@@ -266,7 +266,7 @@ function LocationForm({
 
   return (
     <div className="panel flex flex-col gap-4 p-5">
-      <h3 className="font-semibold tracking-tight text-lg">{initial ? `Edit ${initial.label}` : "New location"}</h3>
+      <h3 className="font-semibold text-lg">{initial ? `Edit ${initial.label}` : "New location"}</h3>
       <form onSubmit={runSearch} className="flex flex-wrap items-end gap-2" role="search">
         <div className="min-w-[200px] flex-1">
           <label htmlFor="loc-search" className="label">
@@ -387,7 +387,7 @@ function EquipmentSection() {
   return (
     <section className="flex flex-col gap-3" aria-labelledby="set-eq">
       <div className="flex items-end justify-between gap-3">
-        <h2 id="set-eq" className="font-semibold tracking-tight text-2xl">
+        <h2 id="set-eq" className="font-semibold text-2xl">
           Equipment
         </h2>
         {editing === null && (
@@ -409,7 +409,7 @@ function EquipmentSection() {
                 <p className="text-xs text-muted">{eq.manufacturer ?? "Custom profile"}</p>
               </div>
               {eq.is_preset ? (
-                <span className="badge border-ice/40 text-ice">
+                <span className="badge badge-accent">
                   <BadgeCheck className="size-3.5" aria-hidden /> Manufacturer specs
                 </span>
               ) : (
@@ -432,7 +432,7 @@ function EquipmentSection() {
                   Use
                 </button>
               ) : (
-                <span className="badge border-ice/40 text-ice">In use</span>
+                <span className="badge badge-accent">In use</span>
               )}
               {eq.is_preset ? (
                 <>
@@ -529,7 +529,7 @@ function EquipmentForm({ initial, onDone }: { initial: EquipmentProfile | null; 
         });
       }}
     >
-      <h3 className="font-semibold tracking-tight text-lg sm:col-span-2">{initial ? `Edit ${initial.name}` : "New custom profile"}</h3>
+      <h3 className="font-semibold text-lg sm:col-span-2">{initial ? `Edit ${initial.name}` : "New custom profile"}</h3>
       <Field id="eq-name" label="Name" value={f.name} onChange={set("name")} required />
       <Field id="eq-mf" label="Manufacturer" value={f.manufacturer} onChange={set("manufacturer")} />
       <Field id="eq-ap" label="Aperture (mm)" value={f.aperture_mm} onChange={set("aperture_mm")} inputMode="decimal" />
@@ -602,7 +602,7 @@ function PreferencesSection() {
   const { prefs, update } = usePrefs();
   return (
     <section className="flex flex-col gap-3" aria-labelledby="set-pref">
-      <h2 id="set-pref" className="font-semibold tracking-tight text-2xl">
+      <h2 id="set-pref" className="font-semibold text-2xl">
         Observing preferences
       </h2>
       <div className="panel grid grid-cols-1 gap-4 p-5 sm:grid-cols-2">
@@ -638,7 +638,7 @@ function AboutSection() {
   const q = useAbout();
   return (
     <section className="flex flex-col gap-3" aria-labelledby="set-about">
-      <h2 id="set-about" className="font-semibold tracking-tight text-2xl">
+      <h2 id="set-about" className="font-semibold text-2xl">
         Data sources
       </h2>
       {q.isLoading && <Skeleton className="h-32" />}

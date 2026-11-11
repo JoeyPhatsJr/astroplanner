@@ -98,7 +98,7 @@ describe("night vision", () => {
 
   it("uses a readable muted red in the night palette", () => {
     const night = sheet.match(/:root\[data-vision="night"\]\s*\{[^}]*\}/)?.[0] ?? "";
-    expect(night).toContain("--color-muted: #a23a30");
+    expect(night).toContain("--color-muted: #d24c3f");
   });
 
   it("tints native date-picker icons through the red-only filter", () => {

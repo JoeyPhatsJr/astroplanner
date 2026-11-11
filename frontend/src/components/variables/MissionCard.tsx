@@ -5,7 +5,7 @@ export function MissionCard({ mission }: { mission: Mission }) {
   const pct = goal ? Math.min(100, Math.round((progress / goal) * 100)) : null;
   return (
     <article className="panel flex flex-col gap-2 p-4" aria-label={`Mission: ${mission.title}`}>
-      <h3 className="font-semibold tracking-tight text-ink">{mission.title}</h3>
+      <h3 className="font-semibold text-ink">{mission.title}</h3>
       <p className="text-sm text-ink-2">{mission.description}</p>
       {pct !== null && (
         <div

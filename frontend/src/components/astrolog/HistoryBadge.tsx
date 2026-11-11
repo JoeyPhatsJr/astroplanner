@@ -9,7 +9,7 @@ export function HistoryBadge({ catalogId, className = "" }: { catalogId: string;
   return (
     <Link
       to={`/astrolog/targets/${encodeURIComponent(entry.library_target_id)}`}
-      className={`badge text-ice hover:border-ice/60 ${className}`}
+      className={`badge badge-accent hover:bg-ice/20 ${className}`}
     >
       You have {formatIntegration(entry.seconds)} {entry.label === "stack" ? "stacked" : "captured"}
     </Link>

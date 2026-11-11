@@ -40,7 +40,7 @@ function toB64(bytes: Uint8Array): string {
 }
 
 function imagesNote(n: number): string {
-  return `${n} image${n === 1 ? "" : "s"} not imported — choose a final picture on the target page.`;
+  return `${n} image${n === 1 ? "" : "s"} not imported: choose a final picture on the target page.`;
 }
 
 function describe(e: unknown): string {
@@ -368,7 +368,7 @@ export function AstroLogImportPage() {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
       >
-        <h2 id="pick-h" className="font-semibold tracking-tight text-lg">
+        <h2 id="pick-h" className="font-semibold text-lg">
           Choose files
         </h2>
         <input
@@ -412,7 +412,7 @@ export function AstroLogImportPage() {
 
       {review && (
         <section className="flex flex-col gap-5" aria-labelledby="review-h">
-          <h2 id="review-h" className="font-semibold tracking-tight text-2xl">
+          <h2 id="review-h" className="font-semibold text-2xl">
             Review
           </h2>
 
@@ -514,7 +514,7 @@ export function AstroLogImportPage() {
                         <span className="block text-xs text-muted">{formatIntegration(g.captured_s)} exposure</span>
                       </td>
                       <td className="px-4 py-2 text-right">
-                        <span className={`badge ${g.new_frames ? "border-ice/40 text-ice" : ""}`}>{g.new_frames}</span>
+                        <span className={g.new_frames ? "badge badge-accent" : "badge"}>{g.new_frames}</span>
                       </td>
                       <td className="px-4 py-2">
                         {isCanonGroup(g) && (
@@ -552,13 +552,13 @@ export function AstroLogImportPage() {
 
           {stacks.length > 0 && (
             <div className="panel p-5">
-              <h3 className="font-semibold tracking-tight text-lg">Stacked images</h3>
+              <h3 className="font-semibold text-lg">Stacked images</h3>
               <ul className="mt-2 flex flex-col gap-1 text-sm text-ink-2">
                 {stacks.map((s) => (
                   <li key={s.path} className="flex flex-wrap items-center gap-2">
                     <span className="text-ink">{s.source_filename}</span>
                     <span>{s.target.display_name}</span>
-                    <span className={`badge ${s.new ? "border-ice/40 text-ice" : ""}`}>{s.new ? "New" : "Already imported"}</span>
+                    <span className={s.new ? "badge badge-accent" : "badge"}>{s.new ? "New" : "Already imported"}</span>
                     {s.livetime_s !== null && <span className="text-xs text-muted">{formatIntegration(s.livetime_s)} integration</span>}
                   </li>
                 ))}
@@ -569,7 +569,7 @@ export function AstroLogImportPage() {
           {images > 0 && <Notice tone="info">{imagesNote(images)}</Notice>}
           {(skipped.length > 0 || ignored > 0) && (
             <details className="panel p-5" open={skipped.length > 0 && skipped.length <= 8}>
-              <summary className="disclosure-summary cursor-pointer font-semibold tracking-tight text-lg">
+              <summary className="disclosure-summary cursor-pointer font-semibold text-lg">
                 <span>
                   Skipped ({skipped.length}
                   {ignored > 0 ? `, plus ${ignored} working files ignored` : ""})
