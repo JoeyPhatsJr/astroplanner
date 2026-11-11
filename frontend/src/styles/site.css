@@ -1,0 +1,161 @@
+/*
+ * Public site pages (/how-it-works and siblings): left-aligned documents on the shared site layout.
+ * Theme tokens only, so night vision turns them dim red like the rest of the app.
+ */
+
+.site-page {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 4.5rem 2.5rem 1.5rem;
+}
+.site-doc {
+  max-width: 720px;
+}
+.site-doc p {
+  color: var(--color-ink-2);
+  text-wrap: pretty;
+  max-width: 68ch;
+  margin: 0 0 0.875rem;
+}
+.site-doc p.landing-eyebrow {
+  color: var(--color-ice);
+  margin: 0 0 0.875rem;
+}
+.site-h1 {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  margin: 0 0 1.125rem;
+}
+.site-doc p.landing-lede {
+  max-width: 46ch;
+  margin: 0;
+}
+.site-h2 {
+  font-size: 1.875rem;
+  margin: 4rem 0 0.875rem;
+  scroll-margin-top: calc(var(--landing-header-h) + 1rem);
+}
+.site-doc p.site-meta {
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  margin-top: 1.125rem;
+}
+.site-meta a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.site-strong {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+.site-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 2.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.site-toc a {
+  display: inline-block;
+  padding: 0.4375rem 0.875rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-line);
+  font-size: 0.875rem;
+  color: var(--color-ink-2);
+  text-decoration: none;
+}
+.site-limits {
+  margin: 0 0 0.875rem;
+  padding-left: 1.125rem;
+  color: var(--color-ink-2);
+  max-width: 68ch;
+}
+.site-limits li {
+  margin: 0.625rem 0;
+}
+.site-figure {
+  margin: 1.625rem 0 0.5rem;
+  padding: 1.5rem;
+  border-radius: 16px;
+  background: var(--color-panel-2);
+  border: 1px solid var(--color-line-soft);
+}
+.site-bar {
+  display: flex;
+  height: 14px;
+  gap: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 1.125rem;
+}
+.site-bar span {
+  display: block;
+  height: 100%;
+}
+.site-rows {
+  width: 100%;
+  border-collapse: collapse;
+}
+.site-rows td {
+  padding: 0.75rem 0.5rem;
+  border-top: 1px solid var(--color-line-soft);
+  vertical-align: baseline;
+}
+.site-rows tr:first-child td {
+  border-top: 0;
+}
+.site-rows td:first-child {
+  padding-left: 0;
+}
+.site-rows td:last-child {
+  padding-right: 0;
+  text-align: right;
+}
+.site-dot-cell {
+  width: 1.25rem;
+}
+.site-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.site-row-main b {
+  display: block;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.site-row-main small {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+}
+.site-mono {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.site-pts {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+.site-badge {
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-line);
+  color: var(--color-ink-2);
+  white-space: nowrap;
+}
+.site-badge-fc {
+  border-color: color-mix(in srgb, var(--color-ice) 45%, transparent);
+  color: var(--color-ice);
+}
+@media (max-width: 640px) {
+  .site-page {
+    padding: 2.75rem 1rem 1rem;
+  }
+  .site-figure {
+    padding: 1rem;
+  }
+}

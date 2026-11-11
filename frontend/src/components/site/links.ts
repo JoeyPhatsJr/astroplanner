@@ -6,4 +6,4 @@ export const NAV_LINKS: { to: string; label: string }[] = [
 ];
 
 /** Footer "About" pages, in order: How it works, Privacy, Credits & data, Terms. Each page's task appends its entry. */
-export const ABOUT_LINKS: { to: string; label: string }[] = [];
+export const ABOUT_LINKS: { to: string; label: string }[] = [{ to: "/how-it-works", label: "How it works" }];
