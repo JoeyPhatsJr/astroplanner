@@ -25,7 +25,7 @@ const TONIGHT_ROWS: Row[] = [
 const TARGET_ROWS: Row[] = [
   { label: "Altitude", note: "higher means less air to shoot through", badge: "Calculated", pts: g.altitude },
   { label: "Imaging time", note: "full points at 4 hours", badge: "Calculated", pts: g.duration },
-  { label: "Weather in the window", note: "cloud and rain for those hours", badge: "Forecast", pts: g.weather },
+  { label: "Forecast weather", note: "cloud and rain for those hours", badge: "Forecast", pts: g.weather },
   { label: "Moon interference", note: "its brightness and distance; gentler on emission nebulae", badge: "Calculated", pts: g.moon },
 ];
 
@@ -66,6 +66,7 @@ export function HowItWorksPage() {
   return (
     <div className="site-page">
       <SitePageIntro
+        docTitle="How it works"
         eyebrow="How it works"
         title="Every number shows its work."
         lede="Where the sky positions come from, how the two scores add up, and what AstroPlanner will never claim."

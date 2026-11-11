@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import App from "../../App";
 import { DEFAULT_PREFS, PrefsProvider } from "../../state/prefs";
 import { ConfirmProvider } from "../ui/ConfirmDialog";
@@ -45,5 +45,23 @@ describe("SiteLayout", () => {
     await userEvent.click(within(screen.getByRole("navigation", { name: "Site" })).getByRole("link", { name: "Explore" }));
     await waitFor(() => expect(document.body).not.toHaveClass("landing-sky"));
     expect(document.body.style.backgroundColor).toBe("");
+  });
+
+  it("scrolls to the top when a link opens another page", async () => {
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    renderAt("/");
+    scrollTo.mockClear();
+    await userEvent.click(within(screen.getByRole("contentinfo")).getByRole("link", { name: "Privacy" }));
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "Your pictures stay yours." })).toBeInTheDocument());
+    expect(scrollTo).toHaveBeenCalledWith(0, 0);
+    scrollTo.mockRestore();
+  });
+
+  it("sets and restores the document title for site pages", async () => {
+    document.title = "AstroPlanner";
+    const { unmount } = renderAt("/privacy");
+    expect(document.title).toBe("Privacy · AstroPlanner");
+    unmount();
+    expect(document.title).toBe("AstroPlanner");
   });
 });

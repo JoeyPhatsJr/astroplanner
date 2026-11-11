@@ -4,6 +4,8 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeocodeResult, ObservingLocation } from "../api/types";
 import { CHAPTERS, GALLERY, HERO_PHOTO } from "../components/landing/content";
+import App from "../App";
+import { ConfirmProvider } from "../components/ui/ConfirmDialog";
 import { DEFAULT_PREFS, PrefsProvider, usePrefs } from "../state/prefs";
 import { LandingPage } from "./LandingPage";
 
@@ -65,6 +67,23 @@ function renderLanding() {
   );
 }
 
+function renderAppAt(path: string) {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <PrefsProvider initial={DEFAULT_PREFS}>
+        <ConfirmProvider>
+          <MemoryRouter initialEntries={[path]}>
+            <App />
+          </MemoryRouter>
+        </ConfirmProvider>
+      </PrefsProvider>
+    </QueryClientProvider>,
+  );
+}
+
+const SITE_PATHS = ["/", "/how-it-works", "/privacy", "/credits", "/terms"];
+
 async function searchFor(text: string) {
   fireEvent.change(screen.getByLabelText("Your city"), { target: { value: text } });
   fireEvent.click(screen.getByRole("button", { name: /Find out/ }));
@@ -102,18 +121,24 @@ describe("LandingPage content", () => {
     expect(screen.getByText(/not live\s+data/)).toBeInTheDocument();
   });
 
-  it("only links to real app routes", () => {
-    renderLanding();
-    const routes = new Set(["/", "/tonight", "/explore", "/astrolog", "/variables", "/settings", "/how-it-works", "/privacy", "/credits", "/terms", "#story", "#site-main"]);
-    for (const a of screen.getAllByRole("link")) {
+  it.each(SITE_PATHS)("only links to real app routes, header and footer included (%s)", (path) => {
+    const { container } = renderAppAt(path);
+    const routes = new Set(["/", "/tonight", "/explore", "/astrolog", "/variables", "/settings", "/how-it-works", "/privacy", "/credits", "/terms", "#site-main"]);
+    const anchors = container.querySelectorAll<HTMLAnchorElement>("a[href]");
+    expect(anchors.length).toBeGreaterThan(0);
+    for (const a of anchors) {
       const href = a.getAttribute("href")!;
       if (href.startsWith("http")) continue;
-      expect(routes, `unexpected link ${href}`).toContain(href);
+      if (href.startsWith("#") && href !== "#site-main") {
+        expect(container.querySelector(href), `in-page anchor ${href} has no target`).not.toBeNull();
+        continue;
+      }
+      expect(routes, `unexpected link ${href} on ${path}`).toContain(href);
     }
   });
 
-  it("uses one label for every way into Tonight, and has no scroll-only call to action", () => {
-    renderLanding();
+  it.each(SITE_PATHS)("uses one label for every way into Tonight, header and footer included (%s)", (path) => {
+    renderAppAt(path);
     const intoTonight = screen.getAllByRole("link").filter((a) => a.getAttribute("href") === "/tonight");
     expect(intoTonight.length).toBeGreaterThan(0);
     for (const a of intoTonight) expect(a).toHaveAccessibleName("See tonight’s sky");

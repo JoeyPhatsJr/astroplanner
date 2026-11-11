@@ -74,3 +74,14 @@ test("the app shell footer links to How it works and Privacy", async ({ page }, 
   await page.getByRole("contentinfo").getByRole("link", { name: "Privacy" }).click();
   await expect(page).toHaveURL(/\/privacy$/);
 });
+
+test("opening a page from the footer starts at its top", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+  await page.getByRole("contentinfo").getByRole("link", { name: "Privacy" }).click();
+  await expect(page).toHaveURL(/\/privacy$/);
+  const h1 = page.getByRole("heading", { level: 1 });
+  await expect(h1).toBeInViewport();
+  expect(await page.evaluate(() => window.scrollY)).toBeLessThan(50);
+});

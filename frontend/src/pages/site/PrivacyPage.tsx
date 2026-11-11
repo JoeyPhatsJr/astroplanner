@@ -5,12 +5,12 @@ import { SitePageIntro } from "../../components/site/SitePageIntro";
 function Card({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <section className="site-card">
-      <h3>
+      <h2>
         <span className="site-card-icon" aria-hidden="true">
           {icon}
         </span>
         {title}
-      </h3>
+      </h2>
       <ul>{children}</ul>
     </section>
   );
@@ -20,6 +20,7 @@ export function PrivacyPage() {
   return (
     <div className="site-page">
       <SitePageIntro
+        docTitle="Privacy"
         eyebrow="Privacy"
         title="Your pictures stay yours."
         lede="What AstroPlanner reads, what it keeps, and the few things it sends anywhere else."
@@ -28,14 +29,19 @@ export function PrivacyPage() {
 
       <div className="site-cards">
         <Card icon={<Check size={16} />} title="Never leaves your computer">
-          <li>The image data in your Seestar FITS and Canon CR2 files: only each file’s header is read, in your browser</li>
+          <li>
+            When you import a night, only each frame’s header is read, in your browser: the image data in your Seestar FITS and Canon CR2
+            frames never leaves your computer
+          </li>
           <li>Siril’s working folders: only its small text files are read</li>
           <li>Location coordinates inside your files: used to match a saved place, never stored</li>
         </Card>
         <Card icon={<Circle size={10} />} title="What it keeps">
           <li>Saved places and equipment</li>
           <li>Session plans</li>
-          <li>Facts from file headers: target, times, exposure, device</li>
+          <li>Facts from file headers, and the file names: target, times, exposure, device</li>
+          <li>Your custom target names</li>
+          <li>Processing Coach progress: Siril’s frame counts and the frames you chose</li>
           <li>A small, metadata-free preview of each final picture</li>
           <li>Numbers measured from a stack, and a small preview</li>
         </Card>
@@ -50,7 +56,7 @@ export function PrivacyPage() {
         <Card icon={<X size={16} />} title="Not in AstroPlanner">
           <li>No ads, analytics or tracking scripts</li>
           <li>No fonts or scripts loaded from other sites</li>
-          <li>Your browser location only if you press “Use my location” in Settings</li>
+          <li>Your browser location only if you press “Use my current position” in Settings</li>
         </Card>
       </div>
 

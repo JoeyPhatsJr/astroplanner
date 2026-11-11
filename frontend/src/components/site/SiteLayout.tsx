@@ -1,3 +1,4 @@
+import { useLayoutEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { ErrorBoundary } from "../ui/ErrorBoundary";
 import { SiteFooter } from "./SiteFooter";
@@ -6,6 +7,10 @@ import { SiteHeader } from "./SiteHeader";
 /** Header, main landmark and footer shared by the homescreen and the public site pages (no app shell). */
 export function SiteLayout() {
   const loc = useLocation();
+  // A new page opens at its top; in-page "#" links keep the browser's own jump.
+  useLayoutEffect(() => {
+    if (!loc.hash) window.scrollTo(0, 0);
+  }, [loc.pathname, loc.hash]);
   return (
     <div className="flex min-h-dvh flex-col overflow-x-clip text-ink">
       <a href="#site-main" className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 btn btn-primary">

@@ -88,9 +88,10 @@ export function CreditsPage() {
   return (
     <div className="site-page">
       <SitePageIntro
+        docTitle="Credits & data"
         eyebrow="Credits & data"
         title="Built on open science."
-        lede="Every catalog, forecast and library AstroPlanner uses, with its license and terms."
+        lede="The catalogs, forecasts and key libraries AstroPlanner relies on, with their licenses and terms."
       />
       <div className="site-doc">
         <CreditGroup title="Data" items={DATA} />

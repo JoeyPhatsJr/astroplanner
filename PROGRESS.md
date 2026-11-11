@@ -18,22 +18,23 @@ Spec: `docs/superpowers/specs/2026-11-10-site-pages-design.md`; plan: `docs/supe
 ```bash
 cd backend && .venv/bin/python -m pytest -q   # 461 passed, 12 skipped
 cd frontend && npx tsc -b --noEmit            # clean
-cd frontend && npx vitest run                 # 329 passed (34 files)
+cd frontend && npx vitest run                 # 339 passed (34 files)
 cd frontend && npm run build                  # built
-cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 61 passed, 5 skipped (desktop + mobile)
+cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 64 passed, 4 skipped (desktop + mobile)
 ```
 
 ### Known limitations (site pages)
 
 - Terms is a draft written in plain language, not legal advice.
 - Privacy describes the local app only; the account section waits for the login design.
-- The browser check at 1440, 390 and 320 px and in night vision is done by the controller, not by an automated test beyond the e2e checks above.
+- Browser check done 2026-11-10 by the controller at 1440 and 320 px, with night vision. Two cosmetic differences from the mockup remain: no logo in the footer brand column, and the "What it won’t claim" list is indented more.
+- Final review fix pass: scroll resets on page change, link and label rules now run over the whole app, Privacy lists everything the database keeps, per-page tab titles.
 
 ### Next step
 
 Developer reviews the site pages, then PR and merge. The login design is next.
 
-## Current work: polish pass 2 (branch `worktree-polish-pass-2`, awaiting developer review)
+## Current work: polish pass 2 (branch `worktree-polish-pass-2`, merged as PR #7)
 
 Design approved 2026-11-10. Spec: `docs/superpowers/specs/2026-11-10-polish-pass-2-design.md`; plan:
 `docs/superpowers/plans/2026-11-10-polish-pass-2.md`; mockup: `.superpowers/brainstorm/polish2/index.html`.

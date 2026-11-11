@@ -179,7 +179,7 @@
   background: var(--color-panel-2);
   border: 1px solid var(--color-line-soft);
 }
-.site-card h3 {
+.site-card h2 {
   display: flex;
   align-items: center;
   gap: 0.625rem;
@@ -221,8 +221,8 @@
   margin-top: 1.25rem;
   padding: 0.25rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid var(--color-line);
-  color: var(--color-muted);
+  border: 1px solid var(--color-warn);
+  color: var(--color-warn);
   font-size: 0.8125rem;
 }
 
@@ -231,6 +231,7 @@
 .site-credit-name { font-size: 1rem; font-weight: 600; color: var(--color-ink); margin: 0; }
 .site-credit-lic { color: var(--color-muted); font-size: 0.875rem; text-align: right; }
 .site-doc .site-credit p { grid-column: 1 / -1; margin: 0; font-size: 0.9375rem; }
-.site-credit a { grid-column: 1 / -1; justify-self: start; color: var(--color-ice); font-size: 0.875rem; text-underline-offset: 3px; }
-.site-doc p.site-ack { font-size: 0.875rem; color: var(--color-muted); }
+.site-credit a { grid-column: 1 / -1; justify-self: start; color: var(--color-ice); font-size: 0.875rem; text-decoration: underline; text-underline-offset: 3px; }
+.site-doc p.site-ack { font-size: 0.875rem; color: var(--color-muted); white-space: pre-line; }
+.site-doc p a { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 640px) { .site-credit { grid-template-columns: 1fr; } .site-credit-lic { text-align: left; } }
