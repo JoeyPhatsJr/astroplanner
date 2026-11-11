@@ -2,6 +2,7 @@
 @import "@fontsource-variable/inter/opsz.css";
 @import "./styles/starfield.css";
 @import "./styles/landing.css";
+@import "./styles/site.css";
 
 /*
  * Theme: "Clean Planetarium". Near-black sky with a static starfield, white type,

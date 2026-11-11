@@ -20,6 +20,13 @@ Dumbbell nights (11 Sept). Tonight itself now lives at **`/tonight`**.
 
 ![Tonight dashboard](docs/screenshots/tonight-desktop.png)
 
+### Site pages
+
+Four plain pages sit beside the homescreen: `/how-it-works` (what each score and number is built from),
+`/privacy` (what stays on your machine), `/credits` (data sources, licenses and acknowledgments) and
+`/terms` (a plain-language draft, not legal advice). They share the homescreen's header and footer and
+render outside the app shell. The app's footer links to How it works and Privacy.
+
 ## What it does (Phase 1)
 
 - **Tonight:** a 0–100 **Tonight's Score** with every component shown (cloud 45, rain 25,

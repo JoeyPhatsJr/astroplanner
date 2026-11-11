@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en" data-vision="normal">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#02030a" />
+<title>AstroPlanner site pages (mockup)</title>
+<style>
+/* The app's own Inter (served from the repo root: python3 -m http.server, then open /docs/superpowers/mockups/2026-11-10-site-pages/). */
+@font-face { font-family: Inter; font-weight: 100 900; font-display: swap;
+  src: url("/frontend/node_modules/@fontsource-variable/inter/files/inter-latin-opsz-normal.woff2") format("woff2-variations"), local("Inter"); }
+/* MOCKUP ONLY (2026-11-10). Colours copied from frontend/src/index.css; type and header from styles/landing.css. */
+:root {
+  --night: #02030a; --night-deep: #05070d; --panel: rgb(10 13 19 / .92); --panel-2: #121722;
+  --line: #232a37; --line-soft: #171c26; --ink: #f5f7fa; --ink-2: #c5ccd6; --muted: #8a93a3;
+  --ice: #5aa9ff; --on-accent: #00152e; --warn: #f0a35e; --ok: #7fcf9f;
+  --seg-1: #f5f7fa; --seg-2: #b4bcc8; --seg-3: #7d8696; --seg-4: #5aa9ff;
+  --pill-bg: #f5f7fa; --pill-ink: #02030a;
+  --ease: cubic-bezier(.23, 1, .32, 1);
+}
+[data-vision="night"] {
+  --night: #050000; --night-deep: #080101; --panel: rgb(18 3 3 / .94); --panel-2: #1c0505;
+  --line: #3a0b0b; --line-soft: #260707; --ink: #d9473c; --ink-2: #b83a31; --muted: #a23a30;
+  --ice: #e0352b; --on-accent: #140000; --warn: #ef6a4a; --ok: #c4453a;
+  --seg-1: #d9473c; --seg-2: #a8362d; --seg-3: #6e211b; --seg-4: #e0352b;
+  --pill-bg: #d9473c; --pill-ink: #140000;
+}
+* { box-sizing: border-box; }
+html { color-scheme: dark; }
+html, body { margin: 0; }
+body { background: #0b0d12; color: var(--ink); font: 400 1rem/1.55 Inter, system-ui, sans-serif; font-optical-sizing: auto; -webkit-tap-highlight-color: transparent; }
+a { color: inherit; touch-action: manipulation; }
+/* Focus: visible ring for keyboard only (the real build reuses the app's focus token). */
+:where(a, button):focus-visible { outline: 2px solid var(--ice); outline-offset: 3px; border-radius: 6px; }
+.pill:focus-visible { border-radius: 999px; }
+/* Press feedback on every link, instant on pointer-down (Apple: respond on press, not release). */
+.press { transition: opacity 120ms ease-out, color 150ms ease; }
+.press:active { opacity: .65; }
+@media (hover: hover) and (pointer: fine) { .press:hover { color: var(--ink); } }
+.skip { position: absolute; left: 16px; top: -60px; z-index: 60; padding: 10px 16px; border-radius: 999px; background: var(--pill-bg); color: var(--pill-ink); font-weight: 600; text-decoration: none; }
+.skip:focus-visible { top: 12px; }
+
+/* ---------- mockup chrome (not part of the design) ---------- */
+.mock-bar { position: relative; z-index: 50; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  padding: 10px 16px; background: #fff; color: #111; font: 500 13px/1.2 Inter, system-ui, sans-serif; border-bottom: 1px solid #ddd; }
+.mock-bar strong { margin-right: 6px; }
+.mock-bar .grp { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.mock-bar .sep { width: 1px; height: 22px; background: #ddd; margin: 0 6px; }
+.mock-bar button { font: inherit; padding: 6px 10px; border-radius: 999px; border: 1px solid #ccc; background: #f6f6f6; cursor: pointer; color: #111; }
+.mock-bar button[aria-pressed="true"] { background: #111; color: #fff; border-color: #111; }
+.mock-note { max-width: 1160px; margin: 14px auto 0; padding: 0 16px; color: #9aa3b2; font-size: 13px; }
+.stage { padding: 16px; }
+.frame { margin: 0 auto; max-width: 1440px; background: var(--night); border-radius: 14px; overflow: clip; outline: 1px solid #222; transition: max-width 300ms var(--ease); }
+.frame.phone { max-width: 390px; }
+
+/* ---------- shared site layout ---------- */
+.site-header { position: sticky; top: 0; z-index: 5; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  height: 4.375rem; padding: 0 2.5rem; background: color-mix(in srgb, var(--night) 55%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%); }
+/* Same material as the landing header (real build: one shared component, landing.css rules, not a fork).
+   No hard divider: content scrolls under the frosted bar. */
+@media (prefers-reduced-transparency: reduce) { .site-header { background: var(--night); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+@media (prefers-contrast: more) { .site-header { background: var(--night); backdrop-filter: none; border-bottom: 1px solid var(--line); } p, .lede, .meta { color: var(--ink); } }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 19px; letter-spacing: -.01em; text-decoration: none; }
+.logo i { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--ink); position: relative; }
+.logo i::after { content: ""; position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--ice); top: -3px; right: -3px; }
+.nav { display: flex; gap: 28px; font-weight: 500; font-size: 15px; color: var(--ink-2); }
+.nav a { text-decoration: none; }
+.nav a[aria-current="page"] { color: var(--ink); }
+.actions { display: flex; justify-content: flex-end; align-items: center; gap: 18px; }
+.signin { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 500; font-size: 15px; color: var(--ink-2); text-decoration: none; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--line); display: grid; place-items: center; font-weight: 600; font-size: 14px; }
+.pill { display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0 1.25rem; border-radius: 999px; background: var(--pill-bg); color: var(--pill-ink);
+  font-weight: 600; font-size: .9375rem; text-decoration: none; white-space: nowrap; transition: transform 160ms var(--ease), filter 150ms ease; }
+.pill:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) { .pill:hover { filter: brightness(1.08); } }
+@media (prefers-reduced-motion: reduce) {
+  .pill, .frame { transition: none; } .pill:active { transform: none; filter: brightness(.85); }
+}
+.slot-ghost { font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 6px 12px; }
+
+.page { max-width: 1160px; margin: 0 auto; padding: 72px 40px 24px; }
+.doc { max-width: 720px; }
+.eyebrow { color: var(--ice); font-weight: 600; font-size: .875rem; letter-spacing: .01em; margin: 0 0 14px; }
+h1 { text-wrap: balance; font-size: clamp(2.5rem, 6vw, 4rem); line-height: 1.02; letter-spacing: -.028em; font-weight: 650; margin: 0 0 18px; }
+h2 { text-wrap: balance; scroll-margin-top: 5.5rem; font-size: 1.875rem; line-height: 1.1; letter-spacing: -.022em; font-weight: 650; margin: 64px 0 14px; }
+h3 { font-size: 19px; letter-spacing: -.01em; font-weight: 600; margin: 28px 0 8px; }
+.lede { font-size: 20px; line-height: 1.5; color: var(--ink-2); letter-spacing: -.012em; max-width: 46ch; margin: 0; }
+p { text-wrap: pretty; color: var(--ink-2); margin: 0 0 14px; max-width: 68ch; }
+.meta { color: var(--muted); font-size: 14px; margin-top: 18px; }
+.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 36px 0 0; padding: 0; list-style: none; }
+.toc a { display: inline-block; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); font-size: 14px; color: var(--ink-2); text-decoration: none; }
+
+/* score figure */
+.figure { margin: 26px 0 8px; padding: 24px; border-radius: 16px; background: var(--panel-2); border: 1px solid var(--line-soft); }
+.bar { display: flex; height: 14px; border-radius: 999px; overflow: hidden; gap: 3px; }
+.bar span { display: block; height: 100%; }
+.bar + .rows { margin-top: 18px; } .rows { display: grid; gap: 0; }
+.row { display: grid; grid-template-columns: 14px 1fr auto auto; gap: 12px; align-items: baseline; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.row:first-child { border-top: 0; }
+.plain .row { grid-template-columns: 1fr auto auto; }
+.dot { width: 10px; height: 10px; border-radius: 3px; align-self: center; }
+.row b { font-weight: 600; color: var(--ink); }
+.row small { display: block; color: var(--muted); font-size: 13px; font-family: ui-monospace, "SF Mono", Menlo, monospace; margin-top: 2px; }
+.row small.prose { font-family: inherit; }
+.pts { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-2); }
+.badge.fc { border-color: color-mix(in srgb, var(--ice) 45%, transparent); color: var(--ice); }
+
+.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; }
+.card { padding: 20px; border-radius: 16px; background: var(--panel-2); border: 1px solid var(--line-soft); }
+.card h3 { margin-top: 0; }
+.card p { font-size: 15px; margin: 0; }
+.card ul { margin: 8px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 15px; }
+.card li { margin: 4px 0; }
+.card.ok h3::before { content: "✓ "; color: var(--ok); }
+.card.kept h3::before { content: "• "; color: var(--ink-2); }
+.card.no h3::before { content: "✕ "; color: var(--muted); }
+.card.out h3::before { content: "↗ "; color: var(--ice); }
+
+.limits { list-style: none; padding: 0; margin: 18px 0 0; }
+.limits li { padding: 14px 0; border-top: 1px solid var(--line-soft); color: var(--ink-2); max-width: 68ch; }
+.limits li b { color: var(--ink); font-weight: 600; }
+
+.credit { display: grid; grid-template-columns: 1fr auto; gap: 6px 20px; padding: 18px 0; border-top: 1px solid var(--line-soft); }
+.credit b { font-weight: 600; }
+.credit .lic { color: var(--muted); font-size: 14px; text-align: right; }
+.credit p { grid-column: 1 / -1; margin: 0; font-size: 15px; }
+.credit a { color: var(--ice); text-decoration: none; font-size: 14px; }
+
+.draft { display: inline-block; margin-bottom: 18px; padding: 6px 12px; border-radius: 999px; font-size: 13px; color: var(--warn);
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); }
+
+/* footer */
+.site-footer { margin-top: 96px; border-top: 1px solid var(--line-soft); }
+.foot { max-width: 1160px; margin: 0 auto; padding: 44px 40px 28px; display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 32px; }
+.foot h4 { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+.foot ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 15px; color: var(--ink-2); }
+.foot a { text-decoration: none; }
+.foot .blurb { font-size: 15px; max-width: 34ch; }
+.fine { max-width: 1160px; margin: 0 auto; padding: 18px 40px 40px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 12.5px; line-height: 1.6; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; }
+.fine p { color: inherit; margin: 0; max-width: 90ch; }
+
+/* accounts board */
+.board { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 22px; }
+.col { padding: 22px; border-radius: 16px; background: var(--panel-2); border: 1px solid var(--line-soft); }
+.col h3 { margin: 0 0 4px; }
+.col > p { font-size: 14px; color: var(--muted); }
+.chip { display: flex; justify-content: space-between; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line-soft); font-size: 15px; color: var(--ink-2); }
+.chip span:last-child { color: var(--muted); font-size: 13px; text-align: right; }
+.states { display: grid; gap: 12px; margin-top: 22px; }
+.state { display: grid; grid-template-columns: 170px 1fr; gap: 16px; align-items: center; padding: 14px 18px; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line-soft); }
+.state .lbl { font-size: 13px; color: var(--muted); }
+.state .mini { display: flex; justify-content: flex-end; align-items: center; gap: 16px; }
+.q { margin-top: 26px; padding: 18px 20px; border-radius: 14px; border: 1px dashed var(--line); }
+.q p { margin: 0; }
+
+/* phone */
+.phone .site-header { grid-template-columns: 1fr auto; padding: 0 16px; height: 60px; }
+/* Phone layout. One rule set, used twice: by the "Phone width" toggle (.phone) and by real narrow screens. */
+.phone .site-header { grid-template-columns: 1fr auto; padding: 0 1rem; height: 3.75rem; }
+.phone .nav, .phone .slot-ghost { display: none; }
+.phone .actions { gap: .75rem; }
+.phone .pill { padding: 0 .875rem; font-size: .875rem; }
+.phone .site-header:not([data-auth="now"]) .wm { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.phone .page { padding: 2.75rem 1rem 1rem; }
+.phone h1 { font-size: 2.375rem; }
+.phone h2 { font-size: 1.5625rem; margin-top: 3rem; }
+.phone .lede { font-size: 1.125rem; }
+.phone .figure { padding: 1.125rem; }
+.phone .row { grid-template-columns: 14px 1fr auto; }
+.phone .row .badge { grid-column: 2; justify-self: start; }
+.phone .plain .row { grid-template-columns: 1fr auto; }
+.phone .plain .row .badge { grid-column: 1; }
+.phone .board, .phone .cards, .phone .credit { grid-template-columns: 1fr; }
+.phone .credit .lic { text-align: left; }
+.phone .state { grid-template-columns: 1fr; }
+.phone .state .mini { justify-content: flex-start; }
+.phone .foot { grid-template-columns: 1fr 1fr; padding: 2rem 1rem 1.25rem; }
+.phone .foot .brand { grid-column: 1 / -1; }
+.phone .fine { padding: 1rem 1rem 2rem; }
+@media (max-width: 700px) {
+  .stage { padding: 0; } .frame { border-radius: 0; outline: 0; }
+  .site-header { grid-template-columns: 1fr auto; padding: 0 1rem; height: 3.75rem; }
+  .nav, .slot-ghost { display: none; }
+  .actions { gap: .75rem; }
+  .pill { padding: 0 .875rem; font-size: .875rem; }
+  .site-header:not([data-auth="now"]) .wm { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .page { padding: 2.75rem 1rem 1rem; }
+  h1 { font-size: 2.375rem; } h2 { font-size: 1.5625rem; margin-top: 3rem; } .lede { font-size: 1.125rem; }
+  .figure { padding: 1.125rem; }
+  .row { grid-template-columns: 14px 1fr auto; } .row .badge { grid-column: 2; justify-self: start; }
+  .plain .row { grid-template-columns: 1fr auto; } .plain .row .badge { grid-column: 1; }
+  .board, .cards, .credit { grid-template-columns: 1fr; } .credit .lic { text-align: left; }
+  .state { grid-template-columns: 1fr; } .state .mini { justify-content: flex-start; }
+  .foot { grid-template-columns: 1fr 1fr; padding: 2rem 1rem 1.25rem; } .foot .brand { grid-column: 1 / -1; }
+  .fine { padding: 1rem 1rem 2rem; }
+}
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="mock-bar" role="toolbar" aria-label="Mockup controls">
+  <strong>Mockup</strong>
+  <div class="grp" id="tabs">
+    <button data-page="how" aria-pressed="true">How it works</button>
+    <button data-page="privacy" aria-pressed="false">Privacy</button>
+    <button data-page="credits" aria-pressed="false">Credits &amp; data</button>
+    <button data-page="terms" aria-pressed="false">Terms</button>
+    <button data-page="accounts" aria-pressed="false">Accounts plan (for you)</button>
+  </div>
+  <span class="sep"></span>
+  <div class="grp" id="signin">
+    <span>Header:</span>
+    <button data-auth="now" aria-pressed="true">Now (no login)</button>
+    <button data-auth="out" aria-pressed="false">Login live, signed out</button>
+    <button data-auth="in" aria-pressed="false">Signed in</button>
+  </div>
+  <span class="sep"></span>
+  <div class="grp">
+    <button id="phone" aria-pressed="false">Phone width</button>
+    <button id="vision" aria-pressed="false">Night vision</button>
+  </div>
+</div>
+<p class="mock-note">Every page shares the landing page's header and a new footer. All facts on these pages come from the README, docs/SCORING.md and the code as of 10 Nov; anything about accounts is marked as a plan, not a claim.</p>
+
+<a class="skip" href="#content">Skip to content</a>
+<div class="stage">
+<div class="frame" id="frame">
+
+  <header class="site-header" data-auth="now">
+    <a class="logo" href="#" aria-label="AstroPlanner home"><i aria-hidden="true"></i><span class="wm">AstroPlanner</span></a>
+    <nav class="nav" aria-label="Site">
+      <a class="press" href="#">Explore</a><a class="press" href="#">AstroLog</a><a class="press" href="#">Variable stars</a>
+    </nav>
+    <div class="actions">
+      <span class="slot-ghost" data-when="now" title="Not rendered in the real app until login works">sign-in slot (empty)</span>
+      <a class="signin press" href="#" data-when="out" hidden>Sign in</a>
+      <span class="avatar" data-when="in" hidden aria-label="Your account">J</span>
+      <a class="pill" href="#">See tonight’s sky</a>
+    </div>
+  </header>
+
+  <!-- ======================= HOW IT WORKS ======================= -->
+  <main class="page" id="content" data-view="how">
+    <div class="doc">
+      <p class="eyebrow">How it works</p>
+      <h1>Every number shows its work.</h1>
+      <p class="lede">Where the sky positions come from, how the two scores add up, and what AstroPlanner will never claim.</p>
+      <ul class="toc">
+        <li><a class="press" href="#">The sky</a></li><li><a class="press" href="#">Tonight’s Score</a></li><li><a class="press" href="#">Ranking targets</a></li><li><a class="press" href="#">What it won’t claim</a></li>
+      </ul>
+
+      <h2>The sky, for your spot</h2>
+      <p>Sun, Moon and target positions are computed with Astropy for your saved latitude, longitude and elevation, every five minutes through the night. Times are worked out in UTC and shown in your own timezone. A night runs from local noon to noon, so an evening that crosses midnight stays one night.</p>
+      <p>The results are checked automatically against independent references: US Naval Observatory sunrise, sunset, twilight and moonrise across both 2026 clock changes, a southern-hemisphere site, a midnight-sun case, USNO Moon phases and a worked example from Meeus.</p>
+
+      <h2>Tonight’s Score</h2>
+      <p>A 0 to 100 planning estimate for the best two hours of darkness. Each part says whether it comes from a forecast or a calculation.</p>
+      <div class="figure" aria-label="How Tonight's Score is split">
+        <div class="bar" aria-hidden="true">
+          <span style="flex:45;background:var(--seg-1)"></span><span style="flex:25;background:var(--seg-2)"></span><span style="flex:20;background:var(--seg-3)"></span><span style="flex:10;background:var(--seg-4)"></span>
+        </div>
+        <div class="rows">
+          <div class="row"><span class="dot" style="background:var(--seg-1)"></span><div><b>Cloud cover</b><small>45 × (1 − cloud %)</small></div><span class="badge fc">Forecast</span><span class="pts">45</span></div>
+          <div class="row"><span class="dot" style="background:var(--seg-2)"></span><div><b>Rain risk</b><small>25 × (1 − precipitation probability)</small></div><span class="badge fc">Forecast</span><span class="pts">25</span></div>
+          <div class="row"><span class="dot" style="background:var(--seg-3)"></span><div><b>Moonlight</b><small>20 × (1 − illuminated fraction) while it is up</small></div><span class="badge">Calculated</span><span class="pts">20</span></div>
+          <div class="row"><span class="dot" style="background:var(--seg-4)"></span><div><b>Darkness available</b><small>10 × min(dark minutes / 360, 1)</small></div><span class="badge">Calculated</span><span class="pts">10</span></div>
+        </div>
+      </div>
+      <p><b style="color:var(--ink)">No forecast, no total.</b> If the weather can’t be fetched, you see the Moon and darkness parts on their own, out of 30, never a made-up 100. Missing forecast hours are skipped, not treated as clear.</p>
+
+      <h2>Ranking targets</h2>
+      <p>Only targets with at least 30 minutes above your minimum altitude in darkness are ranked. Each is scored over its longest window:</p>
+      <div class="figure plain">
+        <div class="rows">
+          <div class="row"><div><b>Altitude</b><small class="prose">higher means less air to shoot through</small></div><span class="badge">Calculated</span><span class="pts">30</span></div>
+          <div class="row"><div><b>Imaging time</b><small class="prose">full points at 4 hours</small></div><span class="badge">Calculated</span><span class="pts">25</span></div>
+          <div class="row"><div><b>Weather in the window</b><small class="prose">cloud and rain for those hours</small></div><span class="badge fc">Forecast</span><span class="pts">25</span></div>
+          <div class="row"><div><b>Moon interference</b><small class="prose">its brightness and distance; gentler on emission nebulae</small></div><span class="badge">Calculated</span><span class="pts">20</span></div>
+        </div>
+      </div>
+      <p>Without a forecast the weather part is left out and the score is shown out of 75, not stretched to look like 100.</p>
+
+      <h2>What it won’t claim</h2>
+      <ul class="limits">
+        <li><b>Scores are estimates, not sky quality.</b> They don’t measure transparency or seeing, and say so on screen.</li>
+        <li><b>Framing is approximate.</b> The Seestar S30’s published 2.46° field doesn’t say which axis it is, so “larger than the field” notes are advice and never change a score.</li>
+        <li><b>The Seestar’s range for variable stars is an estimate</b> (about magnitude 7 to 12.5), labelled as not yet measured.</li>
+        <li><b>Your own data stays unknown when it is.</b> AstroLog never guesses a value a file doesn’t contain.</li>
+      </ul>
+      <p class="meta">Full formulas: docs/SCORING.md and docs/ASTRONOMY.md in the source.</p>
+    </div>
+  </main>
+
+  <!-- ======================= PRIVACY ======================= -->
+  <main class="page" data-view="privacy" hidden>
+    <div class="doc">
+      <p class="eyebrow">Privacy</p>
+      <h1>Your pictures stay yours.</h1>
+      <p class="lede">What AstroPlanner reads, what it keeps, and the few things it sends anywhere else.</p>
+      <p class="meta">Describes the app as it runs today, on your own computer. Updated 10 Nov 2026.</p>
+    </div>
+
+    <div class="cards">
+      <div class="card ok"><h3>Never leaves your computer</h3>
+        <ul><li>The image data in your Seestar FITS and Canon CR2 files: only each file’s header is read, in your browser</li><li>Siril’s working folders: only its small text files are read</li><li>Location coordinates inside your files: used to match a saved place, never stored</li></ul></div>
+      <div class="card kept"><h3>What it keeps</h3>
+        <ul><li>Saved places and equipment</li><li>Session plans</li><li>Facts from file headers: target, times, exposure, device</li><li>A small, metadata-free preview of each final picture</li><li>Numbers measured from a stack, and a small preview</li></ul></div>
+      <div class="card out"><h3>Sent to other services</h3>
+        <ul><li><b>Open-Meteo</b>: your saved place’s coordinates, for the forecast; a city name you search for</li><li><b>STScI Digitized Sky Survey</b>: a target’s position in the sky (not yours), once per target</li></ul></div>
+      <div class="card no"><h3>Not in AstroPlanner</h3>
+        <ul><li>No ads, analytics or tracking scripts</li><li>No fonts or scripts loaded from other sites</li><li>Your browser location only if you press “Use my location” in Settings</li></ul></div>
+    </div>
+
+    <div class="doc">
+      <h2>Pictures and stacks</h2>
+      <p>When you add a final picture, AstroPlanner makes a preview about 1,600 pixels wide and a thumbnail, removes the picture’s metadata, and keeps only those. When you add a Siril stack, it is measured in memory (star size, noise, background, colour) and only the numbers and a small preview are kept.</p>
+      <h2>Deleting</h2>
+      <p>Everything AstroPlanner keeps about you sits in one database file and one preview folder on your computer. Deleting them removes it all. (A third folder caches the survey pictures of targets; nothing in it is yours.)</p>
+      <div class="q"><p><span class="draft">For the login design</span><br />With accounts, this page gains a section on what is stored with your account, where it is hosted, and how to delete it. It is written once login is designed, not before.</p></div>
+    </div>
+  </main>
+
+  <!-- ======================= CREDITS ======================= -->
+  <main class="page" data-view="credits" hidden>
+    <div class="doc">
+      <p class="eyebrow">Credits &amp; data</p>
+      <h1>Built on open science.</h1>
+      <p class="lede">Every catalog, forecast and library AstroPlanner uses, with its license and terms.</p>
+      <h2>Data</h2>
+      <div class="credit"><b>OpenNGC</b><span class="lic">CC BY-SA 4.0</span><p>Positions, types, sizes and magnitudes for the 58 deep-sky targets. AstroPlanner’s target list is shared under the same license.</p><a href="#">github.com/mattiaverga/OpenNGC</a></div>
+      <div class="credit"><b>Open-Meteo</b><span class="lic">Data CC BY 4.0 · free tier non-commercial</span><p>Hourly cloud and rain forecasts, and city search. Model forecasts, not measurements at your site.</p><a href="#">open-meteo.com</a></div>
+      <div class="credit"><b>Digitized Sky Survey (STScI)</b><span class="lic">Non-profit use, with credit</span><p>Red-plate survey pictures on target cards, fetched once per target and kept locally. © AURA and the plate copyright holders.</p><a href="#">archive.stsci.edu/dss</a></div>
+      <div class="credit"><b>AAVSO VSX</b><span class="lic">Personal, non-commercial use</span><p>Type and brightness range for the four curated variable stars. Catalog data: International Variable Star Index (VSX), operated at AAVSO, Cambridge, Massachusetts, USA.</p><a href="#">vsx.aavso.org</a></div>
+      <h2>Software</h2>
+      <div class="credit"><b>Astropy</b><span class="lic">BSD-3-Clause</span><p>Every Sun, Moon and target position.</p></div>
+      <div class="credit"><b>photutils</b><span class="lic">BSD-3-Clause</span><p>Star size in stack measurements.</p></div>
+      <div class="credit"><b>timezonefinder</b><span class="lic">MIT</span><p>Your timezone from coordinates, worked out on the AstroPlanner server.</p></div>
+      <div class="credit"><b>Siril</b><span class="lic">GPL-3.0 · run by you, not bundled</span><p>The Processing Coach writes Siril scripts and reads Siril’s own text output.</p></div>
+      <h2>Equipment</h2>
+      <div class="credit"><b>ZWO Seestar S30</b><span class="lic">Manufacturer specifications</span><p>30 mm aperture, 150 mm focal length, 2.46° field (axis not stated). The original S30, not the S30 Pro.</p></div>
+    </div>
+  </main>
+
+  <!-- ======================= TERMS ======================= -->
+  <main class="page" data-view="terms" hidden>
+    <div class="doc">
+      <p class="eyebrow">Terms</p>
+      <h1>Plain terms.</h1>
+      <p class="lede">AstroPlanner is free, for personal use, and offered as it is.</p>
+      <span class="draft">Draft: plain-language summary, not legal advice. Review before a public launch.</span>
+      <h3>Free, and staying that way</h3>
+      <p>The forecasts come from Open-Meteo’s free service, which is for non-commercial use, and several data sources allow personal or non-profit use only. So AstroPlanner can’t be sold or used commercially.</p>
+      <h3>Planning help, not a promise</h3>
+      <p>Scores, windows and forecasts are estimates. Skies change, forecasts are wrong, and your own site may differ. Check conditions yourself, especially before travelling to a dark site.</p>
+      <h3>Your files are your own</h3>
+      <p>You keep every right to your pictures and data. AstroPlanner only stores the previews and facts described in Privacy, to show them back to you.</p>
+      <h3>Other services’ terms</h3>
+      <p>Data from Open-Meteo, OpenNGC, the Digitized Sky Survey and AAVSO VSX is used under their own terms, listed on Credits &amp; data.</p>
+      <h3>Changes</h3>
+      <p>If these terms change, the date at the top changes too.</p>
+    </div>
+  </main>
+
+  <!-- ======================= ACCOUNTS PLAN (design note for the developer) ======================= -->
+  <main class="page" data-view="accounts" hidden>
+    <div class="doc">
+      <p class="eyebrow">Design note, not a site page</p>
+      <h1>What an account is for.</h1>
+      <p class="lede">A proposal to react to before the login design starts. Nothing here is built.</p>
+    </div>
+    <div class="board">
+      <div class="col"><h3>Open to everyone</h3><p>No account needed, ever (proposed)</p>
+        <div class="chip"><span>Homescreen and these four pages</span><span>public</span></div>
+        <div class="chip"><span>Tonight, for any city</span><span>the core promise</span></div>
+        <div class="chip"><span>Explore and target details</span><span></span></div>
+        <div class="chip"><span>Variable Hunter star pages</span><span></span></div>
+      </div>
+      <div class="col"><h3>With an account</h3><p>What signing in adds (proposed)</p>
+        <div class="chip"><span>Saved places and equipment, on every device</span><span>sync</span></div>
+        <div class="chip"><span>Session plans</span><span>sync</span></div>
+        <div class="chip"><span>AstroLog library and final pictures</span><span>open question</span></div>
+        <div class="chip"><span>Processing Coach for your nights</span><span>open question</span></div>
+      </div>
+    </div>
+    <div class="doc"><h2>Header states</h2></div>
+    <div class="states">
+      <div class="state"><span class="lbl">Now (no login yet)</span><div class="mini"><a class="pill" href="#">See tonight’s sky</a></div></div>
+      <div class="state"><span class="lbl">Login live, signed out</span><div class="mini"><span class="signin" style="display:inline">Sign in</span><a class="pill" href="#">See tonight’s sky</a></div></div>
+      <div class="state"><span class="lbl">Signed in</span><div class="mini"><span class="avatar">J</span><a class="pill" href="#">See tonight’s sky</a></div></div>
+    </div>
+    <div class="doc">
+      <div class="q"><p><b style="color:var(--ink)">Open question for the login design:</b> AstroLog and the coach keep picture previews and stack numbers on the server. When the app is hosted, should those need an account, or stay on the computer that imported them until you sign in?</p></div>
+      <p class="meta">Routes proposed: /how-it-works, /privacy, /credits, /terms now; /login next.</p>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="foot">
+      <div class="brand"><a class="logo" href="#"><i aria-hidden="true"></i>AstroPlanner</a><p class="blurb" style="margin-top:12px">Plan the night, keep the record, learn to process. Free, for personal use.</p></div>
+      <div><h4>App</h4><ul><li><a class="press" href="#">See tonight’s sky</a></li><li><a class="press" href="#">Explore</a></li><li><a class="press" href="#">AstroLog</a></li><li><a class="press" href="#">Variable stars</a></li></ul></div>
+      <div><h4>About</h4><ul><li><a class="press" href="#" data-go="how">How it works</a></li><li><a class="press" href="#" data-go="privacy">Privacy</a></li><li><a class="press" href="#" data-go="credits">Credits &amp; data</a></li><li><a class="press" href="#" data-go="terms">Terms</a></li><li><a class="press" href="#">Source on GitHub</a></li></ul></div>
+    </div>
+    <div class="fine">
+      <p>Targets from OpenNGC (CC BY-SA 4.0). Weather from Open-Meteo (CC BY 4.0, non-commercial). Positions computed with Astropy. Scores are heuristic planning estimates.</p>
+
+    </div>
+  </footer>
+</div>
+</div>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+function show(page) {
+  $$("[data-view]").forEach((m) => (m.hidden = m.dataset.view !== page));
+  $$("#tabs button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.page === page)));
+  $("#frame").scrollIntoView({ block: "start" });
+}
+$$("#tabs button").forEach((b) => b.addEventListener("click", () => show(b.dataset.page)));
+$$("[data-go]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); show(a.dataset.go); }));
+$$("#signin button").forEach((b) =>
+  b.addEventListener("click", () => {
+    $$("#signin button").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    $$(".site-header [data-when]").forEach((el) => (el.hidden = el.dataset.when !== b.dataset.auth));
+    $(".site-header").dataset.auth = b.dataset.auth;
+  }),
+);
+$("#phone").addEventListener("click", (e) => {
+  const on = $("#frame").classList.toggle("phone");
+  e.currentTarget.setAttribute("aria-pressed", String(on));
+});
+$("#vision").addEventListener("click", (e) => {
+  const night = document.documentElement.dataset.vision !== "night";
+  document.documentElement.dataset.vision = night ? "night" : "normal";
+  e.currentTarget.setAttribute("aria-pressed", String(night));
+});
+</script>
+</body>
+</html>
