@@ -26,6 +26,11 @@ html { color-scheme: dark; }
 html, body { margin: 0; }
 body { background: #0b0d12; color: var(--ink); font: 400 1rem/1.55 Inter, system-ui, sans-serif; font-optical-sizing: auto; -webkit-tap-highlight-color: transparent; }
 a { color: inherit; }
+a, button { touch-action: manipulation; }
+/* Shape rule: pills for buttons and chips, 12px inputs, 16px cards and menus, 20px dialogs, 24px photos. */
+/* Press feedback on every link, instant on pointer-down. */
+.text-link, .menu a, .field .row a, .alt a, .fine a { transition: opacity 120ms ease-out; }
+.text-link:active, .menu a:active, .field .row a:active, .alt a:active, .fine a:active { opacity: .65; }
 :where(a, button, input):focus-visible { outline: 2px solid var(--ice); outline-offset: 3px; border-radius: 8px; }
 [hidden] { display: none !important; }
 
@@ -55,13 +60,18 @@ a { color: inherit; }
 .pill:active { transform: scale(.97); }
 .pill.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
 .pill[aria-busy="true"] { opacity: .7; cursor: progress; }
+.pill:disabled { opacity: .5; cursor: not-allowed; }
+.pill:disabled:active { transform: none; }
 .avatar { position: relative; }
 .avatar > button { width: 2.75rem; height: 2.75rem; border-radius: 50%; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); font: 600 .9375rem Inter, sans-serif; cursor: pointer; }
 .menu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 15rem; padding: .5rem; border-radius: 16px; background: var(--panel-2); border: 1px solid var(--line);
-  box-shadow: 0 20px 50px -20px #000; transform-origin: top right; }
+  box-shadow: 0 20px 50px -20px #000; transform-origin: top right; transition: opacity 150ms var(--ease), transform 150ms var(--ease); }
+/* Opens from its trigger (top right), never from scale(0). */
+@starting-style { .menu { opacity: 0; transform: scale(.97); } }
+.menu ul { list-style: none; margin: 0; padding: 0; }
 .menu p { margin: .375rem .625rem .5rem; color: var(--muted); font-size: .8125rem; }
 .menu a { display: flex; align-items: center; min-height: 2.75rem; padding: 0 .625rem; border-radius: 10px; text-decoration: none; font-size: .9375rem; }
-.menu a:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+@media (hover: hover) and (pointer: fine) { .menu a:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); } }
 .menu hr { border: 0; border-top: 1px solid var(--line-soft); margin: .375rem 0; }
 
 /* auth pages: form left, the developer's own photo right */
@@ -76,13 +86,14 @@ form { display: grid; gap: 1.125rem; }
 .field { display: grid; gap: .375rem; }
 .field label { font-size: .875rem; font-weight: 500; color: var(--ink); }
 .field .row { display: flex; justify-content: space-between; align-items: baseline; }
-.field .row a { font-size: .8125rem; color: var(--ink-2); }
+.field .row a { display: inline-flex; align-items: center; min-height: 2.75rem; margin: -.75rem 0; font-size: .8125rem; color: var(--ink-2); }
+.help, .err, .fine, .menu p { letter-spacing: .005em; }
 .input { position: relative; }
 .input input { width: 100%; min-height: 2.875rem; padding: 0 .875rem; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink);
   font: 400 1rem Inter, system-ui, sans-serif; }
 .input input::placeholder { color: var(--muted); }
 .input input[aria-invalid="true"] { border-color: var(--bad); }
-.input .show { position: absolute; right: .25rem; top: 50%; transform: translateY(-50%); min-height: 2.5rem; padding: 0 .75rem; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); font: 500 .8125rem Inter, sans-serif; cursor: pointer; }
+.input .show { position: absolute; right: .0625rem; top: 50%; transform: translateY(-50%); min-height: 2.75rem; padding: 0 .75rem; border: 0; border-radius: 10px; background: transparent; color: var(--ink-2); font: 500 .8125rem Inter, sans-serif; cursor: pointer; }
 .help { font-size: .8125rem; color: var(--muted); margin: 0; }
 .err { font-size: .8125rem; color: var(--bad); margin: 0; }
 .form-err { padding: .75rem .875rem; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent); color: var(--ink); font-size: .875rem; margin: 0; }
@@ -125,6 +136,8 @@ form { display: grid; gap: 1.125rem; }
 
 @media (prefers-reduced-motion: reduce) { .pill { transition: none; } .pill:active { transform: none; opacity: .85; } }
 @media (prefers-reduced-transparency: reduce) { .site-header { background: var(--night); backdrop-filter: none; } }
+@media (prefers-contrast: more) { .site-header { background: var(--night); backdrop-filter: none; border-bottom: 1px solid var(--line); }
+  .input input { border-color: var(--ink-2); } .help, .fine, .lede { color: var(--ink); } }
 
 /* phone: one rule set, used by the toggle (.phone) and by real narrow screens */
 .phone .site-header { padding: 0 1rem; height: 3.75rem; } .phone .nav { display: none; } .phone .actions { gap: .75rem; }
@@ -133,6 +146,8 @@ form { display: grid; gap: 1.125rem; }
 .phone .site-header.with-second .wm { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .phone .auth { grid-template-columns: 1fr; } .phone .photo { display: none; } .phone .auth-form { padding: 2.5rem 1rem; }
 .phone .shell { grid-template-columns: 1fr; } .phone .side { display: none; } .phone .app-main { padding: 2rem 1rem; } .phone .app-top { padding: 0 1rem; }
+/* As the shipped SiteHeader: below 360 px the wordmark folds to the mark (kept for screen readers). */
+@media (max-width: 359px) { .wm { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
 @media (max-width: 700px) {
   .stage { padding: 0; } .frame { border-radius: 0; outline: 0; }
   .site-header { padding: 0 1rem; height: 3.75rem; } .nav { display: none; } .actions { gap: .75rem; } .pill { padding: 0 .875rem; font-size: .875rem; }
@@ -190,16 +205,17 @@ form { display: grid; gap: 1.125rem; }
         <p class="alt">New to AstroPlanner? <a href="#" data-goto="signup">Create an account</a></p>
         <p class="fine">Tonight, Explore and Variable Hunter work without an account.</p>
       </div>
-      <figure class="photo"><img src="/frontend/public/landing/m31-960.jpg" alt="" /><figcaption>Andromeda Galaxy (M31), captured by the developer</figcaption></figure>
+      <figure class="photo"><img src="/frontend/public/landing/m31-960.jpg" width="960" height="540" alt="" decoding="async" /><figcaption>Andromeda Galaxy (M31), captured by the developer</figcaption></figure>
     </div>
   </section>
 
   <!-- ============ CREATE ACCOUNT (/signup) ============ -->
   <section data-view="signup" hidden>
-    <header class="site-header with-second">
+    <!-- On the sign-in and create-account pages the header's sign-in slot stays empty: the page itself is the way in. -->
+    <header class="site-header">
       <a class="logo" href="#" aria-label="AstroPlanner home"><i aria-hidden="true"></i><span class="wm">AstroPlanner</span></a>
       <nav class="nav" aria-label="Site"><a href="#">Explore</a><a href="#">AstroLog</a><a href="#">Variable stars</a></nav>
-      <div class="actions"><a class="text-link" href="#" data-goto="signin">Sign in</a><a class="pill" href="#">See tonight’s sky</a></div>
+      <div class="actions"><a class="pill" href="#">See tonight’s sky</a></div>
     </header>
     <div class="auth">
       <div class="auth-form">
@@ -221,7 +237,7 @@ form { display: grid; gap: 1.125rem; }
         </div>
         <p class="alt" data-when-not="done">Already have an account? <a href="#" data-goto="signin">Sign in</a></p>
       </div>
-      <figure class="photo"><img src="/frontend/public/landing/eagle.jpg" alt="" /><figcaption>Eagle Nebula (M16), captured by the developer</figcaption></figure>
+      <figure class="photo"><img src="/frontend/public/landing/eagle.jpg" width="720" height="1159" alt="" decoding="async" /><figcaption>Eagle Nebula (M16), captured by the developer</figcaption></figure>
     </div>
   </section>
 
@@ -256,7 +272,7 @@ form { display: grid; gap: 1.125rem; }
         <a href="#">Tonight</a><a href="#">Explore</a><a href="#">Variable Hunter</a><a href="#">AstroLog</a><a href="#">Settings</a>
       </aside>
       <div>
-        <div class="app-top"><span class="avatar"><button aria-label="Account menu">Y</button></span></div>
+        <div class="app-top"><span class="avatar"><button aria-label="Account menu" aria-expanded="false">Y</button></span></div>
         <main class="app-main">
           <div class="acct">
             <h1>Account</h1>
@@ -274,8 +290,8 @@ form { display: grid; gap: 1.125rem; }
       <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="del-t" aria-describedby="del-d">
         <h2 id="del-t">Delete your account?</h2>
         <p id="del-d">This permanently removes your AstroLog library, final-picture previews and processing notes. Your original files on your computer are not touched.</p>
-        <div class="field"><label for="del-c">Type DELETE to confirm</label><div class="input"><input id="del-c" autocomplete="off" spellcheck="false" /></div></div>
-        <div class="btns"><button class="pill ghost" type="button">Cancel</button><button class="pill bad" type="button" disabled style="opacity:.5">Delete account</button></div>
+        <div class="field"><label for="del-c">Type DELETE to confirm</label><div class="input"><input id="del-c" name="confirm-delete" autocomplete="off" spellcheck="false" /></div></div>
+        <div class="btns"><button class="pill ghost" type="button">Cancel</button><button class="pill bad" type="button" disabled>Delete account</button></div>
       </div>
     </div>
   </section>
@@ -287,7 +303,8 @@ form { display: grid; gap: 1.125rem; }
       <nav class="nav" aria-label="Site"><a href="#">Explore</a><a href="#">AstroLog</a><a href="#">Variable stars</a></nav>
       <div class="actions">
         <span class="avatar"><button aria-label="Account menu" aria-expanded="true" aria-controls="acct-menu">Y</button>
-          <div class="menu" id="acct-menu" role="menu"><p>you@example.com</p><a role="menuitem" href="#">AstroLog</a><a role="menuitem" href="#" data-goto="account">Account</a><hr /><a role="menuitem" href="#">Sign out</a></div></span>
+          <!-- A disclosure of links (not an ARIA menu): Tab moves through it, Escape closes it and returns focus to the button. -->
+          <nav class="menu" id="acct-menu" aria-label="Account"><p>you@example.com</p><ul><li><a href="#">AstroLog</a></li><li><a href="#" data-goto="account">Account</a></li></ul><hr /><ul><li><a href="#">Sign out</a></li></ul></nav></span>
         <a class="pill" href="#">See tonight’s sky</a>
       </div>
     </header>
