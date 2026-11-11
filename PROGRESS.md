@@ -2,6 +2,37 @@
 
 _Last updated: 2026-11-10 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
+## Current work: site pages (branch `site-pages-design`, awaiting developer review)
+
+Spec: `docs/superpowers/specs/2026-11-10-site-pages-design.md`; plan: `docs/superpowers/plans/2026-11-10-site-pages.md`.
+
+| Area | What changed |
+|---|---|
+| Layout | Shared site header and footer (`frontend/src/components/site/`), also used by the homescreen; the wordmark folds to the mark below 360 px; the header pill is at least 44 px tall |
+| Pages | `/how-it-works` ("Every number shows its work."), `/privacy` ("Your pictures stay yours."), `/credits` ("Built on open science."), `/terms` ("Plain terms."); all outside the app shell |
+| Links | The app shell footer links to How it works and Privacy; the homescreen footer links to all four |
+| Tests | `sitePages.test.tsx`, `SiteLayout.test.tsx`, `backend/tests/test_site_copy.py` (copy pinned to the scoring weights), `frontend/e2e/site.spec.ts` (headlines, no app nav, no overflow at 320 and 390 px, tappable header link, night vision, footer links) |
+
+### Commands last run (2026-11-10)
+
+```bash
+cd backend && .venv/bin/python -m pytest -q   # 461 passed, 12 skipped
+cd frontend && npx tsc -b --noEmit            # clean
+cd frontend && npx vitest run                 # 329 passed (34 files)
+cd frontend && npm run build                  # built
+cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 61 passed, 5 skipped (desktop + mobile)
+```
+
+### Known limitations (site pages)
+
+- Terms is a draft written in plain language, not legal advice.
+- Privacy describes the local app only; the account section waits for the login design.
+- The browser check at 1440, 390 and 320 px and in night vision is done by the controller, not by an automated test beyond the e2e checks above.
+
+### Next step
+
+Developer reviews the site pages, then PR and merge. The login design is next.
+
 ## Current work: polish pass 2 (branch `worktree-polish-pass-2`, awaiting developer review)
 
 Design approved 2026-11-10. Spec: `docs/superpowers/specs/2026-11-10-polish-pass-2-design.md`; plan:

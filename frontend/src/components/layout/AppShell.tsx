@@ -152,7 +152,14 @@ function FooterText() {
       <a className="underline decoration-line underline-offset-2 hover:text-ink" href="https://open-meteo.com/" target="_blank" rel="noreferrer">
         Open-Meteo
       </a>{" "}
-      (CC BY 4.0, non-commercial) · Positions computed with Astropy. Scores are heuristic planning estimates.
+      (CC BY 4.0, non-commercial) · Positions computed with Astropy. Scores are heuristic planning estimates.{" "}
+      <Link className="underline decoration-line underline-offset-2 hover:text-ink" to="/how-it-works">
+        How it works
+      </Link>{" "}
+      ·{" "}
+      <Link className="underline decoration-line underline-offset-2 hover:text-ink" to="/privacy">
+        Privacy
+      </Link>
     </p>
   );
 }
