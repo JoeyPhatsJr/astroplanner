@@ -9,5 +9,6 @@ export const NAV_LINKS: { to: string; label: string }[] = [
 export const ABOUT_LINKS: { to: string; label: string }[] = [
   { to: "/how-it-works", label: "How it works" },
   { to: "/privacy", label: "Privacy" },
+  { to: "/credits", label: "Credits & data" },
   { to: "/terms", label: "Terms" },
 ];

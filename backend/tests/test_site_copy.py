@@ -14,3 +14,16 @@ def test_score_weights_json_matches_scoring():
     data = json.loads(WEIGHTS_JSON.read_text())
     assert data["tonight"] == {k: int(v) for k, v in TONIGHT_WEIGHTS.items()}
     assert data["target"] == {k: int(v) for k, v in TARGET_WEIGHTS.items()}
+
+
+CREDITS_TSX = Path(__file__).resolve().parents[2] / "frontend" / "src" / "pages" / "site" / "CreditsPage.tsx"
+
+
+def _norm(s: str) -> str:
+    return " ".join(s.split())
+
+
+def test_dss_acknowledgment_is_quoted_on_credits():
+    from app.api import DSS_ACKNOWLEDGMENT
+
+    assert _norm(DSS_ACKNOWLEDGMENT) in _norm(CREDITS_TSX.read_text())

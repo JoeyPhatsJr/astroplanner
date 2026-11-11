@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { SitePageIntro } from "../../components/site/SitePageIntro";
 
 export function TermsPage() {
@@ -28,7 +29,7 @@ export function TermsPage() {
         </p>
         <h3 className="site-h3">Other services’ terms</h3>
         <p>
-          Data from Open-Meteo, OpenNGC, the Digitized Sky Survey and AAVSO VSX is used under their own terms, listed on Credits &amp; data.
+          Data from Open-Meteo, OpenNGC, the Digitized Sky Survey and AAVSO VSX is used under their own terms, listed on <Link to="/credits">Credits &amp; data</Link>.
         </p>
         <h3 className="site-h3">Changes</h3>
         <p>If these terms change, the date at the top changes too.</p>

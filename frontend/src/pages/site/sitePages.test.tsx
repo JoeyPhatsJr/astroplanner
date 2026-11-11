@@ -80,3 +80,39 @@ describe("Terms", () => {
     noDashes(container);
   });
 });
+
+describe("Credits & data", () => {
+  it("lists every source with its license", () => {
+    const { container } = renderAt("/credits");
+    expect(screen.getByRole("heading", { level: 1, name: "Built on open science." })).toBeInTheDocument();
+    for (const name of [
+      "OpenNGC",
+      "Open-Meteo",
+      "Digitized Sky Survey (STScI)",
+      "AAVSO VSX",
+      "Astropy",
+      "photutils",
+      "timezonefinder",
+      "Siril",
+      "ZWO Seestar S30",
+    ]) {
+      expect(screen.getByRole("heading", { name })).toBeInTheDocument();
+    }
+    expect(screen.getByText("CC BY-SA 4.0")).toBeInTheDocument();
+    expect(screen.getAllByText("BSD-3-Clause")).toHaveLength(2);
+    expect(screen.getByText(/GPL-3\.0/)).toBeInTheDocument();
+    expect(screen.getByText(/Catalog data: International Variable Star Index \(VSX\), operated at AAVSO, Cambridge, Massachusetts, USA\./)).toBeInTheDocument();
+    expect(screen.getByText(/Digitized Sky Surveys were produced at the Space Telescope Science Institute/)).toBeInTheDocument();
+    for (const a of container.querySelectorAll<HTMLAnchorElement>('a[href^="http"]')) {
+      expect(a).toHaveAttribute("rel", "noreferrer");
+      expect(a).toHaveAttribute("target", "_blank");
+    }
+    noDashes(container);
+  });
+
+  it("Terms links to it", () => {
+    renderAt("/terms");
+    const para = screen.getByText(/Data from Open-Meteo, OpenNGC/);
+    expect(within(para).getByRole("link", { name: "Credits & data" })).toHaveAttribute("href", "/credits");
+  });
+});

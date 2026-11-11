@@ -5,6 +5,7 @@ import { SiteLayout } from "./components/site/SiteLayout";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { EmptyState } from "./components/ui/States";
 import { LandingPage } from "./pages/LandingPage";
+import { CreditsPage } from "./pages/site/CreditsPage";
 import { HowItWorksPage } from "./pages/site/HowItWorksPage";
 import { PrivacyPage } from "./pages/site/PrivacyPage";
 import { TermsPage } from "./pages/site/TermsPage";
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/credits" element={<CreditsPage />} />
         <Route path="/terms" element={<TermsPage />} />
       </Route>
       <Route element={<ShellLayout />}>
