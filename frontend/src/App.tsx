@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
+import { SiteLayout } from "./components/site/SiteLayout";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { EmptyState } from "./components/ui/States";
 import { LandingPage } from "./pages/LandingPage";
@@ -65,14 +66,9 @@ function ShellLayout() {
 export default function App() {
   return (
     <Routes>
-      <Route
-        path="/"
-        element={
-          <ErrorBoundary resetKey="/">
-            <LandingPage />
-          </ErrorBoundary>
-        }
-      />
+      <Route element={<SiteLayout />}>
+        <Route path="/" element={<LandingPage />} />
+      </Route>
       <Route element={<ShellLayout />}>
         <Route path="/tonight" element={<TonightPage />} />
         <Route path="/explore" element={<ExplorePage />} />

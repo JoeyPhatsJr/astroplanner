@@ -104,7 +104,7 @@ describe("LandingPage content", () => {
 
   it("only links to real app routes", () => {
     renderLanding();
-    const routes = new Set(["/", "/tonight", "/explore", "/astrolog", "/variables", "/settings", "#story", "#landing-main"]);
+    const routes = new Set(["/", "/tonight", "/explore", "/astrolog", "/variables", "/settings", "#story", "#site-main"]);
     for (const a of screen.getAllByRole("link")) {
       const href = a.getAttribute("href")!;
       if (href.startsWith("http")) continue;

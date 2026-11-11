@@ -124,10 +124,3 @@ export const GALLERY: Photo[] = [
   { src: "/landing/dumbbell.jpg", alt: "The Dumbbell Nebula, a blue-green glowing cloud with red edges.", name: "Dumbbell Nebula", detail: "M27 · Vulpecula", focus: "50% 50%" },
   { src: "/landing/ngc7000.jpg", alt: "The North America Nebula region, faint red clouds across a dense star field.", name: "North America Nebula", detail: "NGC 7000 · Cygnus, a mosaic", focus: "60% 55%" },
 ];
-
-/** Tonight is not listed: the header's "See tonight’s sky" button already goes there. */
-export const NAV_LINKS = [
-  { to: "/explore", label: "Explore" },
-  { to: "/astrolog", label: "AstroLog" },
-  { to: "/variables", label: "Variable stars" },
-];
