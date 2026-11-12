@@ -1,14 +1,16 @@
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../App";
 import type { LibraryRow } from "../../api/astrolog";
+import { authKey } from "../../api/auth";
 import { createQueryClient } from "../../api/queryClient";
 import type { Mission } from "../../api/variables";
 import { loginHref } from "../../lib/returnTo";
 import { DEFAULT_PREFS, PrefsProvider } from "../../state/prefs";
 import { seedSignedIn, seedSignedOut } from "../../test/auth";
+import { ScriptButton } from "../processing/ScriptButton";
 import { ConfirmProvider } from "../ui/ConfirmDialog";
 import { MissionCard } from "../variables/MissionCard";
 
@@ -118,6 +120,49 @@ describe("AstroLog gate", () => {
   });
 });
 
+/** One FITS file whose header is a single 2880-byte block ending in an END card. */
+function fitsFile(name = "light_0001.fit") {
+  const card = (s: string) => s.padEnd(80, " ");
+  const header = (card("SIMPLE  =                    T") + card("END")).padEnd(2880, " ");
+  const file = new File([header], name, { type: "application/fits" });
+  Object.defineProperty(file, "webkitRelativePath", { value: `night/lights/${name}` });
+  return file;
+}
+
+describe("401 from direct calls", () => {
+  it("an import preview that 401s shows the gate, not an import error", async () => {
+    handlers["GET /api/locations"] = () => json([place]);
+    handlers["GET /api/equipment"] = () => json([]);
+    handlers["GET /api/sessions"] = () => json([]);
+    handlers["POST /api/astrolog/import/preview"] = () => json({ detail: "Sign in to continue." }, 401);
+    const qc = renderApp("/astrolog/import", seedSignedIn);
+    await waitFor(() => expect(document.getElementById("astrolog-folder")).not.toBeNull());
+    const input = document.getElementById("astrolog-folder") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [fitsFile()] } });
+    expect(await screen.findByRole("heading", { level: 1, name: GATE })).toBeInTheDocument();
+    expect(urls).toContain("/api/astrolog/import/preview");
+    expect(qc.getQueryData(authKey)).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText("Sign in to continue.")).toBeNull();
+  });
+
+  it("a script download that 401s signs out instead of showing the 401 text", async () => {
+    handlers["GET /api/processing/runs/r1/scripts/prepare"] = () => json({ detail: "Sign in to continue." }, 401);
+    const qc = createQueryClient();
+    seedSignedIn(qc);
+    render(
+      <QueryClientProvider client={qc}>
+        <ScriptButton runId="r1" which="prepare" disabledReason={null} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Download script 1 (prepare)" }));
+    await waitFor(() => expect(qc.getQueryData(authKey)).toBeNull());
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/Sign in to continue/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Download script 1 (prepare)" })).toBeEnabled();
+  });
+});
+
 const place = {
   id: "l1",
   label: "Backyard",
@@ -198,6 +243,59 @@ describe("Tonight signed out", () => {
     expect(within(plan).queryByRole("alert")).toBeNull();
     expect(within(plan).queryByText("Sign in to continue.")).toBeNull();
     expect(await screen.findByRole("link", { name: "Sign in to add Andromeda Galaxy to a session" })).toBeInTheDocument();
+  });
+});
+
+describe("Personal progress after a 401", () => {
+  it("a 401 mid-session on the star page removes the nights count and mission progress", async () => {
+    let session = true; // what the server's cookie check would say
+    const star = () => ({
+      star: { id: "var:ss-cyg", name: "SS Cygni", primary_designation: "SS Cyg", category: "variable", kind: "variable", constellation: "Cygnus", ra_deg: 1, dec_deg: 2 },
+      vsx: { max_mag: 7.7, min_mag: 12.4, band: "V", raw_range: [] },
+      type_label: "Dwarf nova",
+      period_note: null,
+      source_url: "https://vsx.aavso.org/index.php?view=detail.top&oid=1",
+      retrieved: "2026-11-02",
+      attribution: [],
+      nights: session ? ["2026-09-12", "2026-10-03"] : [],
+      missions: [
+        { key: "monthly", title: "Monthly visits", description: "Observe it once a month.", progress: session ? 2 : null, goal: 6, unit: "months" },
+      ],
+      seestar_fit: null,
+    });
+    handlers["GET /api/locations"] = () => json([place]);
+    handlers["GET /api/equipment"] = () => json([]);
+    handlers["GET /api/sessions"] = () => json([]);
+    handlers["GET /api/variables/ss-cyg"] = () => json(star());
+    handlers["GET /api/variables/ss-cyg/visibility"] = () =>
+      json({
+        computed_at_utc: "2026-11-02T20:00:00Z",
+        star: {},
+        visibility: {
+          can_observe: true,
+          status_text: "Observable",
+          min_altitude_deg: 30,
+          best_window: { start_utc: "2026-11-03T00:30:00Z", end_utc: "2026-11-03T05:30:00Z", minutes: 300 },
+        },
+        night: { timezone: "America/New_York" },
+      });
+    // The session has ended on the server: the next owned request answers 401.
+    handlers["POST /api/sessions"] = () => {
+      session = false;
+      return json({ detail: "Sign in to continue." }, 401);
+    };
+    renderApp("/variables/ss-cyg", seedSignedIn);
+    expect(await screen.findByText("2 of 6 months")).toBeInTheDocument();
+    expect(screen.getByText("Your nights")).toBeInTheDocument();
+    const add = await screen.findByRole("button", { name: "Add to tonight’s plan" });
+    await waitFor(() => expect(add).toBeEnabled());
+    fireEvent.click(add);
+    expect(await screen.findByRole("link", { name: "Sign in to add to session" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("2 of 6 months")).toBeNull());
+    expect(screen.queryByText("Your nights")).toBeNull();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.getByRole("article", { name: "Mission: Monthly visits" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
 
