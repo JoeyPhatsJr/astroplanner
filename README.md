@@ -27,7 +27,7 @@ Four plain pages sit beside the homescreen: `/how-it-works` (what each score and
 `/terms` (a plain-language draft, not legal advice). They share the homescreen's header and footer and
 render outside the app shell. The app's footer links to How it works and Privacy.
 
-### Accounts
+## Accounts
 
 **Session plans, AstroLog and the Processing Coach need an account**: each person sees only their own plans, nights,
 library, final pictures and processing notes, and only their own Variable Hunter progress and "stacked" badges.

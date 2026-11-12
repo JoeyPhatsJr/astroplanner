@@ -55,7 +55,7 @@ browser pass at 1440, 390, 360 and 320 px, night vision on and off, plus reduced
 The developer reviews the accounts branch (`login-design`), then PR and merge. Deployment with Supabase Auth comes
 later (ROADMAP "Deployment").
 
-## Previous work: site pages (branch `site-pages-design`)
+## Previous work: site pages (branch `site-pages-design`, merged as PR #8, merge commit 09d51e4)
 
 Spec: `docs/superpowers/specs/2026-11-10-site-pages-design.md`; plan: `docs/superpowers/plans/2026-11-10-site-pages.md`.
 
