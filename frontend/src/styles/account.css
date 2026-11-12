@@ -577,6 +577,39 @@
   min-height: 2.75rem;
 }
 
+/* The same failure beside a disabled Add (star page, Explore's sheet): reason, then a 44 px retry. */
+.acct-check-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
+}
+.acct-check-retry {
+  min-height: 2.75rem;
+}
+/* Asking again: the button stays (and keeps focus) but does nothing until the answer arrives. */
+.acct-check-retry[aria-disabled="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+.acct-check-retry[aria-disabled="true"]:active {
+  transform: none;
+}
+.acct-check-retry[aria-disabled="true"] svg {
+  animation: acct-check-spin 1s linear infinite;
+}
+@keyframes acct-check-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acct-check-retry[aria-disabled="true"] svg {
+    animation: none;
+  }
+}
+
 .acct-dialog {
   padding: 1.5rem;
   border-radius: 12px;

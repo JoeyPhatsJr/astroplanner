@@ -1,5 +1,6 @@
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../App";
@@ -9,18 +10,20 @@ import { createQueryClient } from "../../api/queryClient";
 import type { Mission } from "../../api/variables";
 import { loginHref } from "../../lib/returnTo";
 import { DEFAULT_PREFS, PrefsProvider } from "../../state/prefs";
-import { seedSignedIn, seedSignedOut } from "../../test/auth";
+import { seedSignedIn, seedSignedOut, TEST_ME } from "../../test/auth";
 import { ScriptButton } from "../processing/ScriptButton";
+import { TargetDetail } from "../targets/TargetDetail";
 import { ConfirmProvider } from "../ui/ConfirmDialog";
 import { MissionCard } from "../variables/MissionCard";
 
 // The strip and score have their own tests; here only the plan prompts matter.
 vi.mock("../tonight/NightStrip", () => ({ NightStrip: () => <div data-testid="strip" /> }));
 vi.mock("../tonight/ScoreHero", () => ({ ScoreHero: () => <div data-testid="score" /> }));
+vi.mock("../charts/LazyCharts", () => ({ AltitudeChart: () => <div data-testid="altitude-chart" /> }));
 
 const GATE = "Your nights live in your account.";
 
-type Handler = () => Response;
+type Handler = () => Response | Promise<Response>;
 let handlers: Record<string, Handler>;
 let urls: string[];
 
@@ -165,7 +168,195 @@ describe("the account check fails (backend down or reloading)", () => {
     expect(await screen.findByRole("button", { name: "Add Andromeda Galaxy to session" })).toBeDisabled();
     expect(urls.some((u) => u.startsWith("/api/sessions"))).toBe(false);
   });
+
+  const REASON = "Couldn’t check your account.";
+  const meCalls = () => urls.filter((u) => u === "/api/auth/me");
+  /** The next /me answer waits until the test releases it. */
+  function holdMe() {
+    let release!: (r: Response) => void;
+    handlers["GET /api/auth/me"] = () => new Promise<Response>((r) => (release = r));
+    return (r: Response) => release(r);
+  }
+  const describedBy = (el: HTMLElement) => (el.getAttribute("aria-describedby") ?? "").split(" ").filter(Boolean);
+
+  it("the star page says why Add is off, retries in place and keeps focus, then Add works", async () => {
+    handlers["GET /api/auth/me"] = down;
+    handlers["GET /api/locations"] = () => json([place]);
+    handlers["GET /api/equipment"] = () => json([]);
+    handlers["GET /api/variables/ss-cyg"] = () => json(starFixture);
+    handlers["GET /api/variables/ss-cyg/visibility"] = () => json(starVisibility);
+    renderApp("/variables/ss-cyg", () => {});
+    const reason = await screen.findByText(REASON);
+    const add = screen.getByRole("button", { name: "Add to tonight’s plan" });
+    expect(add).toBeDisabled();
+    expect(reason.id).not.toBe("");
+    expect(describedBy(add)).toContain(reason.id);
+    const retry = screen.getByRole("button", { name: "Try again" });
+    expect(urls.filter(owned)).toEqual([]);
+
+    // While the second check is in flight the button stays, labelled, with focus on it; a second press asks nothing.
+    const release = holdMe();
+    handlers["GET /api/sessions"] = () => json([]);
+    const user = userEvent.setup();
+    await user.click(retry);
+    await waitFor(() => expect(meCalls()).toHaveLength(2));
+    expect(retry).toBeInTheDocument();
+    expect(retry).toHaveAccessibleName("Try again");
+    expect(retry).toHaveAttribute("aria-disabled", "true");
+    expect(retry).toHaveFocus();
+    await user.click(retry);
+    expect(meCalls()).toHaveLength(2);
+    expect(urls.filter(owned)).toEqual([]);
+
+    release(json(TEST_ME));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add to tonight’s plan" })).toBeEnabled());
+    expect(screen.queryByText(REASON)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add to tonight’s plan" })).toHaveFocus());
+    expect(meCalls()).toHaveLength(2);
+  });
+
+  it("the star page: a retry that answers signed out shows Sign in to add, with focus on it", async () => {
+    handlers["GET /api/auth/me"] = down;
+    handlers["GET /api/locations"] = () => json([place]);
+    handlers["GET /api/equipment"] = () => json([]);
+    handlers["GET /api/variables/ss-cyg"] = () => json(starFixture);
+    handlers["GET /api/variables/ss-cyg/visibility"] = () => json(starVisibility);
+    renderApp("/variables/ss-cyg", () => {});
+    await screen.findByText(REASON);
+    handlers["GET /api/auth/me"] = () => json({ detail: "Sign in to continue." }, 401);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Try again" }));
+    const link = await screen.findByRole("link", { name: "Sign in to add to session" });
+    await waitFor(() => expect(link).toHaveFocus());
+    expect(meCalls()).toHaveLength(2);
+    expect(urls.filter(owned)).toEqual([]);
+  });
+
+  it("Explore’s target sheet says why Add is off and retries the check; signed in, Add works", async () => {
+    handlers["GET /api/auth/me"] = down;
+    handlers["GET /api/locations"] = () => json([place]);
+    handlers["GET /api/equipment"] = () => json([]);
+    handlers["GET /api/targets/M31/visibility"] = () => json(targetVisibility);
+    renderDetail("M31");
+    const sheet = await screen.findByRole("dialog");
+    const reason = await within(sheet).findByText(REASON);
+    const add = await within(sheet).findByRole("button", { name: "Add to session" });
+    expect(add).toBeDisabled();
+    expect(describedBy(add)).toContain(reason.id);
+    expect(urls.filter(owned)).toEqual([]);
+
+    const release = holdMe();
+    handlers["GET /api/sessions"] = () => json([]);
+    const user = userEvent.setup();
+    const retry = within(sheet).getByRole("button", { name: "Try again" });
+    await user.click(retry);
+    await waitFor(() => expect(meCalls()).toHaveLength(2));
+    expect(retry).toHaveFocus();
+    expect(retry).toHaveAttribute("aria-disabled", "true");
+    expect(urls.filter(owned)).toEqual([]);
+
+    release(json(TEST_ME));
+    await waitFor(() => expect(within(sheet).getByRole("button", { name: "Add to session" })).toBeEnabled());
+    expect(within(sheet).queryByText(REASON)).toBeNull();
+    await waitFor(() => expect(within(sheet).getByRole("button", { name: "Add to session" })).toHaveFocus());
+    expect(meCalls()).toHaveLength(2);
+  });
+
+  it("Explore’s target sheet: a retry that answers signed out shows Sign in to add", async () => {
+    handlers["GET /api/auth/me"] = down;
+    handlers["GET /api/locations"] = () => json([place]);
+    handlers["GET /api/equipment"] = () => json([]);
+    handlers["GET /api/targets/M31/visibility"] = () => json(targetVisibility);
+    renderDetail("M31");
+    const sheet = await screen.findByRole("dialog");
+    await within(sheet).findByText(REASON);
+    handlers["GET /api/auth/me"] = () => json({ detail: "Sign in to continue." }, 401);
+    await userEvent.setup().click(within(sheet).getByRole("button", { name: "Try again" }));
+    const link = await within(sheet).findByRole("link", { name: "Sign in to add to session" });
+    await waitFor(() => expect(link).toHaveFocus());
+    expect(meCalls()).toHaveLength(2);
+    expect(urls.filter(owned)).toEqual([]);
+  });
 });
+
+function renderDetail(targetId: string) {
+  const qc = createQueryClient();
+  render(
+    <QueryClientProvider client={qc}>
+      <PrefsProvider initial={DEFAULT_PREFS}>
+        <MemoryRouter initialEntries={["/explore"]}>
+          <TargetDetail targetId={targetId} onClose={() => {}} />
+        </MemoryRouter>
+      </PrefsProvider>
+    </QueryClientProvider>,
+  );
+  return qc;
+}
+
+const starFixture = {
+  star: { id: "var:ss-cyg", name: "SS Cygni", primary_designation: "SS Cyg", category: "variable", kind: "variable", constellation: "Cygnus", ra_deg: 1, dec_deg: 2 },
+  vsx: { max_mag: 7.7, min_mag: 12.4, band: "V", raw_range: [] },
+  type_label: "Dwarf nova",
+  period_note: null,
+  source_url: "https://vsx.aavso.org/index.php?view=detail.top&oid=1",
+  retrieved: "2026-11-02",
+  attribution: [],
+  nights: [],
+  missions: [],
+  seestar_fit: null,
+};
+const starVisibility = {
+  computed_at_utc: "2026-11-02T20:00:00Z",
+  star: {},
+  visibility: {
+    can_observe: true,
+    status_text: "Observable",
+    min_altitude_deg: 30,
+    best_window: { start_utc: "2026-11-03T00:30:00Z", end_utc: "2026-11-03T05:30:00Z", minutes: 300 },
+  },
+  night: { timezone: "America/New_York" },
+};
+const targetVisibility = {
+  computed_at_utc: "2026-11-03T20:00:00Z",
+  target: {
+    id: "M31",
+    name: "Andromeda Galaxy",
+    primary_designation: "M31",
+    kind: "Galaxy",
+    constellation: "Andromeda",
+    aliases: [],
+    ra_deg: 10.68,
+    dec_deg: 41.27,
+    angular_major_arcmin: 190,
+    angular_minor_arcmin: 60,
+    magnitude: 3.4,
+    magnitude_band: "V",
+    source_url: "https://github.com/mattiaverga/OpenNGC",
+    source_id: "NGC0224",
+    emission_line_dominant: false,
+  },
+  visibility: {
+    status: "observable",
+    status_text: "Observable",
+    status_detail: "",
+    can_observe: true,
+    min_altitude_deg: 30,
+    best_window: { start_utc: "2026-11-04T00:00:00Z", end_utc: "2026-11-04T04:00:00Z", minutes: 240 },
+    max_alt_dark_deg: 80,
+    max_alt_dark_utc: "2026-11-04T02:00:00Z",
+    culmination_alt_deg: 80,
+    culmination_utc: "2026-11-04T02:00:00Z",
+    circumpolar: false,
+    never_rises: false,
+    rise_utc: "2026-11-03T18:00:00Z",
+    set_utc: "2026-11-04T10:00:00Z",
+    moon_separation_deg: { basis: "calculated", min: 90, moon_up_fraction: 0 },
+    series: { t_ms: [], alt_deg: [] },
+  },
+  score: { total: 70, max_total: 100, components: [], cautions: [], why: [], forecast_window: null },
+  night: { timezone: "America/New_York", dark_intervals: [], events: [], notes: [], has_darkness: true },
+  weather_status: "ok",
+};
 
 /** One FITS file whose header is a single 2880-byte block ending in an END card. */
 function fitsFile(name = "light_0001.fit") {

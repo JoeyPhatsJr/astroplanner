@@ -15,17 +15,18 @@ Spec: `docs/superpowers/specs/2026-11-11-accounts-design.md` (amended to match w
 | Frontend | Sign in, Create account and reset help pages; the header account slot (Sign in, or the initial with AstroLog, Account and Sign out); the AstroLog gate; "Sign in to plan" on Tonight and star pages; personal badges and progress only when signed in; a 401 mid-session shows the signed-out screen |
 | Account page | `/account`: email and created date, the first-account claim notice, change password, sign out, delete account (password plus typed DELETE, `role="alertdialog"`); signed out it goes to sign in and back |
 | Privacy | "What it keeps" starts with "Your account: your email and a password hash"; a new "Your account" section says what an account stores and what deleting it removes; Updated 11 Nov 2026 |
-| Final review fixes | The AstroLog import's stashed files are dropped on any sign-in, sign-out or 401, so they never cross accounts in one tab; a failed account check (backend down) shows "Couldn’t check your account" with Try again instead of "Sign in"; deleting a place or equipment in use no longer reports other accounts' plan counts; reset help says how to clear a sign-in lockout |
+| Final review fixes | The AstroLog import's stashed files are dropped on any sign-in, sign-out or 401, so they never cross accounts in one tab; a failed account check (backend down) shows "Couldn’t check your account" with Try again instead of "Sign in", and on star pages and Explore's target sheet the disabled Add says "Couldn’t check your account." beside it, with a Try again that keeps focus while it asks and hands focus to Add or "Sign in to add" when it answers; deleting a place or equipment in use no longer reports other accounts' plan counts; reset help says how to clear a sign-in lockout |
 | Tests | Backend accounts, ownership, migration and deletion tests; `auth.test.tsx`, `gates.test.tsx`, `account.test.tsx`, site pages; `frontend/e2e/accounts.spec.ts` (create, sign out, gate, sign in, return-to, generic wrong-password message, token only in an HttpOnly cookie, two users' isolation, delete account, nothing owned requested signed out, forgot password, header at 320 px, night vision on sign in) |
 
-### Commands last run (2026-11-12, after the final review fixes; all passing)
+### Commands last run (2026-11-12, after the Add-button account-check fix; all passing)
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q            # 512 passed, 12 skipped
+cd backend && .venv/bin/python -m pytest -q            # 512 passed, 12 skipped (last run after the final review fixes)
 cd frontend && npx tsc -b --noEmit                     # clean
-cd frontend && npx vitest run                          # 391 passed (37 files)
+cd frontend && npx vitest run                          # 395 passed (37 files)
 cd frontend && npm run build                           # built
-cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 83 passed, 5 skipped (desktop + mobile)
+cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 83 passed, 5 skipped (desktop + mobile; last full run after the final review fixes)
+cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test e2e/variables.spec.ts e2e/smoke.spec.ts e2e/accounts.spec.ts   # 48 passed, 4 skipped (after the Add-button fix)
 ```
 
 Design-skills check of the Account page, the change-password form, the delete dialog and the Privacy section: live
