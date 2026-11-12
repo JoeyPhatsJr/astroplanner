@@ -7,7 +7,7 @@ from typing import Any, Literal
 from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, _utcnow, _uuid
+from app.db import Base, _utcnow, _uuid, owner_column
 
 # Where a piece of advice or a finding comes from (see rules.py for the meanings).
 Basis = Literal["measured", "siril-docs", "tutorial-default", "taste"]
@@ -38,6 +38,7 @@ class ProcessingRun(Base):
 
     __tablename__ = "processing_runs"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    owner_id: Mapped[str | None] = owner_column("processing_runs")
     capture_set_id: Mapped[str] = mapped_column(
         ForeignKey("capture_sets.id", ondelete="RESTRICT"), unique=True)
     siril_version: Mapped[str | None] = mapped_column(String(32), nullable=True)

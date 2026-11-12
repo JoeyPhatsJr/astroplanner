@@ -20,6 +20,7 @@ from .core import (DUMMY_HASH, AccountInputError, check_password, create_session
                    normalize_email, revoke_other_sessions, revoke_session, verify_password)
 from .deps import COOKIE_NAME, clear_session_cookie, current_user, set_session_cookie
 from .models import User
+from .owned import claim_unowned
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -83,6 +84,7 @@ def signup(request: Request, response: Response, body: Any = Body(...),
     except IntegrityError:  # the same email signed up a moment ago
         db.rollback()
         raise HTTPException(409, EMAIL_TAKEN)
+    claim_unowned(db, user)  # the first account on an install takes over the rows from before accounts
     token = create_session(db, user, now)
     db.commit()
     throttle.release(key)

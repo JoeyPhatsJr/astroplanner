@@ -5,6 +5,7 @@ import sqlalchemy
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.accounts.models import User
 from app.astrolog.models import CaptureFrame, CaptureSet, FinalImage, LibraryTarget, Stack
 from app.db import Database, EquipmentProfile, ObservingSession
 
@@ -36,9 +37,11 @@ def test_session_source_default_and_target_fk_column(tmp_path):
 def test_duplicate_dedup_key_rejected(tmp_path):
     db = _db(tmp_path)
     with db.session() as s:
+        # The dedup key is unique per owner (a composite unique ignores NULL owners), so both frames share one.
+        owner = User(email="owner@example.com", password_hash="h")
         obs = ObservingSession(title="t", local_night_date="2026-11-02")
         lt = LibraryTarget(custom_name="X", normalized_key="x", kind="custom")
-        s.add_all([obs, lt])
+        s.add_all([owner, obs, lt])
         s.flush()
         cs = CaptureSet(session_id=obs.id, library_target_id=lt.id, device="seestar", equipment_snapshot={})
         s.add(cs)
@@ -46,7 +49,7 @@ def test_duplicate_dedup_key_rejected(tmp_path):
 
         def frame():
             return CaptureFrame(capture_set_id=cs.id, date_obs_utc="2026-11-02T01:00:00Z", exptime_s=10.0,
-                                source_filename="a.fit", dedup_key="same")
+                                source_filename="a.fit", dedup_key="same", owner_id=owner.id)
         s.add(frame())
         s.commit()
         s.add(frame())
