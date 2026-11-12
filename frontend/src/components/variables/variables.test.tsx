@@ -284,6 +284,18 @@ describe("Star page", () => {
     expect(mocks.addTarget).not.toHaveBeenCalled();
   });
 
+  it("signed out: the sign-in link shows while tonight's visibility is still loading (no swap)", async () => {
+    mocks.auth = "signedOut";
+    const base = fetch;
+    vi.stubGlobal("fetch", (url: string, init?: RequestInit) =>
+      url.includes("/visibility") ? new Promise<Response>(() => {}) : base(url, init),
+    );
+    open();
+    expect(await screen.findByRole("link", { name: "Sign in to add to session" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add to tonight’s plan" })).toBeNull();
+    expect(screen.queryByText("Checking tonight’s visibility.")).toBeNull();
+  });
+
   it("signed out: a star that can't be planned keeps its disabled Add and reason", async () => {
     mocks.auth = "signedOut";
     routes["GET /api/variables/ss-cyg/visibility"] = () => visBody(false);

@@ -183,6 +183,22 @@ describe("Tonight signed out", () => {
     expect(urls.some((u) => u.startsWith("/api/sessions"))).toBe(false);
     expect(urls.some((u) => u.startsWith("/api/astrolog/history"))).toBe(false);
   });
+
+  it("a plan request that 401s mid-session shows the sign-in prompt, not an error", async () => {
+    handlers["GET /api/locations"] = () => json([place]);
+    handlers["GET /api/equipment"] = () => json([]);
+    handlers["GET /api/tonight"] = () => json(tonight);
+    handlers["GET /api/recommendations"] = () => json(recommendations);
+    handlers["GET /api/astrolog/history"] = () => json({});
+    handlers["GET /api/sessions"] = () => json({ detail: "Sign in to continue." }, 401);
+    renderApp("/tonight", seedSignedIn);
+    const plan = await screen.findByRole("region", { name: "Session plan" });
+    expect(await within(plan).findByRole("link", { name: "Sign in to plan" })).toHaveAttribute("href", "/login?next=%2Ftonight");
+    expect(urls.filter((u) => u.startsWith("/api/sessions"))).toHaveLength(1); // asked once signed in, never retried
+    expect(within(plan).queryByRole("alert")).toBeNull();
+    expect(within(plan).queryByText("Sign in to continue.")).toBeNull();
+    expect(await screen.findByRole("link", { name: "Sign in to add Andromeda Galaxy to a session" })).toBeInTheDocument();
+  });
 });
 
 describe("Mission progress", () => {

@@ -52,8 +52,10 @@ function AddToPlan({ starId, slug }: { starId: string; slug: string }) {
           ? v.status_text
           : null;
   const disabled = active.auth === "loading" || inSession || active.isAdding || reason !== null;
-  // Plans belong to an account: signed out, a star that can be planned offers the way in instead.
-  if (active.auth === "signedOut" && reason === null) {
+  // Plans belong to an account: signed out, the way in replaces Add, unless the star definitely can't be
+  // planned (no location, or tonight's answer is in and says no). Not while visibility loads, so it never swaps.
+  const unplannable = !o || (!vis.isLoading && !v?.can_observe);
+  if (active.auth === "signedOut" && !unplannable) {
     return (
       <Link to={loginHref(loc.pathname + loc.search)} className="btn btn-primary min-h-11">
         <LogIn className="size-4" aria-hidden />
