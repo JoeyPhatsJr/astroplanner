@@ -47,8 +47,8 @@ buttons measured 44 px tall and stack full width below 380 px.
 - No email password reset: a password is reset from the terminal (`python -m app.accounts reset-password`).
 - Cross-origin `VITE_API_BASE` mode is not supported with accounts; the dev proxy, e2e and single-process mode are
   same-origin.
-- The Postgres branch of the 0006 and 0007 migrations was never run (no Postgres was available; `TEST_POSTGRES_URL`
-  unset). It is portable by inspection; CI runs it when the variable is set.
+- The Postgres branch of the 0006 and 0007 migrations was not run locally (no Postgres here), but CI ran it on
+  PR #9 (2026-11-12, "Migrations on Postgres" job, Postgres 16): `test_migrations_on_postgres` passed, 17 passed.
 - The explicit `BEGIN` that makes the 0007 upgrade one transaction (`run_migrations` in `backend/app/db.py`) is
   SQLite-only SQL, deliberately, inside the dialect guard with the `PRAGMA foreign_keys` switch; Postgres never runs
   it.
