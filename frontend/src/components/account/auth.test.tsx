@@ -287,6 +287,20 @@ describe("query cache and accounts", () => {
   it("sign-out requests nothing owned and shows no previous user’s data", async () => {
     handlers["POST /api/auth/logout"] = () => new Response(null, { status: 204 });
     handlers["GET /api/sessions"] = () => json([{ id: "a-plan", title: "A’s plan" }]);
+    handlers["GET /api/locations"] = () => json([{ id: "home", label: "Back garden" }]);
+    handlers["GET /api/variables"] = () => json({ progress: calls.some((c) => c.path === "/api/auth/logout") ? null : 3 });
+    // Saved places are shared, not owned: signing out leaves them on screen. Variable Hunter is open but adds
+    // the user's own progress, so it refetches without it.
+    function OpenProbe() {
+      const places = useQuery({ queryKey: ["locations"], queryFn: () => request<{ label: string }[]>("/api/locations") });
+      const vars = useQuery({ queryKey: ["variables", "UTC"], queryFn: () => request<{ progress: number | null }>("/api/variables") });
+      return (
+        <>
+          <p data-testid="open">{places.data?.map((l) => l.label).join(", ") ?? "none"}</p>
+          <p data-testid="progress">{vars.data ? String(vars.data.progress) : "pending"}</p>
+        </>
+      );
+    }
     function OwnedProbe() {
       const [, setTick] = useState(0);
       const q = useQuery({ queryKey: ["sessions"], queryFn: () => request<{ title: string }[]>("/api/sessions") });
@@ -306,10 +320,12 @@ describe("query cache and accounts", () => {
         <MemoryRouter initialEntries={["/privacy"]}>
           <AccountSlot variant="site" />
           <OwnedProbe />
+          <OpenProbe />
         </MemoryRouter>
       </QueryClientProvider>,
     );
     expect(await screen.findByText("A’s plan")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("progress")).toHaveTextContent("3"));
     const sessionFetches = () => calls.filter((c) => c.path === "/api/sessions").length;
     expect(sessionFetches()).toBe(1);
 
@@ -324,6 +340,28 @@ describe("query cache and accounts", () => {
     });
     expect(sessionFetches()).toBe(1);
     expect(qc.getQueryData(authKey)).toBeNull();
+    // Shared places stay as they were; personal progress is fetched again, now without A's.
+    expect(screen.getByTestId("open")).toHaveTextContent("Back garden");
+    expect(calls.filter((c) => c.path === "/api/locations")).toHaveLength(1);
+    await waitFor(() => expect(screen.getByTestId("progress")).toHaveTextContent("null"));
+  });
+
+  it("a /me answer still in flight cannot undo a sign-in", async () => {
+    const me = deferred<Response>();
+    handlers["GET /api/auth/me"] = () => me.promise;
+    handlers["POST /api/auth/login"] = () => json(TEST_ME);
+    const qc = renderApp("/login?next=%2Fastrolog%2Fnights");
+    await userEvent.type(screen.getByLabelText("Email"), "owner@example.com");
+    await userEvent.type(screen.getByLabelText("Password"), "correct horse battery staple");
+    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await waitFor(() => expect(location()).toBe("/astrolog/nights"));
+    expect(qc.getQueryData<Me>(authKey)?.email).toBe("owner@example.com");
+    // The /me request sent before signing in answers late, signed out.
+    await act(async () => {
+      me.resolve(json({ detail: "Sign in to continue." }, 401));
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(qc.getQueryData<Me>(authKey)?.email).toBe("owner@example.com");
   });
 
   it("a 401 from any query marks the user signed out", async () => {

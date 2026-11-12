@@ -47,26 +47,39 @@ export const authApi = {
 const notAuth = (q: Query) => q.queryKey[0] !== "auth";
 
 /**
+ * Query-key roots of data that belongs to the signed-in account (plans and nights, AstroLog, the Processing
+ * Coach). Everything else is open: places, equipment, Tonight, Explore and Variable Hunter keep working signed out.
+ */
+export const OWNED_QUERY_ROOTS: ReadonlySet<unknown> = new Set(["sessions", "astrolog", "processing-run"]);
+/** Open routes that add the signed-in user's own progress to their answer (Variable Hunter). */
+export const PERSONAL_OPEN_QUERY_ROOTS: ReadonlySet<unknown> = new Set(["variables"]);
+const isOwned = (q: Query) => OWNED_QUERY_ROOTS.has(q.queryKey[0]);
+
+/**
  * Switch the cache to another account (or to signed out), so no data from the previous user stays visible.
  *
  * - Signed in: every other query resets, and the ones on screen refetch with the new account's cookie.
- * - Signed out: nothing owned is requested again. Queries on screen are emptied in place (their observers
- *   keep the same query object, so a re-render does not refetch); queries off screen are dropped. Pages that
- *   need an account show their signed-out screen from `useAuthStatus`.
+ * - Signed out: nothing owned is requested again. Owned queries on screen are emptied in place (their
+ *   observers keep the same query object, so a re-render does not refetch); owned queries off screen are
+ *   dropped. Variable Hunter resets and refetches without the personal progress. Shared data (places,
+ *   equipment, Tonight, Explore) is the same for everyone, so it stays on screen untouched.
+ *
+ * Resolves once the cache has switched; the auth mutations return it, so they stay pending until then.
  */
-export function applyAuth(qc: QueryClient, me: Me | null): void {
+export async function applyAuth(qc: QueryClient, me: Me | null): Promise<void> {
   // A /me request sent before this change could land after it and overwrite the new answer.
-  void qc.cancelQueries({ queryKey: authKey });
+  await qc.cancelQueries({ queryKey: authKey });
   qc.setQueryData<Me | null>(authKey, me);
   if (me) {
     void qc.resetQueries({ predicate: notAuth });
     return;
   }
   const cache = qc.getQueryCache();
-  for (const q of cache.findAll({ predicate: notAuth })) {
+  for (const q of cache.findAll({ predicate: isOwned })) {
     if (q.getObserversCount() > 0) q.reset(); // cancels any fetch in flight and clears the data
     else cache.remove(q);
   }
+  void qc.resetQueries({ predicate: (q) => PERSONAL_OPEN_QUERY_ROOTS.has(q.queryKey[0]) });
 }
 
 export function useMe() {
@@ -99,7 +112,7 @@ export function useSignOut(opts: { onSignedOut?: () => void } = {}) {
     mutationFn: authApi.logout,
     onSuccess: () => {
       opts.onSignedOut?.();
-      applyAuth(qc, null);
+      return applyAuth(qc, null);
     },
   });
 }
@@ -115,7 +128,7 @@ export function useDeleteAccount(opts: { onDeleted?: () => void } = {}) {
     mutationFn: authApi.deleteAccount,
     onSuccess: () => {
       opts.onDeleted?.();
-      applyAuth(qc, null);
+      return applyAuth(qc, null);
     },
   });
 }
