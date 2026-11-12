@@ -218,14 +218,16 @@ SEEDED_TABLES = ("observing_locations", "sessions", "session_targets", "library_
 SEED_0006 = [
     "INSERT INTO observing_locations (id,label,latitude_deg,longitude_deg,timezone,is_sample,created_at) "
     "VALUES ('loc1','Home',40,-75,'America/New_York',0,'2026-01-01T00:00:00Z')",
-    "INSERT INTO sessions (id,title,location_id,local_night_date,status,created_at,updated_at,source) "
-    "VALUES ('s1','Plan','loc1','2026-11-02','planned','x','x','both')",
+    "INSERT INTO equipment_profiles (id,name,fov_definition,is_verified,is_preset,created_at) "
+    "VALUES ('eq1','Mine','unknown',0,0,'x')",
+    "INSERT INTO sessions (id,title,location_id,equipment_id,local_night_date,status,created_at,updated_at,source) "
+    "VALUES ('s1','Plan','loc1','eq1','2026-11-02','planned','x','x','both')",
     "INSERT INTO library_targets (id,catalog_target_id,normalized_key,kind,created_at) "
     "VALUES ('lt1','m31','catalog:m31','catalog','x')",
     "INSERT INTO session_targets (id,session_id,target_id,sort_order,library_target_id) "
     "VALUES ('st1','s1','m31',0,'lt1')",
-    "INSERT INTO capture_sets (id,session_id,library_target_id,device,equipment_snapshot,created_at) "
-    "VALUES ('cs1','s1','lt1','seestar','{}','x')",
+    "INSERT INTO capture_sets (id,session_id,library_target_id,device,equipment_id,equipment_snapshot,created_at) "
+    "VALUES ('cs1','s1','lt1','seestar','eq1','{}','x')",
     "INSERT INTO capture_frames (id,capture_set_id,date_obs_utc,exptime_s,source_filename,dedup_key,imported_at) "
     "VALUES ('f1','cs1','2026-11-02T01:00:00Z',10,'a.fit','k1','x')",
     "INSERT INTO capture_frames (id,capture_set_id,date_obs_utc,exptime_s,source_filename,dedup_key,imported_at) "
@@ -241,6 +243,8 @@ SEED_0006 = [
 # Every foreign-key value the seed wrote: (table, id, column) -> value.
 SEED_LINKS = {
     ("sessions", "s1", "location_id"): "loc1",
+    ("sessions", "s1", "equipment_id"): "eq1",
+    ("capture_sets", "cs1", "equipment_id"): "eq1",
     ("session_targets", "st1", "session_id"): "s1",
     ("session_targets", "st1", "library_target_id"): "lt1",
     ("capture_sets", "cs1", "session_id"): "s1",

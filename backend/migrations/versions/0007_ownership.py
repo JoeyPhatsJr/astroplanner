@@ -14,7 +14,8 @@ The old uniques were unnamed column-level constraints. SQLite batch mode names t
 (``uq_<table>_<column>``); Postgres gave them a default name, which is read back from the database.
 
 ``downgrade()`` restores the global uniques, so it fails if two owners hold the same library key or the same
-frame or stack dedup key. It also drops every owner, so a later upgrade starts from unclaimed rows again.
+frame or stack dedup key. It also drops every owner but leaves ``AppMeta("accounts_claimed")`` in place, so after
+a later upgrade those rows stay ownerless: no further sign-up claims them.
 
 Revision ID: 0007_ownership
 Revises: 0006_accounts
