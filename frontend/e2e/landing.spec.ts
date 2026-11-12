@@ -1,20 +1,13 @@
-import { expect, test, type Page } from "@playwright/test";
-import { signUp } from "./auth";
+import { expect, test } from "@playwright/test";
+import { collectErrors, signUp } from "./auth";
 
 // The landing page hands off to Tonight, which loads the account's active session plan; sign in first.
 test.beforeEach(async ({ page }) => {
   await signUp(page);
 });
 
-function trackErrors(page: Page) {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  return errors;
-}
-
 test("landing page tells the story first, with real pictures, and hands off to Tonight", async ({ page }) => {
-  const errors = trackErrors(page);
+  const errors = collectErrors(page);
   await page.goto("/");
 
   const h1 = page.getByRole("heading", { level: 1 });

@@ -1,6 +1,7 @@
 import { BookOpen, ChevronsLeft, ChevronsRight, Moon, Settings, Sparkles, Telescope } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
+import { AccountSlot } from "../account/AccountSlot";
 import { HeaderControls } from "./HeaderControls";
 import { Logo } from "./Logo";
 
@@ -93,13 +94,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="z-30 border-b md:sticky md:top-0 border-line-soft bg-night/90">
+        <header className="relative z-30 border-b md:sticky md:top-0 border-line-soft bg-night/90">
           <div className="flex items-center gap-3 px-4 py-2 md:px-6 md:py-3">
             <Link to="/" aria-label="AstroPlanner home" className="flex shrink-0 items-center gap-2 md:hidden">
               <Logo />
               <span className="sr-only font-semibold text-lg text-ink sm:not-sr-only">AstroPlanner</span>
             </Link>
             <HeaderControls />
+            <AccountSlot variant="shell" />
           </div>
         </header>
 

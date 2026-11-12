@@ -5,6 +5,9 @@ import { SiteLayout } from "./components/site/SiteLayout";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { EmptyState } from "./components/ui/States";
 import { LandingPage } from "./pages/LandingPage";
+import { ResetHelpPage } from "./pages/account/ResetHelpPage";
+import { SignInPage } from "./pages/account/SignInPage";
+import { SignUpPage } from "./pages/account/SignUpPage";
 import { CreditsPage } from "./pages/site/CreditsPage";
 import { HowItWorksPage } from "./pages/site/HowItWorksPage";
 import { PrivacyPage } from "./pages/site/PrivacyPage";
@@ -76,6 +79,9 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/credits" element={<CreditsPage />} />
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/login" element={<SignInPage />} />
+        <Route path="/login/reset-help" element={<ResetHelpPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
       </Route>
       <Route element={<ShellLayout />}>
         <Route path="/tonight" element={<TonightPage />} />

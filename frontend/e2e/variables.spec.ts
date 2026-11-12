@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { API_HEADERS, signUp } from "./auth";
+import { API_HEADERS, collectErrors, signUp } from "./auth";
 
 // AstroPlanner downloads no AAVSO observations: star pages show VSX catalog facts and link to AAVSO.
 
@@ -8,13 +8,6 @@ test.beforeEach(async ({ page }) => {
   await signUp(page);
 });
 
-function trackErrors(page: Page) {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  return errors;
-}
-
 async function navLink(page: Page, projectName: string) {
   const mobile = projectName.endsWith("mobile");
   const name = mobile ? "Variables" : "Variable Hunter";
@@ -22,7 +15,7 @@ async function navLink(page: Page, projectName: string) {
 }
 
 test("nav reaches Variable Hunter; /research redirects there", async ({ page }, testInfo) => {
-  const errors = trackErrors(page);
+  const errors = collectErrors(page);
   await page.goto("/tonight");
   await (await navLink(page, testInfo.project.name)).click();
   await expect(page).toHaveURL(/\/variables$/);
