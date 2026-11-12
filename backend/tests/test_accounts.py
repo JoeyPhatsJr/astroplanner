@@ -7,14 +7,19 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import select, text
 
+import app.accounts.routes as auth_routes
 from app.accounts.__main__ import main as accounts_cli
 from app.accounts.core import AccountInputError, check_password, hash_password, verify_password
 from app.accounts.models import UserSession
+from app.accounts.throttle import Throttle
 from tests.conftest import CSRF_HEADERS, TEST_PASSWORD, client_for
 
 COOKIE = "astroplanner_session"
@@ -180,6 +185,59 @@ def test_signup_throttle_counts_failures_only(make_client, clear_provider):
         r = _signup(c, email="fresh@example.com")
         assert r.status_code == 429
         assert r.json() == {"detail": "Too many attempts from here. Try again in a few minutes."}
+
+
+def test_throttle_try_acquire_is_atomic():
+    t = Throttle(FakeClock())
+    barrier = threading.Barrier(50)
+
+    def attempt(_):
+        barrier.wait()
+        return t.try_acquire("email:ann@example.com")
+
+    with ThreadPoolExecutor(max_workers=50) as pool:
+        results = list(pool.map(attempt, range(50)))
+    assert results.count(True) == 5
+    assert t.locked("email:ann@example.com")
+
+
+def test_concurrent_wrong_passwords_get_at_most_five_verifies(make_client, clear_provider, monkeypatch):
+    real_verify = auth_routes.verify_password
+    verifies: list[str] = []
+    lock = threading.Lock()
+
+    def counting_verify(h, pw):
+        with lock:
+            verifies.append(pw)
+        time.sleep(0.02)  # widen the window between the throttle check and the count
+        return real_verify(h, pw)
+
+    with make_client(clear_provider, account=None, clock=FakeClock()) as c:
+        assert _signup(c).status_code == 201
+        monkeypatch.setattr(auth_routes, "verify_password", counting_verify)
+        with ThreadPoolExecutor(max_workers=20) as pool:
+            codes = list(pool.map(lambda _: _login(c, password="not the right password").status_code, range(20)))
+    assert len(verifies) <= 5
+    assert sum(code != 429 for code in codes) <= 5
+    assert set(codes) <= {401, 429}
+
+
+def test_change_password_wrong_current_is_throttled(make_app, clear_provider):
+    clock = FakeClock()
+    app = make_app(clear_provider, clock=clock)
+    with client_for(app, "ann@example.com") as a:
+        wrong = {"current_password": "not the right password", "new_password": NEW_PASSWORD}
+        right = {"current_password": TEST_PASSWORD, "new_password": NEW_PASSWORD}
+        for _ in range(5):
+            r = a.post("/api/auth/password", json=wrong)
+            assert r.status_code == 400
+            assert r.json() == {"detail": "That password isn’t right."}
+        r = a.post("/api/auth/password", json=right)
+        assert r.status_code == 429
+        assert r.json() == {"detail": "That password isn’t right. Try again in a few minutes."}
+        clock.advance(minutes=15)
+        assert a.post("/api/auth/password", json=right).status_code == 204
+        assert _login(a, password=NEW_PASSWORD).status_code == 200
 
 
 def test_session_expiry_and_renewal(make_client, clear_provider):

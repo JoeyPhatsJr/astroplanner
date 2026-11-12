@@ -63,15 +63,17 @@ def signup(request: Request, response: Response, body: Any = Body(...),
     req = validate_body(SignupIn, body)
     throttle = request.app.state.signup_throttle
     key = _client_key(request)
-    if throttle.locked(key):
+    # Atomic check-and-count: the attempt is reserved now and released unless it ends in a 409, since
+    # only an existing email counts (that is how addresses would be probed).
+    if not throttle.try_acquire(key):
         raise HTTPException(429, SIGNUP_THROTTLED)
     try:
         email = normalize_email(req.email)
         check_password(req.password)
     except AccountInputError as exc:
+        throttle.release(key)
         raise HTTPException(422, exc.message)
     if db.scalar(select(User.id).where(User.email == email)) is not None:
-        throttle.fail(key)  # only an existing email counts: that is how addresses would be probed
         raise HTTPException(409, EMAIL_TAKEN)
     now = request.app.state.clock()
     user = User(email=email, password_hash=hash_password(req.password), created_at=iso_utc(now))
@@ -80,10 +82,10 @@ def signup(request: Request, response: Response, body: Any = Body(...),
         db.flush()
     except IntegrityError:  # the same email signed up a moment ago
         db.rollback()
-        throttle.fail(key)
         raise HTTPException(409, EMAIL_TAKEN)
     token = create_session(db, user, now)
     db.commit()
+    throttle.release(key)
     set_session_cookie(response, request, token)
     return me_out(user)
 
@@ -95,13 +97,12 @@ def login(request: Request, response: Response, body: Any = Body(...),
     email = req.email.strip().lower()  # no format check: a malformed email simply matches no account
     throttle = request.app.state.login_throttle
     key = f"email:{email}"
-    if throttle.locked(key):
+    if not throttle.try_acquire(key):  # atomic: refuses when locked, else counts this attempt up front
         raise HTTPException(429, SIGN_IN_FAILED + TRY_LATER)
     user = db.scalar(select(User).where(User.email == email))
     ok = verify_password(user.password_hash if user else DUMMY_HASH, req.password)
     if user is None or not ok:
-        throttle.fail(key)
-        raise HTTPException(401, SIGN_IN_FAILED)
+        raise HTTPException(401, SIGN_IN_FAILED)  # already counted by try_acquire
     throttle.clear(key)
     token = create_session(db, user, request.app.state.clock())
     db.commit()
@@ -125,8 +126,14 @@ def me(user: User = Depends(current_user)) -> dict[str, Any]:
 def change_password(request: Request, body: Any = Body(...), user: User = Depends(current_user),
                     db: Session = Depends(get_db)) -> None:
     req = validate_body(PasswordChange, body)
+    # A session holder must not be able to brute-force the current password (and then lock the owner out).
+    throttle = request.app.state.login_throttle
+    key = f"user:{user.id}"
+    if not throttle.try_acquire(key):
+        raise HTTPException(429, WRONG_PASSWORD + TRY_LATER)
     if not verify_password(user.password_hash, req.current_password):
-        raise HTTPException(400, WRONG_PASSWORD)
+        raise HTTPException(400, WRONG_PASSWORD)  # already counted by try_acquire
+    throttle.clear(key)
     try:
         check_password(req.new_password)
     except AccountInputError as exc:
