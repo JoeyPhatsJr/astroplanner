@@ -1,4 +1,4 @@
-"""Auth routes: /api/auth/{signup,login,logout,me,password}.
+"""Auth routes: /api/auth/{signup,login,logout,me,password,delete}.
 
 Bodies are validated with ``validate_body`` so a 422 never echoes a password back. Sign-in failures read
 the same for an unknown email and a wrong password, and an unknown email still runs a hash verification.
@@ -6,6 +6,7 @@ the same for an unknown email and a wrong password, and an unknown email still r
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
@@ -18,17 +19,20 @@ from app.deps import get_db, validate_body
 
 from .core import (DUMMY_HASH, AccountInputError, check_password, create_session, hash_password, iso_utc,
                    normalize_email, revoke_other_sessions, revoke_session, verify_password)
+from .deletion import delete_account
 from .deps import COOKIE_NAME, clear_session_cookie, current_user, set_session_cookie
 from .models import User
 from .owned import claim_unowned
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+log = logging.getLogger(__name__)
 
 SIGN_IN_FAILED = "That email and password don’t match. Check them, or reset your password."
 TRY_LATER = " Try again in a few minutes."
 SIGNUP_THROTTLED = "Too many attempts from here. Try again in a few minutes."
 EMAIL_TAKEN = "An account with this email already exists. Sign in instead."
 WRONG_PASSWORD = "That password isn’t right."
+CONFIRM_DELETE = "Type DELETE to confirm."
 
 # A generous bound only on strings that reach Argon2 before any rule check, so a huge one is refused
 # before hashing. Sign-up and the new password are checked in code first, which keeps their exact copy.
@@ -48,6 +52,11 @@ class LoginIn(BaseModel):
 class PasswordChange(BaseModel):
     current_password: str = Field(..., max_length=_RAW)
     new_password: str
+
+
+class DeleteIn(BaseModel):
+    password: str = Field(..., max_length=_RAW)
+    confirm: str  # checked in code, so a mistype gets the exact copy instead of a validation list
 
 
 def me_out(user: User) -> dict[str, Any]:
@@ -143,3 +152,28 @@ def change_password(request: Request, body: Any = Body(...), user: User = Depend
     user.password_hash = hash_password(req.new_password)
     revoke_other_sessions(db, user.id, keep_token=request.cookies.get(COOKIE_NAME))
     db.commit()
+
+
+@router.post("/delete", status_code=204)
+def delete_own_account(request: Request, response: Response, body: Any = Body(...),
+                       user: User = Depends(current_user), db: Session = Depends(get_db)) -> None:
+    """Delete the signed-in account and everything it owns, then its preview files, and sign out."""
+    req = validate_body(DeleteIn, body)
+    if req.confirm != "DELETE":
+        raise HTTPException(422, CONFIRM_DELETE)  # before the throttle: a mistyped confirmation costs no attempt
+    throttle = request.app.state.login_throttle
+    key = f"user:{user.id}"  # shared with /password: both guess the same password
+    if not throttle.try_acquire(key):
+        raise HTTPException(429, WRONG_PASSWORD + TRY_LATER)
+    if not verify_password(user.password_hash, req.password):
+        raise HTTPException(400, WRONG_PASSWORD)  # already counted by try_acquire
+    throttle.clear(key)
+    keys = delete_account(db, user)
+    db.commit()  # the rows go first: a failed commit leaves every file in place
+    storage = request.app.state.storage
+    for k in keys:
+        try:
+            storage.delete(k)  # a missing file is not an error
+        except Exception:  # the account is already gone; keep removing the rest and still sign out
+            log.warning("Could not remove a preview file after deleting an account.", exc_info=True)
+    clear_session_cookie(response)
