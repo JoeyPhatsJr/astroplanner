@@ -47,6 +47,9 @@ Account and Sign out) is in the top right of every page except the sign-in pages
   cd backend && .venv/bin/python -m app.accounts reset-password you@example.com
   ```
 
+  If sign-in was locked after wrong tries, wait 15 minutes or restart the backend. (The lockout is kept in the
+  running server's memory, so the command cannot clear it.)
+
 - **Account page** (`/account`): your email and when the account was created, change password (other devices are
   signed out; this one stays signed in), sign out, and **delete account**. Deleting asks for your password and a typed
   `DELETE`, then removes the account, its sign-in sessions, its session plans and nights, its AstroLog library, its
@@ -202,7 +205,7 @@ Optional environment variables:
 
 ```bash
 cd backend && .venv/bin/python -m pytest -q        # 512 passed, 12 skipped (astronomy references, scoring, weather, sky images, API, AstroLog, Variable Hunter, Processing Coach, accounts and ownership, migrations)
-cd frontend && npm run typecheck && npm test       # 385 tests: routes, landing page and city box, site pages, accounts (sign in, gates, Account page), location matching, time formatting, header slicing, import merge, night strip, sheets, Variable Hunter, Processing Coach, components
+cd frontend && npm run typecheck && npm test       # 391 tests: routes, landing page and city box, site pages, accounts (sign in, gates, Account page), location matching, time formatting, header slicing, import merge, night strip, sheets, Variable Hunter, Processing Coach, components
 cd frontend && npm run build
 cd frontend && npx playwright install chromium && npm run test:e2e   # 88 end-to-end runs over desktop + mobile (83 pass, 5 skipped: checks for one viewport only): landing page, site pages, accounts, Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach
 ```

@@ -15,23 +15,25 @@ Spec: `docs/superpowers/specs/2026-11-11-accounts-design.md` (amended to match w
 | Frontend | Sign in, Create account and reset help pages; the header account slot (Sign in, or the initial with AstroLog, Account and Sign out); the AstroLog gate; "Sign in to plan" on Tonight and star pages; personal badges and progress only when signed in; a 401 mid-session shows the signed-out screen |
 | Account page | `/account`: email and created date, the first-account claim notice, change password, sign out, delete account (password plus typed DELETE, `role="alertdialog"`); signed out it goes to sign in and back |
 | Privacy | "What it keeps" starts with "Your account: your email and a password hash"; a new "Your account" section says what an account stores and what deleting it removes; Updated 11 Nov 2026 |
+| Final review fixes | The AstroLog import's stashed files are dropped on any sign-in, sign-out or 401, so they never cross accounts in one tab; a failed account check (backend down) shows "Couldn’t check your account" with Try again instead of "Sign in"; deleting a place or equipment in use no longer reports other accounts' plan counts; reset help says how to clear a sign-in lockout |
 | Tests | Backend accounts, ownership, migration and deletion tests; `auth.test.tsx`, `gates.test.tsx`, `account.test.tsx`, site pages; `frontend/e2e/accounts.spec.ts` (create, sign out, gate, sign in, return-to, generic wrong-password message, token only in an HttpOnly cookie, two users' isolation, delete account, nothing owned requested signed out, forgot password, header at 320 px, night vision on sign in) |
 
-### Commands last run (2026-11-12, on the Task 8 working tree; all passing)
+### Commands last run (2026-11-12, after the final review fixes; all passing)
 
 ```bash
 cd backend && .venv/bin/python -m pytest -q            # 512 passed, 12 skipped
 cd frontend && npx tsc -b --noEmit                     # clean
-cd frontend && npx vitest run                          # 385 passed (37 files; after review fix round 1)
+cd frontend && npx vitest run                          # 391 passed (37 files)
 cd frontend && npm run build                           # built
 cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 83 passed, 5 skipped (desktop + mobile)
-# review fix round 1 (shapes, delete dialog not dismissable while pending, Privacy places sentence), re-run:
-cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test e2e/accounts.spec.ts e2e/site.spec.ts   # 42 passed, 2 skipped
 ```
 
 Design-skills check of the Account page, the change-password form, the delete dialog and the Privacy section: live
-browser pass at 1440, 390, 360 and 320 px, night vision on and off, plus reduced motion and increased contrast
-(details in `.superpowers/sdd/2026-11-11-accounts/task-8-report.md`).
+browser pass at 1440, 390, 360 and 320 px, night vision on and off, plus emulated reduced motion and increased
+contrast (reduced transparency was not emulated). It fixed focus dropping to the page when "Change password" opens
+(Current password is focused), mixed label layouts on phones (every row stacks below 640 px), a dialog without
+overscroll containment, the email without `translate="no"` and a faint dialog edge under increased contrast; dialog
+buttons measured 44 px tall and stack full width below 380 px.
 
 ### Known limitations (accounts)
 

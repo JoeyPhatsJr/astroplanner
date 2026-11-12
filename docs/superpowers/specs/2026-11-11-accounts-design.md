@@ -138,8 +138,8 @@ computer. At deployment, Supabase Auth replaces this (ROADMAP "prerequisites bef
 
 ## Amendments (2026-11-11, during the build)
 
-The plan (`docs/superpowers/plans/2026-11-11-accounts.md`, "Spec decisions made in this plan") corrected the points
-below; the text above now matches what shipped.
+The plan (`docs/superpowers/plans/2026-11-11-accounts.md`, "Spec decisions made in this plan") and the build's
+review rulings corrected the points below. Where the text above differs from them, these lines describe what shipped.
 
 - **Password hash, not "encrypted password".** A hash cannot be decrypted; Privacy says "a password hash (never the
   password itself)" and "Your account: your email and a password hash".
@@ -153,3 +153,25 @@ below; the text above now matches what shipped.
   are owned, and the delete dialog has a Password field because `POST /api/auth/delete` requires one.
 - **Delete stays disabled until DELETE is typed and a password is entered**, as in the approved mockup. This is the
   one exception to "buttons stay enabled until the request starts".
+- **Wordmark fold at 440 px (27.5 rem), not 360 px.** With the account slot filled ("Sign in" or the initial), the
+  header pill was clipped between 360 and 439 px, so the site header's wordmark folds to the logo mark below 440 px
+  (`SiteHeader.tsx`), keeping logo, slot and pill on one row.
+- **Sign-up throttle counts only refusals for an existing email (409),** per client address: 5 in 15 minutes lock that
+  address for 15 minutes. A rejected email or password (422) and a successful sign-up do not count. Existing emails are
+  what an address prober would try, and counting every sign-up would lock out the e2e suite (many accounts from
+  127.0.0.1).
+- **Account page against the mockup:** the "Delete account…" trigger is the solid danger button, as in the
+  mockup; but the page's buttons, cards and delete dialog use the app shell's shapes (8 px buttons, 12 px panels) rather
+  than the mockup's pills and 16 px cards; while a delete request is pending, the dialog cannot be dismissed (Escape,
+  the scrim and Cancel are ignored), so its result always shows.
+
+## Amendments (2026-11-12, final review)
+
+- **A failed account check is an error, not "signed out".** When `/api/auth/me` fails with anything but a 401
+  (backend down or restarting), AstroLog and the Coach (in place of the gate), the Account page and Tonight's session
+  plan panel show "Couldn’t check your account" with Try again; the header slot stays empty instead of offering "Sign in", and Add stays
+  disabled.
+- **Reset help** adds: "If sign-in was locked after wrong tries, wait 15 minutes or restart the backend." The command
+  cannot clear the running server's in-memory lockout.
+- **Deleting a place or equipment still in use** answers 409 without a count ("This place is used by saved plans or
+  nights (yours or another account’s)."), since the number would include other accounts' plans.
