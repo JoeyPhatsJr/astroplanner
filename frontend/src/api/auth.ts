@@ -96,8 +96,8 @@ export type AuthStatus = "loading" | "signedIn" | "signedOut" | "error";
 /**
  * "error": /me failed with something other than a 401 (backend down or reloading), so whether anyone is signed in
  * is unknown. Pages say so with a retry instead of asking to sign in, and nothing owned is requested. An answer
- * already in hand wins over a failed background refetch. A retry in flight stays "error", so the retry button
- * (and the focus on it) stays put until the answer arrives.
+ * already in hand wins over a failed background refetch. A retry in flight reads as "loading" (TanStack resets a
+ * query with no data to pending when it fetches again).
  */
 export function useAuthStatus(): AuthStatus {
   const q = useMe();
