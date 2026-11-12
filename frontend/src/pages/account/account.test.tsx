@@ -201,6 +201,44 @@ describe("account page", () => {
     expect(await within(screen.getByRole("banner")).findByRole("link", { name: "Sign in" })).toBeInTheDocument();
   });
 
+  it("too many wrong passwords and the server's rule messages show on their field", async () => {
+    const LOCKED = "That password isn’t right. Try again in a few minutes.";
+    let reply: Response = json({ detail: LOCKED }, 429);
+    handlers["POST /api/auth/password"] = () => reply;
+    handlers["POST /api/auth/delete"] = () => json({ detail: LOCKED }, 429);
+    renderApp("/account", seedSignedIn);
+
+    // Change password: a 429 (the shared per-account lock) is about the current password.
+    await userEvent.click(screen.getByRole("button", { name: "Change password" }));
+    const current = screen.getByLabelText("Current password");
+    const next = screen.getByLabelText("New password");
+    await userEvent.type(current, "a guess at the password");
+    await userEvent.type(next, "a new long password");
+    await userEvent.click(screen.getByRole("button", { name: "Save password" }));
+    expect(await screen.findByText(LOCKED)).toBeInTheDocument();
+    expect(current).toHaveAccessibleDescription(LOCKED);
+    expect(current).toHaveFocus();
+
+    // A 422 from the server's new-password rule lands on New password.
+    reply = json({ detail: "Use at most 1024 characters." }, 422);
+    await userEvent.click(screen.getByRole("button", { name: "Save password" }));
+    expect(await screen.findByText("Use at most 1024 characters.")).toBeInTheDocument();
+    expect(next).toHaveAccessibleDescription(/Use at most 1024 characters\./);
+    expect(next).toHaveFocus();
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    // Delete: the same lock shows on Password.
+    await userEvent.click(screen.getByRole("button", { name: "Delete account…" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Delete your account?" });
+    const password = within(dialog).getByLabelText("Password");
+    await userEvent.type(password, "another guess");
+    await userEvent.type(within(dialog).getByLabelText("Type DELETE to confirm"), "DELETE");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete account" }));
+    expect(await within(dialog).findByText(LOCKED)).toBeInTheDocument();
+    expect(password).toHaveAccessibleDescription(LOCKED);
+    expect(location()).toBe("/account");
+  });
+
   it("signed out /account goes to sign in", async () => {
     renderApp("/account", seedSignedOut);
     await waitFor(() => expect(location()).toBe("/login?next=%2Faccount"));

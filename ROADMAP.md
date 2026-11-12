@@ -103,8 +103,8 @@ for later phases' needs (e.g. image storage in Phase 2, FITS processing in Phase
 - Current target: Vercel (frontend + Python function) + Supabase (Postgres, Auth, Storage).
 - Prerequisites before going public: Supabase Auth JWT verification in FastAPI replacing the local
   `current_user` dependency (`owner_id` on user-owned rows and owner-only reads and writes exist since the
-  2026-11-11 accounts work), per-account places and equipment, email password reset, production CORS, secrets
-  in environment variables.
+  2026-11-11 accounts work), email password reset, production CORS, secrets in environment variables. To decide
+  before going public: whether saved places and equipment become per account (shared in the local build).
 - Variable Hunter prerequisite before going public: the four stars' VSX catalog facts are used under VSX's
   "personal, non-commercial use only" terms, so a public site needs AAVSO's permission for them (or drop them).
 - Sky image prerequisite before going public: DSS is copyrighted and free only for non-profit use, and its terms do not address

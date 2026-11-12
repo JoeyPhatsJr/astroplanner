@@ -22,7 +22,7 @@ Spec: `docs/superpowers/specs/2026-11-11-accounts-design.md` (amended to match w
 ```bash
 cd backend && .venv/bin/python -m pytest -q            # 512 passed, 12 skipped
 cd frontend && npx tsc -b --noEmit                     # clean
-cd frontend && npx vitest run                          # 382 passed (37 files)
+cd frontend && npx vitest run                          # 383 passed (37 files)
 cd frontend && npm run build                           # built
 cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 83 passed, 5 skipped (desktop + mobile)
 ```

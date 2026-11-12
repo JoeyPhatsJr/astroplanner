@@ -33,7 +33,7 @@ render outside the app shell. The app's footer links to How it works and Privacy
 library, final pictures and processing notes, and only their own Variable Hunter progress and "stacked" badges.
 Everything else works signed out: the homescreen, the site pages, Tonight's sky, score and targets, Explore,
 Variable Hunter star pages and Settings. The header's **Sign in** link (or your initial, with a menu for AstroLog,
-Account and Sign out) is in the top right of every page.
+Account and Sign out) is in the top right of every page except the sign-in pages themselves.
 
 - **Local accounts.** The backend stores accounts itself, in the same database as everything else, so sign-in works
   offline on your computer: an email, an Argon2id password hash (never the password) and sign-in sessions (the
@@ -202,9 +202,9 @@ Optional environment variables:
 
 ```bash
 cd backend && .venv/bin/python -m pytest -q        # 512 passed, 12 skipped (astronomy references, scoring, weather, sky images, API, AstroLog, Variable Hunter, Processing Coach, accounts and ownership, migrations)
-cd frontend && npm run typecheck && npm test       # 382 tests: routes, landing page and city box, site pages, accounts (sign in, gates, Account page), location matching, time formatting, header slicing, import merge, night strip, sheets, Variable Hunter, Processing Coach, components
+cd frontend && npm run typecheck && npm test       # 383 tests: routes, landing page and city box, site pages, accounts (sign in, gates, Account page), location matching, time formatting, header slicing, import merge, night strip, sheets, Variable Hunter, Processing Coach, components
 cd frontend && npm run build
-cd frontend && npx playwright install chromium && npm run test:e2e   # 88 end-to-end runs over desktop + mobile (83 pass, 5 skipped: phone-only or desktop-only checks): landing page, site pages, accounts, Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach
+cd frontend && npx playwright install chromium && npm run test:e2e   # 88 end-to-end runs over desktop + mobile (83 pass, 5 skipped: checks for one viewport only): landing page, site pages, accounts, Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach
 ```
 
 The end-to-end suite starts its own backend (fresh SQLite file and preview folder under
