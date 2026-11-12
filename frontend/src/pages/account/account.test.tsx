@@ -239,6 +239,37 @@ describe("account page", () => {
     expect(location()).toBe("/account");
   });
 
+  it("while deleting, the dialog cannot be dismissed, so a wrong password still shows", async () => {
+    let answer!: (r: Response) => void;
+    handlers["POST /api/auth/delete"] = () => new Promise<Response>((r) => (answer = r));
+    renderApp("/account", seedSignedIn);
+    await userEvent.click(screen.getByRole("button", { name: "Delete account…" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Delete your account?" });
+    const password = within(dialog).getByLabelText("Password");
+    await userEvent.type(password, "not my password");
+    await userEvent.type(within(dialog).getByLabelText("Type DELETE to confirm"), "DELETE");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete account" }));
+    expect(await within(dialog).findByRole("button", { name: "Deleting…" })).toBeInTheDocument();
+
+    // Escape, a press on the scrim and Cancel are all ignored while the request runs.
+    act(() => {
+      fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    });
+    fireEvent.click(document.querySelector(".overlay-scrim")!);
+    const cancel = within(dialog).getByRole("button", { name: "Cancel" });
+    expect(cancel).toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(cancel);
+    await new Promise((r) => setTimeout(r, 400)); // longer than the 260 ms close fallback
+    expect(screen.getByRole("alertdialog")).toBe(dialog);
+    expect(dialog).toHaveAttribute("data-state", "open");
+
+    answer(json({ detail: "That password isn’t right." }, 400));
+    expect(await within(dialog).findByText("That password isn’t right.")).toBeInTheDocument();
+    expect(password).toHaveAccessibleDescription("That password isn’t right.");
+    expect(within(dialog).getByRole("button", { name: "Cancel" })).not.toHaveAttribute("aria-disabled");
+    expect(location()).toBe("/account");
+  });
+
   it("signed out /account goes to sign in", async () => {
     renderApp("/account", seedSignedOut);
     await waitFor(() => expect(location()).toBe("/login?next=%2Faccount"));

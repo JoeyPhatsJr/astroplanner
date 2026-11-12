@@ -65,6 +65,8 @@ export function DeleteAccountDialog({ open, onDismiss, onClosed, onDeleted }: Pr
       open={open}
       variant="modal"
       role="alertdialog"
+      // While the request runs, the dialog stays: its answer (a wrong password, say) has to land somewhere.
+      dismissible={!del.isPending}
       labelledBy="delete-account-title"
       describedBy="delete-account-desc"
       onDismiss={onDismiss}
@@ -108,7 +110,14 @@ export function DeleteAccountDialog({ open, onDismiss, onClosed, onDeleted }: Pr
           inputRef={confirmRef}
         />
         <div className="acct-actions acct-dialog-actions">
-          <button type="button" className="btn acct-btn acct-btn-ghost" onClick={onDismiss}>
+          <button
+            type="button"
+            className="btn acct-btn acct-btn-ghost"
+            aria-disabled={del.isPending || undefined}
+            onClick={() => {
+              if (!del.isPending) onDismiss();
+            }}
+          >
             Cancel
           </button>
           <button type="submit" className="btn acct-btn acct-btn-danger" disabled={!ready} aria-disabled={del.isPending || undefined}>

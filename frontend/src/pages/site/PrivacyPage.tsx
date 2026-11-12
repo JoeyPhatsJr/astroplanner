@@ -74,7 +74,7 @@ export function PrivacyPage() {
           An account stores your email, a password hash (never the password itself) and your sign-in sessions, in the same local database
           as everything else. Deleting your account on the <Link to="/account">Account page</Link> removes it, its sign-in sessions, your
           session plans and nights, your AstroLog library, your processing notes and their previews. Your original files are never
-          touched.
+          touched. Saved places and equipment are shared by everyone using the app, so they stay; remove them in Settings.
         </p>
         <h2 className="landing-h2 site-h2">Deleting</h2>
         <p>

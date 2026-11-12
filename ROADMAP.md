@@ -157,8 +157,9 @@ are where later phases attach; each "later" item is a note, not code.
 
 **Done in Phase 2:** Alembic migrations with a baseline of the Phase 1 schema (an existing Phase 1 database is stamped, then upgraded).
 
-**Planned before any public deployment:** an `owner_id` on user-owned rows and JWT
-verification in FastAPI (Supabase Auth). Until then the app is single-user and local.
+**Done with accounts (2026-11-11):** local accounts, an `owner_id` on user-owned rows (plans, nights, AstroLog,
+Processing Coach) and owner-only access through one `current_user` dependency. **At deployment:** Supabase Auth JWT
+verification replaces `current_user` (see "Deployment" and the 2026-11-11 decision rows).
 
 ## Decision log
 

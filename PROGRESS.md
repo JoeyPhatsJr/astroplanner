@@ -22,9 +22,11 @@ Spec: `docs/superpowers/specs/2026-11-11-accounts-design.md` (amended to match w
 ```bash
 cd backend && .venv/bin/python -m pytest -q            # 512 passed, 12 skipped
 cd frontend && npx tsc -b --noEmit                     # clean
-cd frontend && npx vitest run                          # 383 passed (37 files)
+cd frontend && npx vitest run                          # 385 passed (37 files; after review fix round 1)
 cd frontend && npm run build                           # built
 cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 83 passed, 5 skipped (desktop + mobile)
+# review fix round 1 (shapes, delete dialog not dismissable while pending, Privacy places sentence), re-run:
+cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test e2e/accounts.spec.ts e2e/site.spec.ts   # 42 passed, 2 skipped
 ```
 
 Design-skills check of the Account page, the change-password form, the delete dialog and the Privacy section: live
@@ -52,8 +54,8 @@ browser pass at 1440, 390, 360 and 320 px, night vision on and off, plus reduced
 
 ### Exact next step (accounts)
 
-The developer reviews the accounts branch (`login-design`), then PR and merge. Deployment with Supabase Auth comes
-later (ROADMAP "Deployment").
+Ask the developer to review the accounts branch (`login-design`) and whether to merge it (PR to `main`).
+Deployment with Supabase Auth comes later (ROADMAP "Deployment").
 
 ## Previous work: site pages (branch `site-pages-design`, merged as PR #8, merge commit 09d51e4)
 

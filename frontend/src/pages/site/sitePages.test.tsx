@@ -79,7 +79,7 @@ describe("Privacy", () => {
     const section = screen.getByText(/^An account stores your email/);
     expect(within(section).getByRole("link", { name: "Account page" })).toHaveAttribute("href", "/account");
     expect(section).toHaveTextContent(
-        "An account stores your email, a password hash (never the password itself) and your sign-in sessions, in the same local database as everything else. Deleting your account on the Account page removes it, its sign-in sessions, your session plans and nights, your AstroLog library, your processing notes and their previews. Your original files are never touched.",
+        "An account stores your email, a password hash (never the password itself) and your sign-in sessions, in the same local database as everything else. Deleting your account on the Account page removes it, its sign-in sessions, your session plans and nights, your AstroLog library, your processing notes and their previews. Your original files are never touched. Saved places and equipment are shared by everyone using the app, so they stay; remove them in Settings.",
     );
     expect(screen.getAllByText(/password hash/).length).toBeGreaterThanOrEqual(2);
     // The section comes after "Pictures and stacks".

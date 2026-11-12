@@ -33,6 +33,11 @@ type Props = {
   variant: "drawer" | "modal";
   /** "alertdialog" for a confirmation that interrupts, such as deleting an account. */
   role?: "dialog" | "alertdialog";
+  /**
+   * False while the dialog must stay put (a request it started is still running): Escape and a press on the
+   * scrim do nothing. Defaults to true.
+   */
+  dismissible?: boolean;
   labelledBy: string;
   describedBy?: string;
   children: ReactNode;
@@ -45,7 +50,7 @@ type Props = {
  * and, later, a drag gesture can style them directly. data-state is "open" or "closing";
  * absent while closed. Both elements share one timing so they move as a single object.
  */
-export function Overlay({ open, onClosed, onDismiss, onReopen, variant, role, labelledBy, describedBy, children, panelRef, panelClassName = "" }: Props) {
+export function Overlay({ open, onClosed, onDismiss, onReopen, variant, role, dismissible = true, labelledBy, describedBy, children, panelRef, panelClassName = "" }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const panelEl = useRef<HTMLDivElement | null>(null);
   const timer = useRef<number | null>(null);
@@ -143,14 +148,14 @@ export function Overlay({ open, onClosed, onDismiss, onReopen, variant, role, la
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
       onCancel={(e) => {
-        e.preventDefault();
-        dismiss();
+        e.preventDefault(); // the native close would skip the exit animation
+        if (dismissible) dismiss();
       }}
       onClick={(e) => {
         // Only a click that lands on the scrim itself dismisses. Select and date popups (and a modal
         // select's full-screen backdrop) portal into this dialog beside the panel, and a text selection
         // dragged out of the panel fires its click on the dialog; neither is a scrim click.
-        if (e.target === scrimEl.current) dismiss();
+        if (e.target === scrimEl.current && dismissible) dismiss();
       }}
       onTransitionEnd={(e) => {
         if (e.target === panelEl.current && ref.current?.dataset.state === "closing") finish();

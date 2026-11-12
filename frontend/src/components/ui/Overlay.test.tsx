@@ -116,6 +116,21 @@ describe("Overlay", () => {
     expect(dialog(container).dataset.state).toBe("closing");
   });
 
+  it("not dismissible: Escape and the scrim do nothing, and the native close is still prevented", () => {
+    const onDismiss = vi.fn();
+    const { container } = render(
+      <Overlay open onClosed={() => {}} onDismiss={onDismiss} variant="modal" dismissible={false} labelledBy="t">
+        <h2 id="t">Busy</h2>
+      </Overlay>,
+    );
+    const ev = new Event("cancel", { cancelable: true });
+    act(() => void dialog(container).dispatchEvent(ev));
+    expect(ev.defaultPrevented).toBe(true);
+    fireEvent.click(container.querySelector(".overlay-scrim")!);
+    expect(dialog(container).dataset.state).toBe("open");
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
   it("a tap on a select's own full-screen backdrop beside the panel does not dismiss it", () => {
     const onDismiss = vi.fn();
     const { container } = render(ui(true, () => {}, onDismiss));

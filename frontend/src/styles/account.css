@@ -441,9 +441,9 @@
 }
 
 /*
- * The Account page (/account) and its delete dialog. Cards as the mockup: 16 px, panel-2 on the page.
- * Danger uses the warn token (there is no separate "bad" token, and night vision turns every token red), so the
- * delete box also carries a heavier edge and the final button is the only solid one.
+ * The Account page (/account) and its delete dialog, in the app shell's shapes: 12 px cards and dialog (as `.panel`),
+ * 8 px buttons (as `.btn`), 44 px targets. Danger uses the warn token (there is no separate "bad" token, and night
+ * vision turns every token red), so the delete box also carries a warn edge.
  */
 .acct {
   display: grid;
@@ -452,7 +452,7 @@
 }
 .acct-box {
   padding: 1.25rem 1.375rem;
-  border-radius: 16px;
+  border-radius: 12px;
   border: 1px solid var(--color-line-soft);
   background: var(--color-panel-2);
 }
@@ -520,11 +520,10 @@
 .acct-link:active {
   opacity: 0.65;
 }
-.acct-status {
+/* The status region stays mounted (and in the accessibility tree) so "Password changed…" is announced; only its
+   message takes space. */
+.acct-status > * {
   margin-top: 0.75rem;
-}
-.acct-status:empty {
-  display: none;
 }
 .acct-err {
   margin-top: 0.75rem;
@@ -533,18 +532,14 @@
   margin-top: 0.25rem;
 }
 
-/* Buttons: pills, 44 px tall, as the approved mockup. */
+/* Buttons: the shell's `.btn` shape (8 px), 44 px tall. */
 .acct-btn {
   min-height: 2.75rem;
   padding: 0 1.25rem;
-  border-radius: 999px;
   font-size: 0.9375rem;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-}
-.acct-btn:focus-visible {
-  border-radius: 999px;
 }
 .acct-btn-primary {
   background: var(--color-ink);
@@ -554,12 +549,6 @@
 .acct-btn-ghost {
   background: transparent;
   border-color: var(--color-line);
-}
-/* The page's "Delete account…" only opens the dialog: outlined. The dialog's "Delete account" is the act: solid. */
-.acct-btn-danger-quiet {
-  background: transparent;
-  color: var(--color-warn);
-  border-color: color-mix(in srgb, var(--color-warn) 55%, transparent);
 }
 .acct-btn-danger {
   background: var(--color-warn);
@@ -578,7 +567,7 @@
 
 .acct-dialog {
   padding: 1.5rem;
-  border-radius: 20px;
+  border-radius: 12px;
   border: 1px solid var(--color-line);
   background: var(--color-panel-2);
   color: var(--color-ink);
@@ -624,17 +613,12 @@
     filter: brightness(0.92);
     border-color: transparent;
   }
-  .acct-btn-danger-quiet:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-warn) 8%, transparent);
-    border-color: var(--color-warn);
-  }
 }
 @media (prefers-contrast: more) {
   .acct-box {
     border-color: var(--color-line);
   }
-  .acct-box-danger,
-  .acct-btn-danger-quiet {
+  .acct-box-danger {
     border-color: var(--color-warn);
   }
   .acct-btn-ghost,

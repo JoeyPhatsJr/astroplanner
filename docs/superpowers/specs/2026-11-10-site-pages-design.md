@@ -69,6 +69,7 @@ Every statement must be traceable. Sources at the time of writing:
 | An account stores the email, an Argon2id password hash (never the password) and sign-in sessions (only a SHA-256 hash of each session token) | `backend/app/accounts/models.py`, `backend/app/accounts/core.py` (added 2026-11-11) |
 | Accounts live in the same local database as everything else | `users` and `user_sessions` tables, migration `0006_accounts` (added 2026-11-11) |
 | Deleting an account removes it, its sign-in sessions, its session plans and nights, its AstroLog library, its processing notes and their preview files; original files are never touched | `backend/app/accounts/deletion.py`, `POST /api/auth/delete` in `backend/app/accounts/routes.py` (added 2026-11-11) |
+| Saved places and equipment are shared by everyone using the app, so deleting an account leaves them; they are removed in Settings | `/api/locations` and `/api/equipment` have no owner (accounts spec, Non-goals); `deletion.py` does not touch them (added 2026-11-11) |
 
 If any of these change before the build, the page text changes with them.
 

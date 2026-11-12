@@ -202,7 +202,7 @@ Optional environment variables:
 
 ```bash
 cd backend && .venv/bin/python -m pytest -q        # 512 passed, 12 skipped (astronomy references, scoring, weather, sky images, API, AstroLog, Variable Hunter, Processing Coach, accounts and ownership, migrations)
-cd frontend && npm run typecheck && npm test       # 383 tests: routes, landing page and city box, site pages, accounts (sign in, gates, Account page), location matching, time formatting, header slicing, import merge, night strip, sheets, Variable Hunter, Processing Coach, components
+cd frontend && npm run typecheck && npm test       # 385 tests: routes, landing page and city box, site pages, accounts (sign in, gates, Account page), location matching, time formatting, header slicing, import merge, night strip, sheets, Variable Hunter, Processing Coach, components
 cd frontend && npm run build
 cd frontend && npx playwright install chromium && npm run test:e2e   # 88 end-to-end runs over desktop + mobile (83 pass, 5 skipped: checks for one viewport only): landing page, site pages, accounts, Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach
 ```

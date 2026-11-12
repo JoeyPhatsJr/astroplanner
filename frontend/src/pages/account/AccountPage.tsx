@@ -141,7 +141,7 @@ export function AccountPage() {
             Delete account
           </h2>
           <p className="acct-p">Removes your account and everything stored with it. This can’t be undone.</p>
-          <button ref={deleteButton} type="button" className="btn acct-btn acct-btn-danger-quiet" onClick={() => setDialog("open")}>
+          <button ref={deleteButton} type="button" className="btn acct-btn acct-btn-danger" onClick={() => setDialog("open")}>
             Delete account…
           </button>
         </section>
