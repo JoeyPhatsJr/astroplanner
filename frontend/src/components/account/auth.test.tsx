@@ -85,6 +85,26 @@ describe("returnTo", () => {
     expect(safeNext("/signup")).toBeNull();
     expect(safeNext("/Login")).toBeNull();
     expect(safeNext("javascript:alert(1)")).toBeNull();
+    // Dot segments that normalise to a protocol-relative "//host".
+    for (const bad of ["/.//evil.com", "/%2e//evil.com", "/a/..//evil.com"]) expect(safeNext(bad), bad).toBeNull();
+    // What is followed is the normalised path, not the raw string.
+    expect(safeNext("/astrolog/./import")).toBe("/astrolog/import");
+  });
+
+  it("the password toggle says what it will do and shows the password", async () => {
+    renderApp("/login", seedSignedOut);
+    const password = screen.getByLabelText("Password");
+    const toggle = screen.getByRole("button", { name: "Show password" });
+    expect(toggle).toHaveTextContent(/^Show password$/);
+    expect(toggle).not.toHaveAttribute("aria-pressed");
+    expect(toggle).toHaveAttribute("aria-controls", password.id);
+    expect(password).toHaveAttribute("type", "password");
+    await userEvent.click(toggle);
+    expect(password).toHaveAttribute("type", "text");
+    expect(toggle).toHaveAccessibleName("Hide password");
+    await userEvent.click(toggle);
+    expect(password).toHaveAttribute("type", "password");
+    expect(toggle).toHaveAccessibleName("Show password");
   });
 });
 

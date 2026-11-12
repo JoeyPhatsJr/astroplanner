@@ -49,9 +49,9 @@ export function AuthField({ id, label, kind, autoComplete, value, onChange, erro
           className={`auth-input ${password ? "auth-input-toggle" : ""}`}
         />
         {password && (
-          // One name and a pressed state, so a screen reader hears "Show password, toggle button, pressed".
-          <button type="button" className="auth-show" aria-pressed={shown} aria-controls={id} onClick={() => setShown((s) => !s)}>
-            Show<span className="sr-only"> password</span>
+          // The label says what a press will do, so it carries the state itself (no aria-pressed).
+          <button type="button" className="auth-show" aria-controls={id} onClick={() => setShown((s) => !s)}>
+            {shown ? "Hide" : "Show"} <span className="sr-only">password</span>
           </button>
         )}
       </div>

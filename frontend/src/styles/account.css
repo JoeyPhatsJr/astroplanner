@@ -138,11 +138,6 @@
   transition: opacity var(--dur-press) var(--ease-out), color var(--dur-press) var(--ease-out);
   -webkit-tap-highlight-color: transparent;
 }
-.auth-show[aria-pressed="true"] {
-  color: var(--color-ice);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 .auth-show:active {
   opacity: 0.65;
 }

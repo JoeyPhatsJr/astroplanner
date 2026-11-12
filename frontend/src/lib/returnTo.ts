@@ -14,9 +14,12 @@ export function safeNext(raw: string | null): string | null {
     return null;
   }
   if (url.origin !== "https://astroplanner.invalid") return null;
+  // Dot segments can normalise to "//host" ("/.//evil.com", "/%2e//evil.com", "/a/..//evil.com").
+  if (url.pathname.startsWith("//")) return null;
   const path = url.pathname.toLowerCase(); // routes match without regard to case
   if (path.startsWith("/login") || path.startsWith("/signup")) return null;
-  return raw;
+  // Follow the normalised form, never the raw string.
+  return url.pathname + url.search + url.hash;
 }
 
 export const loginHref = (path: string) => `/login?next=${encodeURIComponent(path)}`;
