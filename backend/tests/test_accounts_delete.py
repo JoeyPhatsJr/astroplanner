@@ -113,6 +113,8 @@ def test_delete_removes_only_own_rows_and_files(two_users, tmp_path):
     assert all(n == 0 for n in counts(bob, a_id).values()), counts(bob, a_id)
     assert stored_files(root) == before_files - set(a_urls)  # Alice's keys gone, every other file kept
     assert counts(bob, b_id) == b_before
+    with bob.app.state.db.session() as s:  # Alice's plan targets went too (the join above can't see orphans)
+        assert s.scalar(select(func.count()).select_from(SessionTarget)) == b_before["session_targets"]
     for key, url in b_urls.items():
         got = bob.get(url)
         assert got.status_code == 200 and got.headers["content-type"] == "image/jpeg", (key, url, got.text)
