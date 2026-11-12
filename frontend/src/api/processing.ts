@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuthStatus } from "./auth";
 import { ApiError, BASE, detailMessage, request } from "./client";
 import { qk } from "./hooks";
 
@@ -225,10 +226,11 @@ export function useStartRun() {
 }
 
 export function useRun(runId: string | undefined) {
+  const signedIn = useAuthStatus() === "signedIn"; // owned: never requested signed out
   return useQuery({
     queryKey: qk.processingRun(runId ?? ""),
     queryFn: () => processingApi.run(runId as string),
-    enabled: !!runId,
+    enabled: signedIn && !!runId,
   });
 }
 

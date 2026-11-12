@@ -5,12 +5,14 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../App";
 import type { TargetPage } from "../../api/astrolog";
+import { seedSignedIn, seedSignedOut } from "../../test/auth";
 import { ConfirmProvider } from "../ui/ConfirmDialog";
 
 const mocks = vi.hoisted(() => ({
   observer: { lat: 40, lon: -75, elevation_m: 0, date: "2026-11-02", timezone: "America/New_York" } as unknown,
   equipment: { id: "seestar-s30", name: "Seestar S30" } as unknown,
   addTarget: vi.fn(),
+  auth: "signedIn" as "signedIn" | "signedOut" | "loading",
 }));
 
 vi.mock("../../api/hooks", async (orig) => {
@@ -22,7 +24,14 @@ vi.mock("../../state/prefs", () => ({
   usePrefs: () => ({ prefs: { minAltitudeDeg: 30, darkness: "astronomical", nightDate: "2026-11-02", activeSessionId: null }, update: vi.fn() }),
 }));
 vi.mock("../../state/activeSession", () => ({
-  useActiveSession: () => ({ inSession: () => false, isAdding: false, error: null, addTarget: mocks.addTarget }),
+  useActiveSession: () => ({
+    auth: mocks.auth,
+    signedIn: mocks.auth === "signedIn",
+    inSession: () => false,
+    isAdding: false,
+    error: null,
+    addTarget: mocks.addTarget,
+  }),
 }));
 
 import { Row as ExploreRow } from "../../pages/ExplorePage";
@@ -70,6 +79,7 @@ beforeEach(() => {
   calls = [];
   routes = {};
   mocks.addTarget.mockReset();
+  mocks.auth = "signedIn";
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     calls.push({ url, init });
     const path = url.split("?")[0];
@@ -85,6 +95,8 @@ afterEach(() => {
 
 function renderAt(path: string, ui: React.ReactNode, routePath: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  if (mocks.auth === "signedOut") seedSignedOut(qc);
+  else seedSignedIn(qc);
   return render(
     <QueryClientProvider client={qc}>
       <ConfirmProvider>
@@ -125,6 +137,15 @@ describe("Variable Hunter list: zero nights", () => {
     const list = await screen.findByRole("list", { name: "Variable stars" });
     expect(within(list).queryByText("Your nights: 0")).toBeNull();
     expect(within(list).getAllByText(/Your nights: \d/)).toHaveLength(3);
+  });
+
+  it("signed out (null counts) shows no nights line at all", async () => {
+    routes["GET /api/variables"] = () => ({ stars: listBody.stars.map((s) => ({ ...s, nights_count: null })) });
+    for (const sl of SLUGS) routes[`GET /api/variables/${sl}/visibility`] = () => visBody();
+    renderAt("/variables", <VariableHunterPage />, "/variables");
+    const list = await screen.findByRole("list", { name: "Variable stars" });
+    expect(within(list).getAllByRole("link")).toHaveLength(4);
+    expect(within(list).queryByText(/Your nights/)).toBeNull();
   });
 });
 
@@ -235,7 +256,7 @@ describe("Star page", () => {
 
   it("adds the star to the plan with its best window", async () => {
     open();
-    const btn = await screen.findByRole("button", { name: "Add to tonight's plan" });
+    const btn = await screen.findByRole("button", { name: "Add to tonight’s plan" });
     await waitFor(() => expect(btn).toBeEnabled());
     await userEvent.click(btn);
     expect(mocks.addTarget).toHaveBeenCalledWith("var:ss-cyg", expect.objectContaining({ start_utc: "2026-11-03T00:30:00Z" }));
@@ -244,16 +265,39 @@ describe("Star page", () => {
   it("disables the add button with a reason when the star is not observable", async () => {
     routes["GET /api/variables/ss-cyg/visibility"] = () => visBody(false);
     open();
-    const btn = await screen.findByRole("button", { name: "Add to tonight's plan" });
+    const btn = await screen.findByRole("button", { name: "Add to tonight’s plan" });
     await waitFor(() => expect(btn).toBeDisabled());
     expect(screen.getAllByText("Below the horizon all night").length).toBeGreaterThan(0);
+  });
+
+  it("signed out: a sign-in link replaces Add, and missions show no personal progress", async () => {
+    mocks.auth = "signedOut";
+    routes["GET /api/variables/ss-cyg"] = () => starBody({ nights: [], missions: [{ ...mission("weekly", "Weekly watch"), progress: null }] });
+    open();
+    const link = await screen.findByRole("link", { name: "Sign in to add to session" });
+    expect(link).toHaveAttribute("href", "/login?next=%2Fvariables%2Fss-cyg");
+    expect(link.className).toContain("btn-primary");
+    expect(screen.queryByRole("button", { name: "Add to tonight’s plan" })).toBeNull();
+    const card = screen.getByRole("article", { name: "Mission: Weekly watch" });
+    expect(within(card).queryByText(/week streak/)).toBeNull();
+    expect(screen.queryByText("Your nights")).toBeNull();
+    expect(mocks.addTarget).not.toHaveBeenCalled();
+  });
+
+  it("signed out: a star that can't be planned keeps its disabled Add and reason", async () => {
+    mocks.auth = "signedOut";
+    routes["GET /api/variables/ss-cyg/visibility"] = () => visBody(false);
+    open();
+    const btn = await screen.findByRole("button", { name: "Add to tonight’s plan" });
+    await waitFor(() => expect(btn).toBeDisabled());
+    expect(screen.queryByRole("link", { name: "Sign in to add to session" })).toBeNull();
   });
 
   it("tells the user to set a location when there is none", async () => {
     mocks.observer = null;
     try {
       open();
-      const btn = await screen.findByRole("button", { name: "Add to tonight's plan" });
+      const btn = await screen.findByRole("button", { name: "Add to tonight’s plan" });
       expect(btn).toBeDisabled();
       expect(screen.getAllByText(/Set a location in/).length).toBeGreaterThan(0);
     } finally {

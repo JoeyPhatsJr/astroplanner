@@ -1,13 +1,15 @@
-import { ListOrdered } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ListOrdered, LogIn } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
 import { useCurrentLocation, useNightDate } from "../../api/hooks";
+import { loginHref } from "../../lib/returnTo";
 import { nightLabel } from "../../lib/time";
 import { useActiveSession } from "../../state/activeSession";
 import { ErrorState, Notice, Skeleton } from "../ui/States";
 import { SessionTargetList } from "./SessionTargetList";
 
 export function SessionPlanPanel() {
-  const { session, sessionsQuery, mutations: m, error } = useActiveSession();
+  const { auth, session, sessionsQuery, mutations: m, error } = useActiveSession();
+  const loc = useLocation();
   const { nightDate } = useNightDate();
   const { location } = useCurrentLocation();
   const busy = m.reorder.isPending || m.removeTarget.isPending;
@@ -18,14 +20,26 @@ export function SessionPlanPanel() {
         <h2 id="plan-heading" className="font-semibold text-xl">
           Session plan
         </h2>
-        <Link to={session ? `/astrolog/nights/${session.id}` : "/astrolog"} className="text-sm text-ice hover:underline">
-          {session ? "Open session" : "All sessions"}
-        </Link>
+        {auth === "signedIn" && (
+          <Link to={session ? `/astrolog/nights/${session.id}` : "/astrolog"} className="text-sm text-ice hover:underline">
+            {session ? "Open session" : "All sessions"}
+          </Link>
+        )}
       </div>
-      {error && <Notice tone="warn">{error}</Notice>}
-      {sessionsQuery.isLoading && <Skeleton className="h-24 w-full" />}
-      {sessionsQuery.error && <ErrorState error={sessionsQuery.error} onRetry={() => sessionsQuery.refetch()} />}
-      {!sessionsQuery.isLoading && !sessionsQuery.error && (
+      {auth === "loading" && <Skeleton className="h-24 w-full" />}
+      {auth === "signedOut" && (
+        <div className="flex flex-col items-start gap-3 text-sm text-ink-2">
+          <p>Session plans are saved with your account.</p>
+          <Link to={loginHref(loc.pathname + loc.search)} className="btn btn-tinted min-h-11 px-4">
+            <LogIn className="size-4" aria-hidden />
+            Sign in to plan
+          </Link>
+        </div>
+      )}
+      {auth === "signedIn" && error && <Notice tone="warn">{error}</Notice>}
+      {auth === "signedIn" && sessionsQuery.isLoading && <Skeleton className="h-24 w-full" />}
+      {auth === "signedIn" && sessionsQuery.error && <ErrorState error={sessionsQuery.error} onRetry={() => sessionsQuery.refetch()} />}
+      {auth === "signedIn" && !sessionsQuery.isLoading && !sessionsQuery.error && (
         <>
           {session ? (
             <>

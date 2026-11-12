@@ -1,6 +1,7 @@
 import { BookOpen, ChevronsLeft, ChevronsRight, Moon, Settings, Sparkles, Telescope } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
+import { useAuthStatus } from "../../api/auth";
 import { AccountSlot } from "../account/AccountSlot";
 import { HeaderControls } from "./HeaderControls";
 import { Logo } from "./Logo";
@@ -9,7 +10,7 @@ const NAV = [
   { to: "/tonight", label: "Tonight", icon: Moon, end: true },
   { to: "/explore", label: "Explore", icon: Telescope },
   { to: "/variables", label: "Variable Hunter", icon: Sparkles },
-  { to: "/astrolog", label: "AstroLog", icon: BookOpen },
+  { to: "/astrolog", label: "AstroLog", icon: BookOpen, needsAccount: true },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -23,6 +24,7 @@ function readCollapsed() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
+  const signedOut = useAuthStatus() === "signedOut";
   const toggle = () => {
     setCollapsed((c) => {
       try {
@@ -58,12 +60,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </Link>
         <nav className="flex flex-1 flex-col gap-1 px-3">
-          {NAV.map(({ to, label, icon: Icon, end }) => (
+          {NAV.map(({ to, label, icon: Icon, end, needsAccount }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
-              title={collapsed ? label : undefined}
+              title={collapsed ? (needsAccount && signedOut ? `${label} (needs an account)` : label) : undefined}
               className={({ isActive }) =>
                 `group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   collapsed ? "justify-center px-0" : ""
@@ -74,6 +76,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <>
                   <Icon className={`size-[18px] shrink-0 ${isActive ? "text-ice" : ""}`} aria-hidden />
                   <span className={collapsed ? "sr-only" : ""}>{label}</span>
+                  {needsAccount && signedOut && (
+                    <>
+                      {!collapsed && (
+                        <span aria-hidden className="ml-auto text-micro font-medium text-muted">
+                          Account
+                        </span>
+                      )}
+                      {" "}
+                      <span className="sr-only">needs an account</span>
+                    </>
+                  )}
                 </>
               )}
             </NavLink>
@@ -121,7 +134,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         aria-label="Primary"
         className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-line-soft md:hidden bottom-nav"
       >
-        {NAV.map(({ to, label, icon: Icon, end }) => (
+        {NAV.map(({ to, label, icon: Icon, end, needsAccount }) => (
           <NavLink
             key={to}
             to={to}
@@ -134,6 +147,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               <>
                 <Icon className={`size-5 ${isActive ? "text-ice" : ""}`} aria-hidden />
                 <span>{label === "Variable Hunter" ? "Variables" : label}</span>
+                {needsAccount && signedOut && (
+                  <>
+                    {" "}
+                    <span className="sr-only">needs an account</span>
+                  </>
+                )}
               </>
             )}
           </NavLink>

@@ -58,7 +58,7 @@ async function checkSsCygPage(page: Page) {
   await expect(page.locator("svg[role='img'], canvas")).toHaveCount(0);
   await expect(page.getByText("Magnitude (V)")).toHaveCount(0);
 
-  const add = page.getByRole("button", { name: "Add to tonight's plan" });
+  const add = page.getByRole("button", { name: "Add to tonight’s plan" });
   await expect(add).toBeVisible();
   if (await add.isDisabled()) {
     // SS Cyg may be below the horizon all night at some times of year: the reason must be stated
@@ -66,7 +66,7 @@ async function checkSsCygPage(page: Page) {
     return;
   }
   await add.click();
-  await expect(page.getByRole("button", { name: "In tonight's plan" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "In tonight’s plan" })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("button", { name: "In tonight's plan" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "In tonight’s plan" })).toBeVisible();
 }

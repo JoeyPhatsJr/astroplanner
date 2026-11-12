@@ -22,7 +22,7 @@ vi.mock("../api/hooks", () => ({
   useRecommendations: () => ({ ...idle, data: { observable_count: 0, results: [] } }),
 }));
 vi.mock("../state/activeSession", () => ({
-  useActiveSession: () => ({ addTarget: () => {}, inSession: () => false, isAdding: false, error: null }),
+  useActiveSession: () => ({ auth: "signedIn", signedIn: true, addTarget: () => {}, inSession: () => false, isAdding: false, error: null }),
 }));
 vi.mock("../components/session/SessionPlanPanel", () => ({ SessionPlanPanel: () => null }));
 

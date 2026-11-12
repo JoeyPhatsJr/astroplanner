@@ -28,7 +28,8 @@ export interface VariableListItem extends VariableStarView {
   slug: string;
   type_label: string;
   vsx: VsxFacts;
-  nights_count: number;
+  /** The signed-in user's own nights on this star; null signed out (progress is personal). */
+  nights_count: number | null;
 }
 
 export interface VariablesResponse {
@@ -39,7 +40,8 @@ export interface Mission {
   key: string;
   title: string;
   description: string;
-  progress: number;
+  /** The signed-in user's own progress; null signed out. */
+  progress: number | null;
   goal: number | null;
   unit: string;
 }
