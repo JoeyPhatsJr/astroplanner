@@ -21,8 +21,8 @@ from .astrolog_fixtures import siril_stack_header
 from .conftest import client_for
 from .test_astrolog_import import PREVIEW, commit, fits_item, make_location, ngc_subs, preview, sub
 
-OWNED_PREFIXES = ("/api/sessions", "/api/astrolog")
-OPEN_ROUTES = {"/api/astrolog/history"}
+OWNED_PREFIXES = ("/api/sessions", "/api/astrolog", "/api/processing")
+OPEN_ROUTES = {("GET", "/api/astrolog/history")}  # (method, path template): open although under an owned prefix
 SIGN_IN = {"detail": "Sign in to continue."}
 LIB = "/api/astrolog/library"
 SUBS = ngc_subs([11, 12, 13])
@@ -45,10 +45,11 @@ def owned_routes(app) -> list[tuple[str, str]]:
     ``iter_route_contexts`` (what FastAPI's own OpenAPI builder uses); a plain loop would find no routes at all.
     """
     out = []
+    # iter_route_contexts tracks FastAPI internals (written against FastAPI 0.162); recheck it on an upgrade.
     for r in iter_route_contexts(app.routes):
-        if isinstance(r.original_route, APIRoute) and r.path.startswith(OWNED_PREFIXES) and r.path not in OPEN_ROUTES:
+        if isinstance(r.original_route, APIRoute) and r.path.startswith(OWNED_PREFIXES):
             path = re.sub(r"\{[^}]+\}", "x", r.path)
-            out += [(m, path) for m in sorted(r.methods - {"HEAD", "OPTIONS"})]
+            out += [(m, path) for m in sorted(r.methods - {"HEAD", "OPTIONS"}) if (m, r.path) not in OPEN_ROUTES]
     return out
 
 
@@ -63,7 +64,13 @@ def lib_rows(c) -> list[dict]:
 def test_owned_routes_require_sign_in(make_app, clear_provider):
     app = make_app(clear_provider)
     routes = owned_routes(app)
-    assert len(routes) >= 20, routes
+    # 9 session + 11 AstroLog (history is open) + 8 processing routes; the named ones pin the image and script URLs.
+    assert len(routes) >= 28, routes
+    for known in (("GET", "/api/astrolog/images/x/thumb"), ("PUT", "/api/sessions/x/targets/order"),
+                  ("GET", "/api/processing/runs/x/images/x"), ("GET", "/api/processing/runs/x/scripts/x"),
+                  ("POST", "/api/processing/runs")):
+        assert known in routes, known
+    assert ("GET", "/api/astrolog/history") not in routes
     with client_for(app, None) as anon:
         for method, path in routes:
             r = anon.request(method, path)

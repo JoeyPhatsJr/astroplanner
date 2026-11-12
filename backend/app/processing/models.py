@@ -49,3 +49,15 @@ class ProcessingRun(Base):
     comparison: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[str] = mapped_column(String, default=_utcnow)
     updated_at: Mapped[str] = mapped_column(String, default=_utcnow, onupdate=_utcnow)
+
+
+COMPARISON_KEY_FIELDS = ("preview_key", "thumb_key")
+
+
+def comparison_keys(run: ProcessingRun) -> set[str]:
+    """Every stored preview and thumbnail key listed in ``run.comparison`` (stacks and the Seestar picture).
+
+    The one source for both the keys the image route may serve and the files deleting the run must remove.
+    """
+    return {e[k] for e in (run.comparison or {}).values() if isinstance(e, dict)
+            for k in COMPARISON_KEY_FIELDS if isinstance(e.get(k), str) and e[k]}

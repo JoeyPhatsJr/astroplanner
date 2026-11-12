@@ -1,4 +1,8 @@
-"""Variable-star HTTP routes (thin). Visibility reuses the DSO helpers; no score is computed."""
+"""Variable-star HTTP routes (thin). Visibility reuses the DSO helpers; no score is computed.
+
+The catalog is open. Nights and mission progress are personal: they come only from the signed-in user's own
+AstroLog, and signed out there are none (``None``, never another user's count, and never a 401).
+"""
 
 from __future__ import annotations
 
@@ -9,6 +13,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from app.accounts.deps import optional_user
+from app.accounts.models import User
 from app.api import DEFAULT_MIN_ALT_DEG, Darkness, Observer, _now, observer_params
 from app.astronomy import iso_utc, night_summary, sky_context
 from app.db import EquipmentProfile
@@ -52,18 +58,23 @@ def _is_s30_preset(request: Request, equipment_id: str | None) -> bool:
         return bool(eq and eq.is_preset and eq.id == "seestar-s30")
 
 
-def _mission_list(star: dict[str, Any], nights: list[date], today: date) -> list[dict[str, Any]]:
+def _mission_list(star: dict[str, Any], nights: list[date] | None, today: date) -> list[dict[str, Any]]:
+    """The star's missions; ``progress`` is None when there is no signed-in user (``nights is None``)."""
     out = []
     for key in star["missions"]:
         title, desc, goal, unit = MISSION_TEXT[key]
-        progress = missions.weekly_streak(nights, today) if key == "weekly" else missions.monthly_count(nights, today, 6)
+        progress: int | None = None
+        if nights is not None and key == "weekly":
+            progress = missions.weekly_streak(nights, today)
+        elif nights is not None:
+            progress = missions.monthly_count(nights, today, 6)
         out.append({"key": key, "title": title, "description": desc, "progress": progress, "goal": goal, "unit": unit})
     return out
 
 
 @router.get("")
-def list_stars(request: Request, timezone: str | None = Query(None, description="Observer IANA timezone")
-               ) -> dict[str, Any]:
+def list_stars(request: Request, timezone: str | None = Query(None, description="Observer IANA timezone"),
+               user: User | None = Depends(optional_user)) -> dict[str, Any]:
     _today(timezone)  # validated for symmetry with the detail route; the list shows no mission progress
     db = request.app.state.db
     stars = []
@@ -72,18 +83,18 @@ def list_stars(request: Request, timezone: str | None = Query(None, description=
         stars.append({**catalog.target_view(s), "type_label": s["type_label"], "slug": s["slug"],
                       "vsx": {"max_mag": v["max_mag"], "min_mag": v["min_mag"], "band": v["band"],
                               "raw_range": v["raw_range"]},
-                      "nights_count": len(missions.star_nights(db, s["id"]))})
+                      "nights_count": len(missions.star_nights(db, s["id"], user.id)) if user else None})
     return {"stars": stars}
 
 
 @router.get("/{slug}")
 def star_detail(slug: str, request: Request, equipment_id: str | None = Query(None),
-                timezone: str | None = Query(None, description="Observer IANA timezone (mission 'today')")
-                ) -> dict[str, Any]:
+                timezone: str | None = Query(None, description="Observer IANA timezone (mission 'today')"),
+                user: User | None = Depends(optional_user)) -> dict[str, Any]:
     star = _star_or_404(slug)
     today = _today(timezone)
     db = request.app.state.db
-    nights = missions.star_nights(db, star["id"])
+    nights = missions.star_nights(db, star["id"], user.id) if user else None  # signed out: never queried
     return {
         "star": catalog.target_view(star),
         "vsx": star["vsx"],
@@ -92,7 +103,7 @@ def star_detail(slug: str, request: Request, equipment_id: str | None = Query(No
         "source_url": star["source_url"],
         "retrieved": star["retrieved"],
         "attribution": [VSX_ATTRIBUTION],
-        "nights": [n.isoformat() for n in nights],
+        "nights": [n.isoformat() for n in nights or ()],
         "missions": _mission_list(star, nights, today),
         "seestar_fit": seestar_fit(star) if _is_s30_preset(request, equipment_id) else None,
     }

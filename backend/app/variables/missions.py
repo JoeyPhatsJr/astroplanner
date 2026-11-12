@@ -10,14 +10,14 @@ from app.astrolog.models import CaptureSet, LibraryTarget
 from app.db import Database, ObservingSession
 
 
-def star_nights(db: Database, star_id: str) -> list[date]:
-    """Distinct observer-local night dates with a capture set of this star, ascending."""
+def star_nights(db: Database, star_id: str, owner_id: str) -> list[date]:
+    """Distinct observer-local night dates of ``owner_id``'s nights with a capture set of this star, ascending."""
     with db.session() as s:
         rows = s.scalars(
             select(ObservingSession.local_night_date)
             .join(CaptureSet, CaptureSet.session_id == ObservingSession.id)
             .join(LibraryTarget, LibraryTarget.id == CaptureSet.library_target_id)
-            .where(LibraryTarget.catalog_target_id == star_id)
+            .where(LibraryTarget.catalog_target_id == star_id, ObservingSession.owner_id == owner_id)
             .distinct()
         ).all()
     return sorted(date.fromisoformat(r) for r in rows)

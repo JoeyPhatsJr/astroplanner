@@ -19,6 +19,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import astronomy, targets
+from app.accounts.deps import current_user
+from app.accounts.models import User
+from app.accounts.owned import get_owned
 from app.api import get_db
 from app.astrolog import library, previews
 from app.astrolog.routes import _read_limited
@@ -26,7 +29,7 @@ from app.astrolog.models import CaptureFrame, CaptureSet, FinalImage, LibraryTar
 from app.db import ObservingLocation, ObservingSession, _utcnow
 
 from .measure import METHOD, StackMeasurement, UnmeasurableStack, measure_stack
-from .models import ProcessingRun, StepId
+from .models import ProcessingRun, StepId, comparison_keys
 from .report import AltitudeFn, FolderError, FolderResult, Report, UploadedText, build_folder, night_report
 from .rules import Facts
 from .names import is_plain_folder_name
@@ -35,7 +38,8 @@ from .selection import LastChoice, SelectionOption, selection_options
 from .seq import SeqParseError
 from .steps import build_steps
 
-router = APIRouter(prefix="/api/processing", tags=["processing"])
+# Every run is its owner's: signed out is a 401, another user's run or capture set the same 404 as a missing one.
+router = APIRouter(prefix="/api/processing", tags=["processing"], dependencies=[Depends(current_user)])
 
 SIRIL_TARGET = SIRIL_REQUIRES  # "1.4.5": the version the scripts are written and tested for
 NO_SELECTION = "Choose which frames to keep first."
@@ -172,13 +176,15 @@ def _scripts(facts: Facts, chosen: SelectionOption | None) -> dict[str, Any]:
 
 
 def _last_time(db: Session, run: ProcessingRun, cs: CaptureSet) -> LastChoice | None:
-    """The most recent other run on the same device whose frame choice was saved. A note only, never a default."""
+    """The owner's most recent other run on the same device whose frame choice was saved. A note only, never a
+    default, and never read from another user's runs."""
     rows = db.execute(
         select(ProcessingRun, CaptureSet, LibraryTarget, ObservingSession)
         .join(CaptureSet, CaptureSet.id == ProcessingRun.capture_set_id)
         .join(LibraryTarget, LibraryTarget.id == CaptureSet.library_target_id)
         .join(ObservingSession, ObservingSession.id == CaptureSet.session_id)
-        .where(ProcessingRun.id != run.id, func.lower(CaptureSet.device) == cs.device.casefold())
+        .where(ProcessingRun.id != run.id, ProcessingRun.owner_id == run.owner_id,
+               func.lower(CaptureSet.device) == cs.device.casefold())
         .order_by(ProcessingRun.updated_at.desc())).all()
     for other, _cs, lt, sess in rows:
         summary = (other.choices or {}).get("selection_summary")
@@ -253,23 +259,18 @@ def run_out(db: Session, run: ProcessingRun) -> dict[str, Any]:
     }
 
 
-def _get_run(db: Session, run_id: str) -> ProcessingRun:
-    run = db.get(ProcessingRun, run_id)
-    if run is None:
-        raise HTTPException(404, "Run not found")
-    return run
+def _get_run(db: Session, run_id: str, user: User) -> ProcessingRun:
+    return get_owned(db, ProcessingRun, run_id, user, "Run not found")
 
 
 @router.post("/runs")
-def create_run(body: RunIn, db: Session = Depends(get_db)) -> dict[str, Any]:
-    cs = db.get(CaptureSet, body.capture_set_id)
-    if cs is None:
-        raise HTTPException(404, "Capture set not found")
+def create_run(body: RunIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict[str, Any]:
+    cs = get_owned(db, CaptureSet, body.capture_set_id, user, "Capture set not found")
     if cs.device.strip().casefold() != "seestar s30":
         raise HTTPException(422, SEESTAR_ONLY)
     run = db.scalars(select(ProcessingRun).where(ProcessingRun.capture_set_id == cs.id)).first()
     if run is None:
-        run = ProcessingRun(capture_set_id=cs.id, step_states={}, choices={}, comparison={})
+        run = ProcessingRun(owner_id=user.id, capture_set_id=cs.id, step_states={}, choices={}, comparison={})
         db.add(run)
         try:
             db.commit()
@@ -280,13 +281,14 @@ def create_run(body: RunIn, db: Session = Depends(get_db)) -> dict[str, Any]:
 
 
 @router.get("/runs/{run_id}")
-def get_run(run_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
-    return run_out(db, _get_run(db, run_id))
+def get_run(run_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict[str, Any]:
+    return run_out(db, _get_run(db, run_id, user))
 
 
 @router.patch("/runs/{run_id}")
-def patch_run(run_id: str, body: RunPatch, db: Session = Depends(get_db)) -> dict[str, Any]:
-    run = _get_run(db, run_id)
+def patch_run(run_id: str, body: RunPatch, db: Session = Depends(get_db),
+              user: User = Depends(current_user)) -> dict[str, Any]:
+    run = _get_run(db, run_id, user)
     if body.step_states:
         run.step_states = {**(run.step_states or {}), **body.step_states}  # new dict: JSON columns aren't mutation-tracked
     if body.choices is not None:
@@ -318,10 +320,11 @@ def patch_run(run_id: str, body: RunPatch, db: Session = Depends(get_db)) -> dic
 
 
 @router.post("/runs/{run_id}/siril-folder")
-def upload_siril_folder(run_id: str, body: SirilFolderIn, db: Session = Depends(get_db)) -> dict[str, Any]:
+def upload_siril_folder(run_id: str, body: SirilFolderIn, db: Session = Depends(get_db),
+                        user: User = Depends(current_user)) -> dict[str, Any]:
     """Read one Siril working folder's .seq and conversion text for this night. Stores names and Siril's
     numbers only; the run is left unchanged when the folder is rejected."""
-    run = _get_run(db, run_id)
+    run = _get_run(db, run_id, user)
     frames = _frames(db, db.get(CaptureSet, run.capture_set_id))
     try:
         folder = build_folder(
@@ -344,12 +347,13 @@ def upload_siril_folder(run_id: str, body: SirilFolderIn, db: Session = Depends(
 
 
 @router.get("/runs/{run_id}/scripts/{which}", response_class=PlainTextResponse)
-def get_script(run_id: str, which: str, db: Session = Depends(get_db)) -> PlainTextResponse:
+def get_script(run_id: str, which: str, db: Session = Depends(get_db),
+               user: User = Depends(current_user)) -> PlainTextResponse:
     """One of the two generated Siril scripts (``prepare`` or ``stack``), as a download named
     astroplanner-<which>.ssf."""
     if which not in SCRIPT_NAMES:
         raise HTTPException(404, "No such script")
-    run = _get_run(db, run_id)
+    run = _get_run(db, run_id, user)
     cs = db.get(CaptureSet, run.capture_set_id)
     sess = db.get(ObservingSession, cs.session_id)
     loc = db.get(ObservingLocation, sess.location_id) if sess.location_id else None
@@ -375,12 +379,12 @@ def _finite(m: StackMeasurement) -> bool:
 
 @router.post("/runs/{run_id}/stacks/{side}")
 async def upload_stack(run_id: str, side: str, request: Request, file: UploadFile = File(...),
-                       db: Session = Depends(get_db)) -> dict[str, Any]:
+                       db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict[str, Any]:
     """Measure one finished stack (``siril`` or ``seestar``) in memory. The FITS is not stored: only its numbers
     and two metadata-free JPEGs are. Uploading again replaces the previous stack for that side."""
     if side not in STACK_SIDES:
         raise HTTPException(404, "No such stack")
-    run = _get_run(db, run_id)
+    run = _get_run(db, run_id, user)
     limit: int = request.app.state.max_upload_bytes
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > limit + 64 * 1024:
@@ -421,12 +425,11 @@ async def upload_stack(run_id: str, side: str, request: Request, file: UploadFil
 
 
 @router.get("/runs/{run_id}/images/{key:path}")
-def get_stack_image(run_id: str, key: str, request: Request, db: Session = Depends(get_db)) -> Response:
-    """A stored stack preview or thumbnail; only keys this run's comparison lists are served."""
-    run = _get_run(db, run_id)
-    listed = {e.get(k) for e in (run.comparison or {}).values() if isinstance(e, dict)
-              for k in ("preview_key", "thumb_key")}
-    if key not in listed:
+def get_stack_image(run_id: str, key: str, request: Request, db: Session = Depends(get_db),
+                    user: User = Depends(current_user)) -> Response:
+    """A stored stack or picture preview or thumbnail; only keys this run's comparison lists are served."""
+    run = _get_run(db, run_id, user)
+    if key not in comparison_keys(run):
         raise HTTPException(404, "Image not found")
     try:
         body = request.app.state.storage.get(key)
@@ -458,10 +461,10 @@ def _software(data: bytes) -> str | None:
 
 @router.post("/runs/{run_id}/pictures/seestar")
 async def upload_seestar_picture(run_id: str, request: Request, file: UploadFile = File(...),
-                                 db: Session = Depends(get_db)) -> dict[str, Any]:
+                                 db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict[str, Any]:
     """The Seestar's own final picture (JPEG, PNG or TIFF). Only two metadata-free previews are kept; ``edited``
     is True when the file names an editing program (EXIF Software), otherwise unknown (None) until the user says."""
-    run = _get_run(db, run_id)
+    run = _get_run(db, run_id, user)
     limit: int = request.app.state.max_upload_bytes
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > limit + 64 * 1024:
