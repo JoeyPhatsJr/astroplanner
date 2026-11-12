@@ -94,11 +94,17 @@ def test_signed_out_me_is_401(make_client, clear_provider):
 
 def test_invalid_email_at_signup(make_client, clear_provider):
     with make_client(clear_provider, account=None) as c:
-        for bad in ("not-an-email", "a@b", "a b@example.com", "x" * 250 + "@example.com"):
+        for bad in ("not-an-email", "a@b", "a b@example.com", "x" * 250 + "@example.com",
+                    "x" * 5000 + "@example.com"):
             r = _signup(c, email=bad)
-            assert r.status_code == 422, bad
+            assert r.status_code == 422, bad[:20]
             assert r.json() == {"detail": "Enter a valid email address."}
-        r = _signup(c, password="a" * 1025)
+        for long in ("a" * 1025, "a" * 5000):
+            r = _signup(c, password=long)
+            assert r.status_code == 422
+            assert r.json() == {"detail": "Use at most 1024 characters."}
+        assert _signup(c).status_code == 201
+        r = c.post("/api/auth/password", json={"current_password": TEST_PASSWORD, "new_password": "a" * 5000})
         assert r.status_code == 422
         assert r.json() == {"detail": "Use at most 1024 characters."}
 

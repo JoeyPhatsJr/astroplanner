@@ -29,19 +29,24 @@ SIGNUP_THROTTLED = "Too many attempts from here. Try again in a few minutes."
 EMAIL_TAKEN = "An account with this email already exists. Sign in instead."
 WRONG_PASSWORD = "That password isn’t right."
 
-# Generous bounds on the raw strings so a huge body is refused before hashing; the account rules
-# (and their exact messages) are applied in code, not here.
+# A generous bound only on strings that reach Argon2 before any rule check, so a huge one is refused
+# before hashing. Sign-up and the new password are checked in code first, which keeps their exact copy.
 _RAW = 4096
 
 
-class Credentials(BaseModel):
+class SignupIn(BaseModel):
+    email: str
+    password: str
+
+
+class LoginIn(BaseModel):
     email: str = Field(..., max_length=_RAW)
     password: str = Field(..., max_length=_RAW)
 
 
 class PasswordChange(BaseModel):
     current_password: str = Field(..., max_length=_RAW)
-    new_password: str = Field(..., max_length=_RAW)
+    new_password: str
 
 
 def me_out(user: User) -> dict[str, Any]:
@@ -55,7 +60,7 @@ def _client_key(request: Request) -> str:
 @router.post("/signup", status_code=201)
 def signup(request: Request, response: Response, body: Any = Body(...),
            db: Session = Depends(get_db)) -> dict[str, Any]:
-    req = validate_body(Credentials, body)
+    req = validate_body(SignupIn, body)
     throttle = request.app.state.signup_throttle
     key = _client_key(request)
     if throttle.locked(key):
@@ -86,7 +91,7 @@ def signup(request: Request, response: Response, body: Any = Body(...),
 @router.post("/login")
 def login(request: Request, response: Response, body: Any = Body(...),
           db: Session = Depends(get_db)) -> dict[str, Any]:
-    req = validate_body(Credentials, body)
+    req = validate_body(LoginIn, body)
     email = req.email.strip().lower()  # no format check: a malformed email simply matches no account
     throttle = request.app.state.login_throttle
     key = f"email:{email}"
