@@ -7,6 +7,7 @@ import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { PageLoading } from "./components/ui/PageLoading";
 import { EmptyState } from "./components/ui/States";
 import { LandingPage } from "./pages/LandingPage";
+import { AccountPage } from "./pages/account/AccountPage";
 import { ResetHelpPage } from "./pages/account/ResetHelpPage";
 import { SignInPage } from "./pages/account/SignInPage";
 import { SignUpPage } from "./pages/account/SignUpPage";
@@ -76,6 +77,8 @@ export default function App() {
           <Route path="/astrolog/process/:captureSetId" element={<ProcessingCoachPage />} />
           <Route path="/astrolog/:sessionId" element={<NightRedirect />} />
         </Route>
+        {/* Signed out, the Account page sends you to sign in and back (it is not the AstroLog gate). */}
+        <Route path="/account" element={<AccountPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route
           path="*"

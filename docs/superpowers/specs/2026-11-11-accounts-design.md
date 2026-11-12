@@ -1,6 +1,6 @@
 # Accounts and sign-in: design
 
-Date: 2026-11-11 · Status: mockup approved by the developer; spec awaiting approval
+Date: 2026-11-11 · Status: approved; built on branch `login-design` (amended 2026-11-11 to match what shipped, see "Amendments")
 Mockup: `docs/superpowers/mockups/2026-11-11-login/index.html` (serve the repo root, open that path)
 
 ## Intent
@@ -78,12 +78,13 @@ computer. At deployment, Supabase Auth replaces this (ROADMAP "prerequisites bef
 - **Existing email at sign-up (my call):** "An account with this email already exists. Sign in instead." (with a link).
   The no-enumeration anti-goal applies to sign-in; with no email step, sign-up cannot hide it without being useless.
 - **API:** `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` (200 with
-  `{email, created_at}` or 401), `POST /api/auth/password` (current + new), `POST /api/auth/delete` (password +
+  `{email, created_at, claimed_existing}` or 401), `POST /api/auth/password` (current + new), `POST /api/auth/delete` (password +
   `confirm: "DELETE"`). One FastAPI dependency (`current_user`) resolves the cookie; every AstroLog and coach route uses
   it and returns 401 without a session. Swapping to Supabase later means replacing that dependency.
 - **Ownership:** `owner_id` (FK to users, indexed) on `sessions` (plans and nights) and on every AstroLog and coach table
   that holds a person's data (library targets, capture sets, frames, stacks, final images, processing runs, and any
-  other table those routes write). Every query filters by owner, including cross-row ones (the importer's night
+  other table those routes write). `session_targets` has no `owner_id`: it is reached only through its owned
+  `sessions` row, and the database cascade removes it with that row. Every query filters by owner, including cross-row ones (the importer's night
   matching, plan candidates, the coach's previous-run lookups); a row owned by someone else answers 404, not 403.
   Unique keys that are global today become per owner (library target normalised key, including the single "Unsorted"
   row; frame and stack dedup keys), so two people importing the same files do not collide. Preview files are served
@@ -100,8 +101,9 @@ computer. At deployment, Supabase Auth replaces this (ROADMAP "prerequisites bef
   preview files, deleting in dependency order in code (foreign keys stay RESTRICT). This is the one deliberate exception
   to ROADMAP's rule that imported observations are never deleted as a side effect: here the deletion is the explicit,
   confirmed request. Record it as a ROADMAP decision row. Original files on the computer are never touched.
-- **Migration:** an Alembic migration adds the tables and columns, works on SQLite and Postgres (`DATABASE_URL`), and
-  keeps existing rows (owner null until claimed).
+- **Migration:** two Alembic migrations, `0006_accounts` (the `users` and `user_sessions` tables) and `0007_ownership`
+  (the `owner_id` columns and the per-owner unique keys), work on SQLite and Postgres (`DATABASE_URL`) and keep
+  existing rows (owner null until claimed).
 - **Frontend:** a session query (`/api/auth/me`) drives the header slot and the AstroLog gate. Routes `/login` and
   `/signup` live in the site layout; `/account` and `/login/reset-help` in the app shell or site layout as the mockup
   shows. After sign-in, return to the page that asked (e.g. `/astrolog/targets/…`), else `/astrolog`. On a 401 from an
@@ -109,8 +111,8 @@ computer. At deployment, Supabase Auth replaces this (ROADMAP "prerequisites bef
   `autocomplete` (`email`, `current-password`, `new-password`), inline errors, focus the first error on submit, buttons
   stay enabled until the request starts and read "Signing in…" while it runs.
 - **Privacy page:** new "Your account" section: email, a password hash (never the password), and sign-in sessions;
-  where they live (the same local database); how delete works. "What it keeps" gains "Your account: email and an
-  encrypted password". Update the facts table in the site-pages spec accordingly.
+  where they live (the same local database); how delete works. "What it keeps" gains "Your account: your email and a
+  password hash". Update the facts table in the site-pages spec accordingly.
 
 ## Constraints
 
@@ -133,3 +135,21 @@ computer. At deployment, Supabase Auth replaces this (ROADMAP "prerequisites bef
   other's data (plans, nights, imports with identical files, preview files, mission progress, badges); signed-out
   Variable Hunter and badge routes returning no personal data; first-account claim of existing data; delete account removing owned rows and
   files; an e2e flow (create account, open AstroLog, sign out, AstroLog shows the signed-out screen, sign in again).
+
+## Amendments (2026-11-11, during the build)
+
+The plan (`docs/superpowers/plans/2026-11-11-accounts.md`, "Spec decisions made in this plan") corrected the points
+below; the text above now matches what shipped.
+
+- **Password hash, not "encrypted password".** A hash cannot be decrypted; Privacy says "a password hash (never the
+  password itself)" and "Your account: your email and a password hash".
+- **`/api/auth/me` also returns `claimed_existing`**, so the Account page can show "Your existing plans and AstroLog
+  library were added to this account." only to the account that took them over.
+- **Two migrations** (0006, 0007), so each build step ends with its schema matching the ORM.
+- **`session_targets` stay unowned** (reached only through an owned session).
+- **Copy:** the AstroLog gate reads "AstroLog keeps your library, final pictures and processing notes with your
+  account. Sign in to open it." The approved "so they’re there on any device" was dropped: with local accounts the
+  data lives on one computer. The Account page's "Your data" and the delete dialog name session plans too, since plans
+  are owned, and the delete dialog has a Password field because `POST /api/auth/delete` requires one.
+- **Delete stays disabled until DELETE is typed and a password is entered**, as in the approved mockup. This is the
+  one exception to "buttons stay enabled until the request starts".

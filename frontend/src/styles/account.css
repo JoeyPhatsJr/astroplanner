@@ -439,3 +439,211 @@
     color: var(--color-ink);
   }
 }
+
+/*
+ * The Account page (/account) and its delete dialog. Cards as the mockup: 16 px, panel-2 on the page.
+ * Danger uses the warn token (there is no separate "bad" token, and night vision turns every token red), so the
+ * delete box also carries a heavier edge and the final button is the only solid one.
+ */
+.acct {
+  display: grid;
+  gap: 1rem;
+  max-width: 40rem;
+}
+.acct-box {
+  padding: 1.25rem 1.375rem;
+  border-radius: 16px;
+  border: 1px solid var(--color-line-soft);
+  background: var(--color-panel-2);
+}
+.acct-box-danger {
+  border-color: color-mix(in srgb, var(--color-warn) 35%, transparent);
+}
+.acct-h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--color-ink);
+}
+.acct-p {
+  margin: 0 0 1rem;
+  max-width: 60ch;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--color-ink-2);
+  text-wrap: pretty;
+}
+.acct-kv {
+  margin: 0.25rem 0 0;
+}
+.acct-kv > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  padding: 0.625rem 0;
+  border-top: 1px solid var(--color-line-soft);
+  font-size: 0.9375rem;
+}
+.acct-kv > div:first-child {
+  border-top: 0;
+}
+.acct-kv dt {
+  color: var(--color-muted);
+}
+.acct-kv dd {
+  margin: 0;
+  min-width: 0;
+  color: var(--color-ink);
+}
+/* An address with no break points still wraps instead of widening the page. */
+.acct-email {
+  overflow-wrap: anywhere;
+}
+/* Phones: every row stacks its label over its value, so a long address and a short date read the same way. */
+@media (max-width: 639.98px) {
+  .acct-kv > div {
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+}
+.acct-link {
+  color: var(--color-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
+  transition: opacity var(--dur-press) var(--ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.acct-link:active {
+  opacity: 0.65;
+}
+.acct-status {
+  margin-top: 0.75rem;
+}
+.acct-status:empty {
+  display: none;
+}
+.acct-err {
+  margin-top: 0.75rem;
+}
+.acct-form {
+  margin-top: 0.25rem;
+}
+
+/* Buttons: pills, 44 px tall, as the approved mockup. */
+.acct-btn {
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  border-radius: 999px;
+  font-size: 0.9375rem;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.acct-btn:focus-visible {
+  border-radius: 999px;
+}
+.acct-btn-primary {
+  background: var(--color-ink);
+  color: var(--color-night);
+  border-color: transparent;
+}
+.acct-btn-ghost {
+  background: transparent;
+  border-color: var(--color-line);
+}
+/* The page's "Delete account…" only opens the dialog: outlined. The dialog's "Delete account" is the act: solid. */
+.acct-btn-danger-quiet {
+  background: transparent;
+  color: var(--color-warn);
+  border-color: color-mix(in srgb, var(--color-warn) 55%, transparent);
+}
+.acct-btn-danger {
+  background: var(--color-warn);
+  color: var(--color-on-accent);
+  border-color: transparent;
+}
+.acct-btn[aria-disabled="true"] {
+  opacity: 0.7;
+  cursor: progress;
+}
+.acct-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.acct-dialog {
+  padding: 1.5rem;
+  border-radius: 20px;
+  border: 1px solid var(--color-line);
+  background: var(--color-panel-2);
+  color: var(--color-ink);
+  box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.9);
+  overscroll-behavior: contain; /* a tall dialog on a short phone scrolls without moving the page */
+}
+.acct-dialog-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.acct-dialog-desc {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--color-ink-2);
+  text-wrap: pretty;
+}
+/* Cancel then Delete on the right; on a narrow phone, Delete wraps above Cancel and both take the full width. */
+.acct-dialog-actions {
+  justify-content: flex-end;
+  flex-wrap: wrap-reverse;
+  margin-top: 0.25rem;
+}
+@media (max-width: 379.98px) {
+  .acct-dialog {
+    padding: 1.25rem;
+  }
+  .acct-dialog-actions > .acct-btn {
+    flex: 1 1 100%;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .acct-btn-ghost:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+    border-color: var(--color-line);
+  }
+  .acct-btn-primary:hover:not(:disabled),
+  .acct-btn-danger:hover:not(:disabled) {
+    filter: brightness(0.92);
+    border-color: transparent;
+  }
+  .acct-btn-danger-quiet:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-warn) 8%, transparent);
+    border-color: var(--color-warn);
+  }
+}
+@media (prefers-contrast: more) {
+  .acct-box {
+    border-color: var(--color-line);
+  }
+  .acct-box-danger,
+  .acct-btn-danger-quiet {
+    border-color: var(--color-warn);
+  }
+  .acct-btn-ghost,
+  .acct-dialog {
+    border-color: var(--color-ink-2);
+  }
+  .acct-p,
+  .acct-kv dt,
+  .acct-dialog-desc {
+    color: var(--color-ink);
+  }
+}

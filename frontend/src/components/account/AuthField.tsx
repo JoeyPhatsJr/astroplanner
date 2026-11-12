@@ -4,8 +4,11 @@ import { useState, type ReactNode, type Ref } from "react";
 interface Props {
   id: string;
   label: string;
-  kind: "email" | "password";
-  autoComplete: "email" | "current-password" | "new-password";
+  /** "text" is for a typed confirmation such as DELETE: no autofill, no spelling fixes, capitals on phones. */
+  kind: "email" | "password" | "text";
+  autoComplete: "email" | "current-password" | "new-password" | "off";
+  /** The form field name; by default "email", "password" or "new-password" from the kind and autocomplete. */
+  name?: string;
   value: string;
   onChange: (value: string) => void;
   error?: string | null;
@@ -16,7 +19,7 @@ interface Props {
 }
 
 /** One labelled field of the sign-in forms. Help and the inline error are tied to the input for screen readers. */
-export function AuthField({ id, label, kind, autoComplete, value, onChange, error, help, aside, inputRef }: Props) {
+export function AuthField({ id, label, kind, autoComplete, name, value, onChange, error, help, aside, inputRef }: Props) {
   const [shown, setShown] = useState(false);
   const helpId = help ? `${id}-help` : undefined;
   const errId = error ? `${id}-err` : undefined;
@@ -34,14 +37,14 @@ export function AuthField({ id, label, kind, autoComplete, value, onChange, erro
         <input
           ref={inputRef}
           id={id}
-          name={password ? (autoComplete === "new-password" ? "new-password" : "password") : "email"}
-          type={password ? (shown ? "text" : "password") : "email"}
-          inputMode={password ? undefined : "email"}
+          name={name ?? (password ? (autoComplete === "new-password" ? "new-password" : "password") : kind)}
+          type={password ? (shown ? "text" : "password") : kind}
+          inputMode={kind === "email" ? "email" : undefined}
           autoComplete={autoComplete}
-          autoCapitalize="none"
+          autoCapitalize={kind === "text" ? "characters" : "none"}
           autoCorrect="off"
           spellCheck={false}
-          placeholder={password ? undefined : "you@example.com"}
+          placeholder={kind === "email" ? "you@example.com" : undefined}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           aria-invalid={error ? true : undefined}

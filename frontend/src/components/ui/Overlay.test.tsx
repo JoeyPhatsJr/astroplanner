@@ -86,6 +86,18 @@ describe("Overlay", () => {
     expect(document.querySelector("dialog[open]")).toBeNull();
   });
 
+  it("takes the alertdialog role when asked, and keeps the native dialog role otherwise", () => {
+    const alert = render(
+      <Overlay open onClosed={() => {}} variant="modal" role="alertdialog" labelledBy="a">
+        <h2 id="a">Delete?</h2>
+      </Overlay>,
+    );
+    expect(dialog(alert.container)).toHaveAttribute("role", "alertdialog");
+    alert.unmount();
+    const plain = render(ui(true));
+    expect(dialog(plain.container)).not.toHaveAttribute("role");
+  });
+
   it("Esc runs the close path and asks the parent to dismiss", () => {
     const onDismiss = vi.fn();
     const { container } = render(ui(true, () => {}, onDismiss));

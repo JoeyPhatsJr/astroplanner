@@ -31,6 +31,8 @@ type Props = {
   /** A phone sheet caught mid-close and released without dismissing: the parent should set open=true again. */
   onReopen?: () => void;
   variant: "drawer" | "modal";
+  /** "alertdialog" for a confirmation that interrupts, such as deleting an account. */
+  role?: "dialog" | "alertdialog";
   labelledBy: string;
   describedBy?: string;
   children: ReactNode;
@@ -43,7 +45,7 @@ type Props = {
  * and, later, a drag gesture can style them directly. data-state is "open" or "closing";
  * absent while closed. Both elements share one timing so they move as a single object.
  */
-export function Overlay({ open, onClosed, onDismiss, onReopen, variant, labelledBy, describedBy, children, panelRef, panelClassName = "" }: Props) {
+export function Overlay({ open, onClosed, onDismiss, onReopen, variant, role, labelledBy, describedBy, children, panelRef, panelClassName = "" }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const panelEl = useRef<HTMLDivElement | null>(null);
   const timer = useRef<number | null>(null);
@@ -137,6 +139,7 @@ export function Overlay({ open, onClosed, onDismiss, onReopen, variant, labelled
       ref={ref}
       className="overlay"
       data-variant={variant}
+      role={role === "alertdialog" ? "alertdialog" : undefined}
       aria-labelledby={labelledBy}
       aria-describedby={describedBy}
       onCancel={(e) => {
