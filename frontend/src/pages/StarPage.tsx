@@ -51,7 +51,7 @@ function AddToPlan({ starId, slug }: { starId: string; slug: string }) {
         : !v.can_observe
           ? v.status_text
           : null;
-  const disabled = active.auth === "loading" || inSession || active.isAdding || reason !== null;
+  const disabled = active.auth === "loading" || active.auth === "error" || inSession || active.isAdding || reason !== null;
   // Plans belong to an account: signed out, the way in replaces Add, unless the star definitely can't be
   // planned (no location, or tonight's answer is in and says no). Not while visibility loads, so it never swaps.
   const unplannable = !o || (!vis.isLoading && !v?.can_observe);

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient, type Query, type QueryClient } from "@tanstack/react-query";
+import { clearImportStash } from "../lib/importStash";
 import { ApiError, request } from "./client";
 
 /** The signed-in account, as `/api/auth/me` returns it. The session token itself lives only in an HttpOnly cookie. */
@@ -58,6 +59,7 @@ const isOwned = (q: Query) => OWNED_QUERY_ROOTS.has(q.queryKey[0]);
 /**
  * Switch the cache to another account (or to signed out), so no data from the previous user stays visible.
  *
+ * - Either way, the AstroLog import's stashed files are dropped.
  * - Signed in: every other query resets, and the ones on screen refetch with the new account's cookie.
  * - Signed out: nothing owned is requested again. Owned queries on screen are emptied in place (their
  *   observers keep the same query object, so a re-render does not refetch); owned queries off screen are
@@ -70,6 +72,7 @@ export async function applyAuth(qc: QueryClient, me: Me | null): Promise<void> {
   // A /me request sent before this change could land after it and overwrite the new answer.
   await qc.cancelQueries({ queryKey: authKey });
   qc.setQueryData<Me | null>(authKey, me);
+  clearImportStash(); // the previous account's import files are never previewed under the next one
   if (me) {
     void qc.resetQueries({ predicate: notAuth });
     return;
@@ -83,16 +86,23 @@ export async function applyAuth(qc: QueryClient, me: Me | null): Promise<void> {
 }
 
 export function useMe() {
-  return useQuery({ queryKey: authKey, queryFn: authApi.me, retry: false, staleTime: 5 * 60_000 });
+  // A failed check is asked again only by its retry button: if every newly mounted reader re-asked, the error
+  // screen (which reads it too) would flip to loading and back for as long as the backend stays down.
+  return useQuery({ queryKey: authKey, queryFn: authApi.me, retry: false, retryOnMount: false, staleTime: 5 * 60_000 });
 }
 
-export type AuthStatus = "loading" | "signedIn" | "signedOut";
+export type AuthStatus = "loading" | "signedIn" | "signedOut" | "error";
 
-/** "signedOut" also covers a failed /me request (backend down): nothing owned can load then either. */
+/**
+ * "error": /me failed with something other than a 401 (backend down or reloading), so whether anyone is signed in
+ * is unknown. Pages say so with a retry instead of asking to sign in, and nothing owned is requested. An answer
+ * already in hand wins over a failed background refetch. A retry in flight stays "error", so the retry button
+ * (and the focus on it) stays put until the answer arrives.
+ */
 export function useAuthStatus(): AuthStatus {
   const q = useMe();
   if (q.data !== undefined) return q.data ? "signedIn" : "signedOut";
-  return q.isError ? "signedOut" : "loading";
+  return q.isError ? "error" : "loading";
 }
 
 export function useSignIn() {

@@ -120,6 +120,53 @@ describe("AstroLog gate", () => {
   });
 });
 
+describe("the account check fails (backend down or reloading)", () => {
+  const CHECK_FAILED = "Couldn’t check your account";
+  const down = () => json({ detail: "Backend unavailable." }, 503);
+
+  it("AstroLog shows the error with a retry, not the signed-out screen, and the header shows no Sign in", async () => {
+    handlers["GET /api/auth/me"] = down;
+    renderApp("/astrolog", () => {});
+    const main = screen.getByRole("main");
+    const alert = await within(main).findByRole("alert");
+    expect(within(alert).getByText(CHECK_FAILED)).toBeInTheDocument();
+    expect(within(alert).getByText("Backend unavailable.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: GATE })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Sign in" })).toBeNull();
+    expect(urls.filter(owned)).toEqual([]);
+    // Try again asks once more; this time the answer is "signed out", so the gate shows.
+    handlers["GET /api/auth/me"] = () => json({ detail: "Sign in to continue." }, 401);
+    fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+    expect(await within(main).findByRole("heading", { level: 1, name: GATE })).toBeInTheDocument();
+    expect(urls.filter((u) => u === "/api/auth/me")).toHaveLength(2);
+  });
+
+  it("the Account page shows the error, not a trip to sign in", async () => {
+    handlers["GET /api/auth/me"] = down;
+    renderApp("/account", () => {});
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText(CHECK_FAILED)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Welcome back." })).toBeNull();
+    handlers["GET /api/auth/me"] = () => json({ email: "owner@example.com", created_at: "2026-11-11T12:00:00Z", claimed_existing: false });
+    fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("owner@example.com", { selector: "dd" })).toBeInTheDocument();
+  });
+
+  it("Tonight’s plan panel shows the error and Add stays disabled", async () => {
+    handlers["GET /api/auth/me"] = down;
+    handlers["GET /api/locations"] = () => json([place]);
+    handlers["GET /api/equipment"] = () => json([]);
+    handlers["GET /api/tonight"] = () => json(tonight);
+    handlers["GET /api/recommendations"] = () => json(recommendations);
+    renderApp("/tonight", () => {});
+    const plan = await screen.findByRole("region", { name: "Session plan" });
+    expect(await within(plan).findByText(CHECK_FAILED)).toBeInTheDocument();
+    expect(within(plan).queryByRole("link", { name: "Sign in to plan" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Add Andromeda Galaxy to session" })).toBeDisabled();
+    expect(urls.some((u) => u.startsWith("/api/sessions"))).toBe(false);
+  });
+});
+
 /** One FITS file whose header is a single 2880-byte block ending in an END card. */
 function fitsFile(name = "light_0001.fit") {
   const card = (s: string) => s.padEnd(80, " ");

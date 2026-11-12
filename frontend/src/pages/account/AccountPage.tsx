@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuthStatus, useMe, useSignOut } from "../../api/auth";
+import { AccountCheckError } from "../../components/account/AccountCheckError";
 import { useDocTitle } from "../../components/account/AuthSplit";
 import { ChangePasswordForm } from "../../components/account/ChangePasswordForm";
 import { DeleteAccountDialog } from "../../components/account/DeleteAccountDialog";
@@ -12,7 +13,7 @@ import { formatDayMonthYear } from "../../lib/time";
 
 /**
  * The Account page (/account): who is signed in, change password, sign out and delete account.
- * Signed out, it goes to sign in and comes back here.
+ * Signed out, it goes to sign in and comes back here; if the account check fails, the error with a retry.
  */
 export function AccountPage() {
   useDocTitle("Account");
@@ -43,6 +44,13 @@ export function AccountPage() {
 
   if (leaving.current) return null;
   if (status === "loading") return <PageLoading />;
+  if (status === "error") {
+    return (
+      <div className="page-reading">
+        <AccountCheckError />
+      </div>
+    );
+  }
   if (status === "signedOut" || !me.data) return <Navigate to={loginHref("/account")} replace />;
   const account = me.data;
   const created = formatDayMonthYear(account.created_at);

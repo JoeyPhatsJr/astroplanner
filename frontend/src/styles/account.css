@@ -1,7 +1,9 @@
 /*
- * Accounts: sign in, create account and reset help (/login, /signup, /login/reset-help), and the header's
- * account slot. Theme tokens only, so night vision turns them dim red like the rest of the app.
- * Shape rule as the approved mockup: pills for buttons, 12 px inputs, 16 px cards and menus, 24 px photos.
+ * Accounts: sign in, create account and reset help (/login, /signup, /login/reset-help), the header's account
+ * slot, and the Account page (/account) with its delete dialog. Theme tokens only, so night vision turns them dim
+ * red like the rest of the app.
+ * Shapes: the auth pages and the account menu follow the approved mockup (pills for buttons, 12 px inputs, 16 px
+ * cards and menus, 24 px photos); the Account page and its dialog use the app shell's shapes (see that section).
  */
 
 /* The form on the left, one of the developer's own pictures on the right; stacked on phones. */
@@ -58,6 +60,11 @@
   color: var(--color-ink);
   background: linear-gradient(to top, color-mix(in srgb, var(--color-night) 72%, transparent), transparent);
   text-shadow: 0 1px 8px rgb(0 0 0 / 0.8);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .auth-photo figcaption {
+    background: var(--color-night);
+  }
 }
 @media (min-width: 640px) {
   .auth-col {
@@ -563,6 +570,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+/* The account check failed (backend down): the shared error panel, with its retry at 44 px. */
+.acct-check-error .btn {
+  min-height: 2.75rem;
 }
 
 .acct-dialog {

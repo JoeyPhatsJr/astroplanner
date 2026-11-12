@@ -5,9 +5,11 @@ import { useState } from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../../App";
-import { authKey, type Me } from "../../api/auth";
+import type { ImportItem } from "../../api/astrolog";
+import { applyAuth, authKey, type Me } from "../../api/auth";
 import { ApiError, request } from "../../api/client";
-import { createQueryClient } from "../../api/queryClient";
+import { createQueryClient, markSignedOutIf401 } from "../../api/queryClient";
+import { clearImportStash, setImportStash, takeImportStash } from "../../lib/importStash";
 import { safeNext } from "../../lib/returnTo";
 import { DEFAULT_PREFS, PrefsProvider } from "../../state/prefs";
 import { seedSignedIn, seedSignedOut, signedOutMe, TEST_ME } from "../../test/auth";
@@ -224,6 +226,7 @@ describe("reset help", () => {
     renderApp("/login/reset-help", seedSignedOut);
     expect(screen.getByRole("heading", { level: 1, name: "Reset your password." })).toBeInTheDocument();
     expect(screen.getByRole("code").textContent).toBe(RESET_COMMAND);
+    expect(screen.getByText("If sign-in was locked after wrong tries, wait 15 minutes or restart the backend.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to sign in" })).toHaveAttribute("href", "/login");
   });
 });
@@ -400,5 +403,35 @@ describe("query cache and accounts", () => {
     await waitFor(() => expect(qc.getQueryData(authKey)).toBeNull());
     expect(await screen.findByText("failed")).toBeInTheDocument();
     expect(queryFn).toHaveBeenCalledTimes(1); // a 401 is never retried
+  });
+  describe("the AstroLog import stash never crosses accounts", () => {
+    // Person A stashed their files to create a location in Settings; then the account changes in this tab.
+    const stashA = () =>
+      setImportStash({ items: [{ name: "a-light_001.fit" } as unknown as ImportItem], readSkipped: [], ignored: 0, images: 0 });
+    afterEach(() => clearImportStash());
+
+    it("sign-out clears it", async () => {
+      const qc = createQueryClient();
+      seedSignedIn(qc);
+      stashA();
+      await applyAuth(qc, null);
+      expect(takeImportStash()).toBeNull();
+    });
+
+    it("signing in as someone else clears it", async () => {
+      const qc = createQueryClient();
+      seedSignedOut(qc);
+      stashA();
+      await applyAuth(qc, { ...TEST_ME, email: "b@example.com" });
+      expect(takeImportStash()).toBeNull();
+    });
+
+    it("a 401 (the session ended) clears it", () => {
+      const qc = createQueryClient();
+      seedSignedIn(qc);
+      stashA();
+      expect(markSignedOutIf401(qc, new ApiError(401, "Sign in to continue."))).toBe(true);
+      expect(takeImportStash()).toBeNull();
+    });
   });
 });

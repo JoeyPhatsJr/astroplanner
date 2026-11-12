@@ -14,6 +14,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { markSignedOutIf401 } from "../api/queryClient";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { batch, classifyFile, readExifSlice, readFitsHeader } from "../lib/headerSlice";
+import { clearImportStash, setImportStash, takeImportStash } from "../lib/importStash";
 import { mergeGroups } from "../lib/importMerge";
 import { formatCalendarDate, formatDateTime, formatIntegration, nightLabel } from "../lib/time";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -23,16 +24,6 @@ type PickedFile = { file: File; path: string };
 interface Review {
   previews: PreviewResponse[]; // one per batch of `items`, same order
 }
-
-interface Stash {
-  items: ImportItem[];
-  readSkipped: SkippedItem[];
-  ignored: number;
-  images: number;
-}
-// Header slices survive one trip to Settings (create location) and back. Set only right before
-// navigating there, consumed and cleared on return, cleared on any other exit. Never persisted.
-let stash: Stash | null = null;
 
 function toB64(bytes: Uint8Array): string {
   let s = "";
@@ -180,8 +171,7 @@ export function AstroLogImportPage() {
 
   // Returning from Settings: restore the slices and re-preview (preferring the location just created).
   useEffect(() => {
-    const s = stash;
-    stash = null;
+    const s = takeImportStash();
     if (s) {
       setItems(s.items);
       setReadSkipped(s.readSkipped);
@@ -190,7 +180,7 @@ export function AstroLogImportPage() {
       if (s.items.length) void runPreview(s.items, routeLocationId, 0);
     }
     return () => {
-      if (!keepStash.current) stash = null;
+      if (!keepStash.current) clearImportStash();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -276,7 +266,7 @@ export function AstroLogImportPage() {
         setNotice("These files contain no site position, so a location can't be suggested. Add one in Settings.");
         return;
       }
-      stash = { items, readSkipped, ignored, images };
+      setImportStash({ items, readSkipped, ignored, images });
       keepStash.current = true;
       navigate("/settings", {
         state: { prefillLocation: { ...found, returnTo: "/astrolog/import" } },

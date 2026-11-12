@@ -402,7 +402,8 @@ def delete_location(location_id: str, db: Session = Depends(get_db)) -> Response
         raise HTTPException(404, "Location not found")
     in_use = db.scalar(select(func.count()).select_from(ObservingSession).where(ObservingSession.location_id == location_id))
     if in_use:
-        raise HTTPException(409, f"Location is used by {in_use} saved session(s).")
+        # No count: plans belong to accounts, and the number would include other accounts' plans.
+        raise HTTPException(409, "This place is used by saved plans or nights (yours or another account’s).")
     db.delete(loc)
     db.commit()
     return Response(status_code=204)
@@ -500,7 +501,8 @@ def delete_equipment(equipment_id: str, db: Session = Depends(get_db)) -> Respon
     eq = _custom_or_403(db, equipment_id)
     in_use = db.scalar(select(func.count()).select_from(ObservingSession).where(ObservingSession.equipment_id == equipment_id))
     if in_use:
-        raise HTTPException(409, f"Equipment is used by {in_use} saved session(s).")
+        # No count: plans belong to accounts, and the number would include other accounts' plans.
+        raise HTTPException(409, "This equipment is used by saved plans or nights (yours or another account’s).")
     db.delete(eq)
     db.commit()
     return Response(status_code=204)

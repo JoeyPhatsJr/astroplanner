@@ -26,8 +26,9 @@ export function AccountSlot({ variant }: { variant: "site" | "shell" }) {
   }, [status]);
 
   if (AUTH_PAGES.has(loc.pathname.toLowerCase().replace(/(.)\/+$/, "$1"))) return null;
-  // Same footprint while the account loads, so the header does not shift when the answer arrives.
-  if (status === "loading") return <span className="account-slot account-slot-pending" aria-hidden="true" data-variant={variant} />;
+  // Same footprint while the account loads, so the header does not shift when the answer arrives. Also while the
+  // account check fails (backend down): offering "Sign in" then would be wrong, and the page shows the error.
+  if (status === "loading" || status === "error") return <span className="account-slot account-slot-pending" aria-hidden="true" data-variant={variant} />;
   if (status === "signedOut" || !me.data) {
     return (
       <Link ref={signInRef} to={loginHref(loc.pathname + loc.search)} className="account-slot account-signin" data-variant={variant}>

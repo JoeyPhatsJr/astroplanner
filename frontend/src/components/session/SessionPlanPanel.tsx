@@ -4,6 +4,7 @@ import { useCurrentLocation, useNightDate } from "../../api/hooks";
 import { loginHref } from "../../lib/returnTo";
 import { nightLabel } from "../../lib/time";
 import { useActiveSession } from "../../state/activeSession";
+import { AccountCheckError } from "../account/AccountCheckError";
 import { ErrorState, Notice, Skeleton } from "../ui/States";
 import { SessionTargetList } from "./SessionTargetList";
 
@@ -27,6 +28,7 @@ export function SessionPlanPanel() {
         )}
       </div>
       {auth === "loading" && <Skeleton className="h-24 w-full" />}
+      {auth === "error" && <AccountCheckError />}
       {auth === "signedOut" && (
         <div className="flex flex-col items-start gap-3 text-sm text-ink-2">
           <p>Session plans are saved with your account.</p>

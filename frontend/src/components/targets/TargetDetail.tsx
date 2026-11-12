@@ -64,7 +64,7 @@ export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
           <button
             type="button"
             className={`btn ${inSession ? "btn-ghost text-ice" : "btn-primary"}`}
-            disabled={active.auth === "loading" || inSession || active.isAdding || !v?.can_observe}
+            disabled={active.auth === "loading" || active.auth === "error" || inSession || active.isAdding || !v?.can_observe}
             onClick={() => active.addTarget(t.id, data?.score.forecast_window ?? v?.best_window ?? null)}
           >
             {inSession ? <Check className="size-4" aria-hidden /> : <Plus className="size-4" aria-hidden />}

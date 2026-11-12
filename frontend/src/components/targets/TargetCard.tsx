@@ -141,7 +141,7 @@ export function TargetCard({
               type="button"
               className={`${addClass} ${inSession ? "btn-icon btn-ghost size-11 text-ice" : "btn-tinted min-h-9 min-w-11"}`}
               onClick={onAdd}
-              disabled={auth === "loading" || inSession || adding || !v.can_observe}
+              disabled={auth === "loading" || auth === "error" || inSession || adding || !v.can_observe}
               aria-label={inSession ? `${t.name} is in your session` : `Add ${t.name} to session`}
             >
               {inSession ? (

@@ -49,7 +49,10 @@ export function SignInPage() {
       {
         onError: (err) => {
           // Most often the password was mistyped: put the cursor back there, ready to retype.
-          if (err instanceof ApiError && err.status === 401) passwordRef.current?.select();
+          if (err instanceof ApiError && err.status === 401) {
+            passwordRef.current?.focus();
+            passwordRef.current?.select();
+          }
         },
       },
     );
