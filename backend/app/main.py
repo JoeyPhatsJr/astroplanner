@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from .accounts.routes import router as auth_router
 from .accounts.throttle import Throttle
 from .api import router
-from .astrolog.routes import router as astrolog_router
+from .astrolog.routes import open_router as astrolog_open_router, router as astrolog_router
 from .astrolog.storage import LocalStorage, Storage
 from .processing.routes import router as processing_router
 from .variables.routes import router as variables_router
@@ -77,6 +77,7 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     app.include_router(auth_router)
     app.include_router(router)
     app.include_router(astrolog_router)
+    app.include_router(astrolog_open_router)
     app.include_router(variables_router)
     app.include_router(processing_router)
 

@@ -1,7 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
+import { signUp } from "./auth";
 
 // These checks are deliberately tolerant of live weather: a forecast may be available
 // or explicitly unavailable, but the page must never show a crash or an invented value.
+
+// Session plans belong to an account, and Tonight and Explore load the active plan; sign in first.
+test.beforeEach(async ({ page }) => {
+  await signUp(page);
+});
 
 async function collectErrors(page: Page) {
   const errors: string[] = [];

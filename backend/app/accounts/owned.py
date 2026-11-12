@@ -1,4 +1,4 @@
-"""Owned rows: the tables that carry ``owner_id``, and the one-time claim of rows from before accounts.
+"""Owned rows: the tables that carry ``owner_id``, the owner-checked lookup, and the one-time claim.
 
 Rows written before accounts have a NULL owner. The first account created on an install takes all of them over,
 once; ``AppMeta("accounts_claimed")`` records that the claim ran (even when there was nothing to claim), so no
@@ -7,6 +7,9 @@ later account ever sees them.
 
 from __future__ import annotations
 
+from typing import TypeVar
+
+from fastapi import HTTPException
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -19,6 +22,16 @@ from .models import User
 
 OWNED_MODELS = (ObservingSession, LibraryTarget, CaptureSet, CaptureFrame, Stack, FinalImage, ProcessingRun)
 CLAIM_KEY = "accounts_claimed"
+
+T = TypeVar("T")
+
+
+def get_owned(db: Session, model: type[T], row_id: str, user: User, detail: str) -> T:
+    """The ``model`` row ``row_id`` if ``user`` owns it; otherwise the same 404 as a missing row (never a 403)."""
+    row = db.get(model, row_id)
+    if row is None or row.owner_id != user.id:  # type: ignore[attr-defined]
+        raise HTTPException(404, detail)
+    return row
 
 
 def claim_unowned(db: Session, user: User) -> bool:

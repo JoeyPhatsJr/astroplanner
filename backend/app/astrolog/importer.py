@@ -485,25 +485,30 @@ def stack_infos(infos: list[Parsed], location: ObservingLocation | None) -> list
 
 # ---- database helpers ---------------------------------------------------------------------
 
-def existing_keys(db: Session, model, keys: Iterable[str]) -> set[str]:
+def existing_keys(db: Session, model, keys: Iterable[str], owner_id: str) -> set[str]:
+    """The dedup keys among ``keys`` that ``owner_id`` already imported (another user's never count)."""
     keys = list(set(keys))
     found: set[str] = set()
     for i in range(0, len(keys), 500):
-        found |= set(db.scalars(select(model.dedup_key).where(model.dedup_key.in_(keys[i:i + 500]))))
+        found |= set(db.scalars(select(model.dedup_key).where(model.owner_id == owner_id,
+                                                              model.dedup_key.in_(keys[i:i + 500]))))
     return found
 
 
-def import_session_for(db: Session, night: date, location_id: str) -> ObservingSession | None:
-    """The session an earlier import created/attached for this (night, location), if any."""
+def import_session_for(db: Session, night: date, location_id: str, owner_id: str) -> ObservingSession | None:
+    """The session an earlier import by ``owner_id`` created/attached for this (night, location), if any."""
     return db.scalars(select(ObservingSession).where(
+        ObservingSession.owner_id == owner_id,
         ObservingSession.local_night_date == night.isoformat(),
         ObservingSession.location_id == location_id,
         ObservingSession.source.in_(("imported", "both")),
     ).order_by(ObservingSession.created_at)).first()
 
 
-def plan_candidates(db: Session, night: date, location_id: str) -> list[ObservingSession]:
+def plan_candidates(db: Session, night: date, location_id: str, owner_id: str) -> list[ObservingSession]:
+    """``owner_id``'s own planned sessions for this night (an import never attaches to someone else's plan)."""
     return list(db.scalars(select(ObservingSession).where(
+        ObservingSession.owner_id == owner_id,
         ObservingSession.local_night_date == night.isoformat(),
         ObservingSession.source == "planned",
         ObservingSession.status == "planned",  # cancelled/completed plans are never auto-attached
@@ -511,23 +516,24 @@ def plan_candidates(db: Session, night: date, location_id: str) -> list[Observin
     ).order_by(ObservingSession.created_at)))
 
 
-def plan_ids_for(db: Session, night: date | None, location_id: str | None) -> list[str]:
-    """Planned sessions this night would attach to (empty until the location is known)."""
-    if night is None or location_id is None or import_session_for(db, night, location_id):
+def plan_ids_for(db: Session, night: date | None, location_id: str | None, owner_id: str) -> list[str]:
+    """``owner_id``'s planned sessions this night would attach to (empty until the location is known)."""
+    if night is None or location_id is None or import_session_for(db, night, location_id, owner_id):
         return []
-    return [s.id for s in plan_candidates(db, night, location_id)]
+    return [s.id for s in plan_candidates(db, night, location_id, owner_id)]
 
 
 def _night_title(night: date) -> str:
     return f"Night of {night.day} {_MONTHS[night.month - 1]} {night.year}"  # locale-independent
 
 
-def _get_or_create_target(db: Session, ref: TargetRef, cache: dict[str, LibraryTarget],
+def _get_or_create_target(db: Session, ref: TargetRef, cache: dict[str, LibraryTarget], owner_id: str,
                           coords: tuple[float | None, float | None] = (None, None)) -> LibraryTarget:
-    lt = cache.get(ref.library_key) or db.scalars(
-        select(LibraryTarget).where(LibraryTarget.normalized_key == ref.library_key)).first()
+    lt = cache.get(ref.library_key) or db.scalars(select(LibraryTarget).where(
+        LibraryTarget.owner_id == owner_id, LibraryTarget.normalized_key == ref.library_key)).first()
     if lt is None:
-        lt = LibraryTarget(catalog_target_id=ref.catalog_target_id, normalized_key=ref.library_key, kind=ref.kind,
+        lt = LibraryTarget(owner_id=owner_id, catalog_target_id=ref.catalog_target_id,
+                           normalized_key=ref.library_key, kind=ref.kind,
                            custom_name=ref.display_name if ref.kind == "custom" else None)
         db.add(lt)
     if lt.kind == "custom" and lt.ra_deg is None and coords[0] is not None and coords[1] is not None:
@@ -546,9 +552,9 @@ def _snapshot(db: Session, device: str) -> tuple[str | None, dict[str, Any] | No
 class _Sessions:
     """Resolves the one session per (night, location) for a commit, attaching to plans per §7a."""
 
-    def __init__(self, db: Session, location: ObservingLocation, plan_session_id: str | None,
+    def __init__(self, db: Session, location: ObservingLocation, plan_session_id: str | None, owner_id: str,
                  plan_choices: dict[str, str] | None = None):
-        self.db, self.location, self.plan_session_id = db, location, plan_session_id
+        self.db, self.location, self.plan_session_id, self.owner_id = db, location, plan_session_id, owner_id
         self.plan_choices = plan_choices or {}
         self.by_night: dict[date, ObservingSession] = {}
         self.plan_used = False
@@ -557,11 +563,11 @@ class _Sessions:
         if night in self.by_night:
             return self.by_night[night]
         db, loc = self.db, self.location
-        s = import_session_for(db, night, loc.id)
+        s = import_session_for(db, night, loc.id, self.owner_id)
         if s is not None:
             self.plan_used |= s.id == self.plan_session_id
         else:
-            cands = plan_candidates(db, night, loc.id)
+            cands = plan_candidates(db, night, loc.id, self.owner_id)
             pick = self.plan_choices.get(night.isoformat())
             if pick is not None:
                 if pick not in {c.id for c in cands}:
@@ -579,8 +585,9 @@ class _Sessions:
                 if s.location_id is None:
                     s.location_id = loc.id
             else:
-                s = ObservingSession(title=_night_title(night), local_night_date=night.isoformat(),
-                                     location_id=loc.id, status="completed", source="imported")
+                s = ObservingSession(owner_id=self.owner_id, title=_night_title(night),
+                                     local_night_date=night.isoformat(), location_id=loc.id, status="completed",
+                                     source="imported")
                 db.add(s)
             db.flush()
         self.by_night[night] = s
@@ -589,7 +596,7 @@ class _Sessions:
     def existing(self, night: date | None) -> ObservingSession | None:
         if night is None:
             return None
-        return self.by_night.get(night) or import_session_for(self.db, night, self.location.id)
+        return self.by_night.get(night) or import_session_for(self.db, night, self.location.id, self.owner_id)
 
 
 def _link_plan_target(s: ObservingSession, lt: LibraryTarget) -> None:
@@ -647,23 +654,29 @@ def _stack_coords(st: StackInfo) -> tuple[float | None, float | None]:
     return (f.ra_deg, f.dec_deg) if f.ra_deg is not None and f.dec_deg is not None else (None, None)
 
 
-def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation, *, clock_offset_minutes: int = 0,
-                  plan_session_id: str | None = None, canon_set_names: dict[str, str] | None = None,
-                  unsorted_groups: Iterable[str] = (), plan_choices: dict[str, str] | None = None) -> dict[str, Any]:
-    """Write one import (caller commits or rolls back). Raises ImportRequestError for request problems.
+def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation, *, owner_id: str,
+                  clock_offset_minutes: int = 0, plan_session_id: str | None = None,
+                  canon_set_names: dict[str, str] | None = None, unsorted_groups: Iterable[str] = (),
+                  plan_choices: dict[str, str] | None = None) -> dict[str, Any]:
+    """Write one import for ``owner_id`` (caller commits or rolls back). Raises ImportRequestError for request problems.
+
+    Every session, library target, capture set, frame and stack it creates belongs to ``owner_id``. Dedup keys,
+    nights and plans are matched only among that owner's rows, so two people importing the same files never collide.
 
     Only new frames and stacks are written. A group whose frames were all imported before is a
     no-op: no session, target or capture set is created and no plan is touched (frames already
     imported are never moved; corrections go through explicit edit endpoints).
     """
-    if plan_session_id is not None and db.get(ObservingSession, plan_session_id) is None:
-        raise ImportRequestError("plan_session_id does not exist.")
+    if plan_session_id is not None:
+        plan = db.get(ObservingSession, plan_session_id)
+        if plan is None or plan.owner_id != owner_id:  # someone else's plan reads exactly like a missing one
+            raise ImportRequestError("plan_session_id does not exist.")
     groups = group_items(parsed, location, clock_offset_minutes)
     apply_overrides(groups, dict(canon_set_names or {}), set(unsorted_groups))
-    sessions = _Sessions(db, location, plan_session_id, plan_choices)
+    sessions = _Sessions(db, location, plan_session_id, owner_id, plan_choices)
     targets: dict[str, LibraryTarget] = {}
     sets: dict[tuple[str, str, str], CaptureSet] = {}
-    known = existing_keys(db, CaptureFrame, (f.dedup_key for g in groups for f in g.frames))
+    known = existing_keys(db, CaptureFrame, (f.dedup_key for g in groups for f in g.frames), owner_id)
     inserted_frames, session_ids = 0, []
     prior_spans: dict[str, tuple[str | None, str | None]] = {}
 
@@ -675,7 +688,7 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
         if s.id not in session_ids:
             session_ids.append(s.id)
             prior_spans[s.id] = _frame_span(db, s.id)
-        lt = _get_or_create_target(db, g.target, targets, g.object_coords())
+        lt = _get_or_create_target(db, g.target, targets, owner_id, g.object_coords())
         _link_plan_target(s, lt)
         key = (s.id, lt.id, g.device)
         cs = sets.get(key) or db.scalars(select(CaptureSet).where(
@@ -683,8 +696,8 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
         lens = next((f.lens for f in new if f.lens), None)
         if cs is None:
             eq_id, snap = _snapshot(db, g.device)
-            cs = CaptureSet(session_id=s.id, library_target_id=lt.id, device=g.device, equipment_id=eq_id,
-                            equipment_snapshot=snap, lens=lens)
+            cs = CaptureSet(owner_id=owner_id, session_id=s.id, library_target_id=lt.id, device=g.device,
+                            equipment_id=eq_id, equipment_snapshot=snap, lens=lens)
             db.add(cs)
             db.flush()
         elif cs.lens is None and lens:
@@ -692,8 +705,8 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
         sets[key] = cs
         for f in new:
             known.add(f.dedup_key)
-            db.add(CaptureFrame(capture_set_id=cs.id, date_obs_utc=iso_z(f.utc), exptime_s=f.exptime_s,
-                                filter=f.filter, gain=f.gain, ccd_temp_c=f.ccd_temp_c, iso=f.iso,
+            db.add(CaptureFrame(owner_id=owner_id, capture_set_id=cs.id, date_obs_utc=iso_z(f.utc),
+                                exptime_s=f.exptime_s, filter=f.filter, gain=f.gain, ccd_temp_c=f.ccd_temp_c, iso=f.iso,
                                 f_number=f.f_number, focal_mm=f.focal_mm, bayer_pattern=f.bayer_pattern,
                                 source_filename=f.parsed.filename, dedup_key=f.dedup_key))
             inserted_frames += 1
@@ -707,7 +720,7 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
         raise ImportRequestError("plan_session_id is not a planned session for any night in this import.")
 
     stacks = stack_infos(parsed, location)
-    known_stacks = existing_keys(db, Stack, (st.dedup_key for st in stacks))
+    known_stacks = existing_keys(db, Stack, (st.dedup_key for st in stacks), owner_id)
     inserted_stacks = 0
     for st in stacks:
         if st.dedup_key in known_stacks:  # a duplicate stack creates nothing (not even its target)
@@ -715,10 +728,11 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
         known_stacks.add(st.dedup_key)
         f = st.parsed.fits
         s = sessions.existing(st.night_date)
-        lt = _get_or_create_target(db, st.target, targets, _stack_coords(st))
-        db.add(Stack(library_target_id=lt.id, session_id=s.id if s else None, source_filename=st.parsed.filename,
-                     stack_count=st.stack_count, livetime_s=st.livetime_s, exptime_s=st.exptime_s,
-                     expstart_jd=f.expstart_jd, expend_jd=f.expend_jd, program=f.program[:120] if f.program else None,
+        lt = _get_or_create_target(db, st.target, targets, owner_id, _stack_coords(st))
+        db.add(Stack(owner_id=owner_id, library_target_id=lt.id, session_id=s.id if s else None,
+                     source_filename=st.parsed.filename, stack_count=st.stack_count, livetime_s=st.livetime_s,
+                     exptime_s=st.exptime_s, expstart_jd=f.expstart_jd, expend_jd=f.expend_jd,
+                     program=f.program[:120] if f.program else None,
                      provenance=st.provenance, dedup_key=st.dedup_key))
         inserted_stacks += 1
     db.flush()

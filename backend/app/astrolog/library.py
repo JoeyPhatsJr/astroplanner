@@ -86,31 +86,34 @@ def _headline(captured_s: float | None, linked: Stack | None, latest: Stack | No
     return {"seconds": captured_s, "label": "captured", "provenance": "frames", "basis": None}
 
 
-def _current_images(db: Session) -> dict[str, FinalImage]:
-    return {i.library_target_id: i for i in db.scalars(select(FinalImage).where(FinalImage.is_current.is_(True)))}
+def _current_images(db: Session, owner_id: str) -> dict[str, FinalImage]:
+    return {i.library_target_id: i for i in db.scalars(select(FinalImage).where(
+        FinalImage.owner_id == owner_id, FinalImage.is_current.is_(True)))}
 
 
-def _linked_stacks(db: Session, images: dict[str, FinalImage]) -> dict[str, Stack]:
+def _linked_stacks(db: Session, images: dict[str, FinalImage], owner_id: str) -> dict[str, Stack]:
     ids = {i.stack_id for i in images.values() if i.stack_id}
     if not ids:
         return {}
-    by_id = {s.id: s for s in db.scalars(select(Stack).where(Stack.id.in_(ids)))}
+    by_id = {s.id: s for s in db.scalars(select(Stack).where(Stack.owner_id == owner_id, Stack.id.in_(ids)))}
     return {tid: by_id[i.stack_id] for tid, i in images.items()
             if i.stack_id in by_id and by_id[i.stack_id].library_target_id == tid}
 
 
-def _latest_stacks(db: Session) -> dict[str, Stack]:
+def _latest_stacks(db: Session, owner_id: str) -> dict[str, Stack]:
     out: dict[str, Stack] = {}
-    for st in db.scalars(select(Stack).order_by(Stack.imported_at.desc(), Stack.id)):
+    for st in db.scalars(select(Stack).where(Stack.owner_id == owner_id)
+                         .order_by(Stack.imported_at.desc(), Stack.id)):
         out.setdefault(st.library_target_id, st)
     return out
 
 
-def _captured(db: Session) -> dict[str, dict[str, Any]]:
+def _captured(db: Session, owner_id: str) -> dict[str, dict[str, Any]]:
     q = (select(CaptureSet.library_target_id, func.coalesce(func.sum(CaptureFrame.exptime_s), 0.0),
                 func.count(CaptureFrame.id), func.count(func.distinct(CaptureSet.session_id)),
                 func.max(CaptureFrame.date_obs_utc))
          .join(CaptureFrame, CaptureFrame.capture_set_id == CaptureSet.id)
+         .where(CaptureSet.owner_id == owner_id)
          .group_by(CaptureSet.library_target_id))
     return {tid: {"captured_s": float(s), "frames": n, "nights": nights, "last": last}
             for tid, s, n, nights, last in db.execute(q)}
@@ -120,11 +123,12 @@ def _thumb_url(img: FinalImage | None) -> str | None:
     return f"/api/astrolog/images/{img.id}/thumb" if img else None
 
 
-def library(db: Session) -> list[dict[str, Any]]:
-    cap, images = _captured(db), _current_images(db)
-    stacks, latest = _linked_stacks(db, images), _latest_stacks(db)
+def library(db: Session, owner_id: str) -> list[dict[str, Any]]:
+    """``owner_id``'s library: every target of theirs with frames, a stack or a picture."""
+    cap, images = _captured(db, owner_id), _current_images(db, owner_id)
+    stacks, latest = _linked_stacks(db, images, owner_id), _latest_stacks(db, owner_id)
     rows = []
-    for lt in db.scalars(select(LibraryTarget)):
+    for lt in db.scalars(select(LibraryTarget).where(LibraryTarget.owner_id == owner_id)):
         c = cap.get(lt.id)
         if c is None and lt.id not in images and lt.id not in latest:
             continue  # no frames, no stack, no picture: nothing to show
@@ -138,11 +142,15 @@ def library(db: Session) -> list[dict[str, Any]]:
     return [r[0] for r in rows]
 
 
-def history(db: Session) -> dict[str, dict[str, Any]]:
-    cap, images = _captured(db), _current_images(db)
-    stacks, latest = _linked_stacks(db, images), _latest_stacks(db)
+def history(db: Session, owner_id: str | None) -> dict[str, dict[str, Any]]:
+    """``owner_id``'s headline per catalog target (the "You have ... stacked" badges); ``{}`` when signed out."""
+    if owner_id is None:
+        return {}
+    cap, images = _captured(db, owner_id), _current_images(db, owner_id)
+    stacks, latest = _linked_stacks(db, images, owner_id), _latest_stacks(db, owner_id)
     out: dict[str, dict[str, Any]] = {}
-    for lt in db.scalars(select(LibraryTarget).where(LibraryTarget.catalog_target_id.is_not(None))):
+    for lt in db.scalars(select(LibraryTarget).where(LibraryTarget.owner_id == owner_id,
+                                                     LibraryTarget.catalog_target_id.is_not(None))):
         c = cap.get(lt.id)
         if c is None and lt.id not in latest and lt.id not in stacks:
             continue
@@ -343,18 +351,20 @@ def is_canonical_unsorted(lt: LibraryTarget) -> bool:
     return lt.normalized_key == UNSORTED_KEY
 
 
-def canonical_unsorted(db: Session) -> LibraryTarget:
-    lt = db.scalars(select(LibraryTarget).where(LibraryTarget.normalized_key == UNSORTED_KEY)).first()
+def canonical_unsorted(db: Session, owner_id: str) -> LibraryTarget:
+    """``owner_id``'s one Unsorted target (each owner has their own), created on first use."""
+    lt = db.scalars(select(LibraryTarget).where(LibraryTarget.owner_id == owner_id,
+                                                LibraryTarget.normalized_key == UNSORTED_KEY)).first()
     if lt is None:
-        lt = LibraryTarget(normalized_key=UNSORTED_KEY, kind="unsorted")
+        lt = LibraryTarget(owner_id=owner_id, normalized_key=UNSORTED_KEY, kind="unsorted")
         db.add(lt)
         db.flush()
     return lt
 
 
 def merge_into_unsorted(db: Session, lt: LibraryTarget) -> LibraryTarget:
-    """Move everything of ``lt`` onto the one canonical Unsorted target, then delete ``lt``."""
-    return _move_records(db, lt, canonical_unsorted(db))
+    """Move everything of ``lt`` onto its owner's one canonical Unsorted target, then delete ``lt``."""
+    return _move_records(db, lt, canonical_unsorted(db, lt.owner_id))
 
 
 def link_to_variable(db: Session, lt: LibraryTarget, star_id: str) -> LibraryTarget:
@@ -363,7 +373,8 @@ def link_to_variable(db: Session, lt: LibraryTarget, star_id: str) -> LibraryTar
     If a target for that star already exists, everything moves into it (as for Unsorted) and ``lt``
     is deleted; otherwise ``lt`` itself is converted in place."""
     key = variable_key(star_id)
-    dest = db.scalars(select(LibraryTarget).where(LibraryTarget.normalized_key == key)).first()
+    dest = db.scalars(select(LibraryTarget).where(LibraryTarget.owner_id == lt.owner_id,
+                                                  LibraryTarget.normalized_key == key)).first()
     if dest is not None:
         return _move_records(db, lt, dest)
     lt.kind, lt.catalog_target_id, lt.normalized_key, lt.custom_name = "variable", star_id, key, None

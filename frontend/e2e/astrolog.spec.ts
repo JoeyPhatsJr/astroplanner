@@ -2,8 +2,14 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { API_HEADERS, signUp } from "./auth";
 
 // Synthetic FITS headers only: dummy coordinates (40/-75 desktop, 41/-76 mobile), no real data anywhere.
+
+// AstroLog belongs to an account: each test signs up a fresh one, so it starts with an empty library.
+test.beforeEach(async ({ page }) => {
+  await signUp(page);
+});
 
 function card(key: string, value: string | number | boolean): string {
   let v: string;
@@ -55,13 +61,13 @@ const PER_PROJECT = {
   mobile: { object: "M 27", name: "Dumbbell Nebula", day: "2026-09-14", lat: 41.0, lon: -76.0, query: "M 27" },
 } as const;
 
-test("import a folder, review it, commit, and see the target history", async ({ page, request }, testInfo) => {
+test("import a folder, review it, commit, and see the target history", async ({ page }, testInfo) => {
   const cfg = PER_PROJECT[testInfo.project.name as keyof typeof PER_PROJECT];
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
 
-  const loc = await request.post("/api/locations", {
-    headers: { "X-Requested-With": "AstroPlanner" },
+  const loc = await page.request.post("/api/locations", {
+    headers: API_HEADERS,
     data: { label: `E2E ${testInfo.project.name}`, latitude_deg: cfg.lat, longitude_deg: cfg.lon, timezone: "America/New_York" },
   });
   expect(loc.ok()).toBeTruthy();

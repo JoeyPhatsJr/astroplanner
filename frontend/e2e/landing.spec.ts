@@ -1,4 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
+import { signUp } from "./auth";
+
+// The landing page hands off to Tonight, which loads the account's active session plan; sign in first.
+test.beforeEach(async ({ page }) => {
+  await signUp(page);
+});
 
 function trackErrors(page: Page) {
   const errors: string[] = [];

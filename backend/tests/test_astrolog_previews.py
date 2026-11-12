@@ -135,7 +135,7 @@ def cl(make_client, clear_provider, tmp_path):
 @pytest.fixture
 def target_id(cl):
     with cl.app.state.db.session() as s:
-        lt = LibraryTarget(custom_name="M 27", normalized_key="m27", kind="custom")
+        lt = LibraryTarget(owner_id=cl.user_id, custom_name="M 27", normalized_key="m27", kind="custom")
         s.add(lt); s.commit()
         return lt.id
 
@@ -226,7 +226,8 @@ def test_second_image_replaces_current(cl, target_id):
 
 def test_stack_id_form_and_link(cl, target_id):
     with cl.app.state.db.session() as s:
-        st = Stack(library_target_id=target_id, source_filename="x.fit", provenance="header", dedup_key="k1")
+        st = Stack(owner_id=cl.user_id, library_target_id=target_id, source_filename="x.fit", provenance="header",
+                   dedup_key="k1")
         s.add(st); s.commit(); sid = st.id
     r = _post(cl, target_id, "a.jpg", _jpg(), stack_id=sid)
     assert r.json()["stack_id"] == sid

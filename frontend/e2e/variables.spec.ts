@@ -1,6 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
+import { API_HEADERS, signUp } from "./auth";
 
 // AstroPlanner downloads no AAVSO observations: star pages show VSX catalog facts and link to AAVSO.
+
+// Plans belong to an account, and Tonight and the star pages load the active plan; sign in first.
+test.beforeEach(async ({ page }) => {
+  await signUp(page);
+});
 
 function trackErrors(page: Page) {
   const errors: string[] = [];
@@ -31,15 +37,16 @@ test("nav reaches Variable Hunter; /research redirects there", async ({ page }, 
   expect(errors).toEqual([]);
 });
 
-test("SS Cyg page: VSX link, no chart, plan add survives reload", async ({ page, request }) => {
-  // The e2e database is shared by every project and spec: start and finish without SS Cyg planned.
+test("SS Cyg page: VSX link, no chart, plan add survives reload", async ({ page }) => {
+  // Start and finish without SS Cyg planned. The account is new, but the cleanup keeps the test self-contained.
+  // page.request carries the signed-in page's session cookie.
   const unplan = async () => {
-    const sessions = await (await request.get("/api/sessions")).json();
-    for (const s of sessions)
+    const r = await page.request.get("/api/sessions");
+    expect(r.ok()).toBeTruthy();
+    for (const s of await r.json())
       for (const t of s.targets)
-        if (t.target_id === "var:ss-cyg") await request.delete(`/api/sessions/${s.id}/targets/${t.id}`, {
-            headers: { "X-Requested-With": "AstroPlanner" },
-          });
+        if (t.target_id === "var:ss-cyg")
+          await page.request.delete(`/api/sessions/${s.id}/targets/${t.id}`, { headers: API_HEADERS });
   };
   await unplan();
   try {

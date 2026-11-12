@@ -1,5 +1,9 @@
 """AstroLog HTTP routes (thin): /api/astrolog/import/{preview,commit,suggest-location}.
 
+Every route on ``router`` needs a signed-in user (401 otherwise) and only ever reads or writes that user's rows;
+another user's row answers the same 404 as a missing one. ``open_router`` holds the one open route, ``/history``,
+which answers ``{}`` signed out.
+
 Bodies are validated by hand so that a 422 never echoes the request back: the default FastAPI
 error includes the offending ``input``, which here would be base64 header bytes (and therefore
 the header coordinates).
@@ -17,6 +21,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.accounts.deps import current_user, optional_user
+from app.accounts.models import User
+from app.accounts.owned import get_owned
 from app.api import get_db
 from app.deps import validate_body
 from app.db import ObservingLocation
@@ -25,7 +32,8 @@ from app.variables import catalog as variables
 from . import importer, library, previews
 from .models import CaptureFrame, FinalImage, LibraryTarget, Stack
 
-router = APIRouter(prefix="/api/astrolog", tags=["astrolog"])
+router = APIRouter(prefix="/api/astrolog", tags=["astrolog"], dependencies=[Depends(current_user)])
+open_router = APIRouter(prefix="/api/astrolog", tags=["astrolog"])
 
 MAX_ITEMS = 300
 MAX_HEADER_B64 = 180_000  # CR2 slice 131072 bytes -> 174764 base64 chars; FITS is far smaller
@@ -65,7 +73,8 @@ def _location(db: Session, location_id: str | None) -> ObservingLocation | None:
 
 
 @router.post("/import/preview")
-def import_preview(body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
+def import_preview(body: Any = Body(...), db: Session = Depends(get_db),
+                   user: User = Depends(current_user)) -> dict[str, Any]:
     req = validate_body(PreviewIn, body)
     parsed, skipped = importer.parse_items(req.items)
     loc = _location(db, req.location_id)
@@ -74,13 +83,14 @@ def import_preview(body: Any = Body(...), db: Session = Depends(get_db)) -> dict
         loc, candidates = importer.resolve_batch_location(parsed, list(db.scalars(select(ObservingLocation))))
     groups = importer.group_items(parsed, loc, req.clock_offset_minutes)
     stacks = importer.stack_infos(parsed, loc)
-    known = importer.existing_keys(db, CaptureFrame, (f.dedup_key for g in groups for f in g.frames))
-    known_stacks = importer.existing_keys(db, Stack, (s.dedup_key for s in stacks))
+    known = importer.existing_keys(db, CaptureFrame, (f.dedup_key for g in groups for f in g.frames), user.id)
+    known_stacks = importer.existing_keys(db, Stack, (s.dedup_key for s in stacks), user.id)
     loc_id = loc.id if loc else None
 
     def group_out(g: importer.Group) -> dict[str, Any]:
         new = {f.dedup_key for f in g.frames} - known
-        return {**g.summary(), "new_frames": len(new), "plan_session_ids": importer.plan_ids_for(db, g.night_date, loc_id)}
+        return {**g.summary(), "new_frames": len(new),
+                "plan_session_ids": importer.plan_ids_for(db, g.night_date, loc_id, user.id)}
 
     return {
         "needs_location": loc is None and bool(parsed),
@@ -93,7 +103,8 @@ def import_preview(body: Any = Body(...), db: Session = Depends(get_db)) -> dict
 
 
 @router.post("/import/commit")
-def import_commit(body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
+def import_commit(body: Any = Body(...), db: Session = Depends(get_db),
+                  user: User = Depends(current_user)) -> dict[str, Any]:
     req = validate_body(CommitIn, body)
     if not req.location_id:
         raise HTTPException(422, "location_id is required: choose the saved location these files were taken at.")
@@ -103,7 +114,8 @@ def import_commit(body: Any = Body(...), db: Session = Depends(get_db)) -> dict[
         raise HTTPException(422, "Canon set names must be at most 160 characters")
     parsed, skipped = importer.parse_items(req.items)
     try:
-        result = importer.commit_import(db, parsed, loc, clock_offset_minutes=req.clock_offset_minutes,
+        result = importer.commit_import(db, parsed, loc, owner_id=user.id,
+                                        clock_offset_minutes=req.clock_offset_minutes,
                                         plan_session_id=req.plan_session_id, canon_set_names=names,
                                         unsorted_groups=req.unsorted_groups, plan_choices=req.plan_choices)
         db.commit()
@@ -153,19 +165,19 @@ async def _read_limited(file: UploadFile, limit: int) -> bytes:
 
 @router.post("/targets/{library_target_id}/final-image")
 async def upload_final_image(library_target_id: str, request: Request, file: UploadFile = File(...),
-                             stack_id: str | None = Form(None), db: Session = Depends(get_db)) -> dict[str, Any]:
+                             stack_id: str | None = Form(None), db: Session = Depends(get_db),
+                             user: User = Depends(current_user)) -> dict[str, Any]:
     limit: int = request.app.state.max_upload_bytes
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > limit + 64 * 1024:
         raise HTTPException(413, f"File is too large; the limit is {limit // (1024 * 1024)} MB.")
-    if db.get(LibraryTarget, library_target_id) is None:
-        raise HTTPException(404, "Target not found")
+    get_owned(db, LibraryTarget, library_target_id, user, "Target not found")
     name = PurePosixPath((file.filename or "").replace("\\", "/")).name[:512]
     if "." + previews.format_of(name) not in previews.SUPPORTED_EXT:
         raise HTTPException(415, "Unsupported file type. Use JPEG, PNG, TIFF or FITS.")
     if stack_id is not None:
         st = db.get(Stack, stack_id)
-        if st is None or st.library_target_id != library_target_id:
+        if st is None or st.owner_id != user.id or st.library_target_id != library_target_id:
             raise HTTPException(422, "stack_id does not belong to this target")
     data = await _read_limited(file, limit)
     try:
@@ -175,8 +187,8 @@ async def upload_final_image(library_target_id: str, request: Request, file: Upl
     except previews.ImageTooLarge as exc:
         raise HTTPException(413, str(exc))
     storage = request.app.state.storage
-    img = FinalImage(library_target_id=library_target_id, stack_id=stack_id, source_filename=name,
-                     format=fmt, preview_key="", thumb_key="", width=w, height=h,
+    img = FinalImage(owner_id=user.id, library_target_id=library_target_id, stack_id=stack_id,
+                     source_filename=name, format=fmt, preview_key="", thumb_key="", width=w, height=h,
                      is_current=True)
     db.add(img)
     db.flush()
@@ -184,7 +196,8 @@ async def upload_final_image(library_target_id: str, request: Request, file: Upl
     try:
         storage.put(img.preview_key, preview, "image/jpeg")
         storage.put(img.thumb_key, thumb, "image/jpeg")
-        for old in db.scalars(select(FinalImage).where(FinalImage.library_target_id == library_target_id,
+        for old in db.scalars(select(FinalImage).where(FinalImage.owner_id == user.id,
+                                                       FinalImage.library_target_id == library_target_id,
                                                        FinalImage.id != img.id, FinalImage.is_current.is_(True))):
             old.is_current = False
         db.commit()
@@ -196,10 +209,8 @@ async def upload_final_image(library_target_id: str, request: Request, file: Upl
     return _image_out(img)
 
 
-def _serve(request: Request, db: Session, image_id: str, which: str) -> Response:
-    img = db.get(FinalImage, image_id)
-    if img is None:
-        raise HTTPException(404, "Image not found")
+def _serve(request: Request, db: Session, image_id: str, user: User, which: str) -> Response:
+    img = get_owned(db, FinalImage, image_id, user, "Image not found")  # before storage is read
     try:
         data = request.app.state.storage.get(img.preview_key if which == "preview" else img.thumb_key)
     except KeyError:
@@ -209,24 +220,28 @@ def _serve(request: Request, db: Session, image_id: str, which: str) -> Response
 
 
 @router.get("/images/{final_image_id}/preview")
-def image_preview(final_image_id: str, request: Request, db: Session = Depends(get_db)) -> Response:
-    return _serve(request, db, final_image_id, "preview")
+def image_preview(final_image_id: str, request: Request, db: Session = Depends(get_db),
+                  user: User = Depends(current_user)) -> Response:
+    return _serve(request, db, final_image_id, user, "preview")
 
 
 @router.get("/images/{final_image_id}/thumb")
-def image_thumb(final_image_id: str, request: Request, db: Session = Depends(get_db)) -> Response:
-    return _serve(request, db, final_image_id, "thumb")
+def image_thumb(final_image_id: str, request: Request, db: Session = Depends(get_db),
+                user: User = Depends(current_user)) -> Response:
+    return _serve(request, db, final_image_id, user, "thumb")
 
 
 @router.post("/targets/{library_target_id}/stack-link")
-def stack_link(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
+def stack_link(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db),
+               user: User = Depends(current_user)) -> dict[str, Any]:
     req = validate_body(StackLinkIn, body)
+    get_owned(db, LibraryTarget, library_target_id, user, "Target not found")
     img = db.get(FinalImage, req.final_image_id)
-    if img is None or img.library_target_id != library_target_id:
+    if img is None or img.owner_id != user.id or img.library_target_id != library_target_id:
         raise HTTPException(404, "Final image not found for this target")
     if req.stack_id is not None:
         st = db.get(Stack, req.stack_id)
-        if st is None or st.library_target_id != library_target_id:
+        if st is None or st.owner_id != user.id or st.library_target_id != library_target_id:
             raise HTTPException(404, "Stack not found for this target")
     img.stack_id = req.stack_id
     db.commit()
@@ -245,31 +260,32 @@ class LinkVariableIn(BaseModel):
 
 
 @router.get("/library")
-def get_library(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
-    return library.library(db)
+def get_library(db: Session = Depends(get_db), user: User = Depends(current_user)) -> list[dict[str, Any]]:
+    return library.library(db, user.id)
 
 
-@router.get("/history")
-def get_history(db: Session = Depends(get_db)) -> dict[str, dict[str, Any]]:
-    return library.history(db)
+@open_router.get("/history")
+def get_history(db: Session = Depends(get_db),
+                user: User | None = Depends(optional_user)) -> dict[str, dict[str, Any]]:
+    """Open route for the Tonight and Explore badges: the user's own history, or ``{}`` signed out (never 401)."""
+    return library.history(db, user.id if user else None)
 
 
-def _library_target(db: Session, library_target_id: str) -> LibraryTarget:
-    lt = db.get(LibraryTarget, library_target_id)
-    if lt is None:
-        raise HTTPException(404, "Target not found")
-    return lt
+def _library_target(db: Session, library_target_id: str, user: User) -> LibraryTarget:
+    return get_owned(db, LibraryTarget, library_target_id, user, "Target not found")
 
 
 @router.get("/targets/{library_target_id}")
-def get_target_page(library_target_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
-    return library.target_page(db, _library_target(db, library_target_id))
+def get_target_page(library_target_id: str, db: Session = Depends(get_db),
+                    user: User = Depends(current_user)) -> dict[str, Any]:
+    return library.target_page(db, _library_target(db, library_target_id, user))
 
 
 @router.patch("/targets/{library_target_id}")
-def patch_target(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
+def patch_target(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db),
+                 user: User = Depends(current_user)) -> dict[str, Any]:
     req = validate_body(TargetPatch, body)
-    lt = _library_target(db, library_target_id)
+    lt = _library_target(db, library_target_id, user)
     if lt.kind in ("catalog", "variable"):
         raise HTTPException(403, "Catalog and variable-star targets cannot be renamed or moved.")
     if library.is_canonical_unsorted(lt):
@@ -293,10 +309,11 @@ def patch_target(library_target_id: str, body: Any = Body(...), db: Session = De
 
 
 @router.post("/targets/{library_target_id}/link-variable")
-def link_variable(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
+def link_variable(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db),
+                  user: User = Depends(current_user)) -> dict[str, Any]:
     """Explicit "This is SS Cyg" for a custom target (never automatic; spec 7.4)."""
     req = validate_body(LinkVariableIn, body)
-    lt = _library_target(db, library_target_id)
+    lt = _library_target(db, library_target_id, user)
     if lt.kind != "custom":
         raise HTTPException(403, "Only custom targets can be linked to a variable star.")
     if variables.get_star(req.star_id) is None:
