@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Advice, RunOut, StepView } from "../../api/processing";
 import { ProcessingCoachPage } from "../../pages/ProcessingCoachPage";
 import { PrefsProvider } from "../../state/prefs";
+import { seedSignedIn } from "../../test/auth";
 import { AdviceList } from "./AdviceList";
 
 const TITLES = ["Night report", "Convert & debayer", "Align", "Choose frames", "Stack", "Background", "Colour", "Stretch", "Stars & finish", "Compare"];
@@ -63,6 +64,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  seedSignedIn(qc); // the coach is behind the account gate
   return render(
     <PrefsProvider>
       <QueryClientProvider client={qc}>

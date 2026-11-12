@@ -283,10 +283,10 @@ body.landing-sky {
 .landing-shot {
   position: relative;
 }
-:root[data-vision="night"] :is(.landing-hero-photo, .landing-photo, .landing-shot) img {
+:root[data-vision="night"] :is(.landing-hero-photo, .landing-photo, .landing-shot, .auth-photo) img {
   filter: grayscale(1) brightness(0.6);
 }
-:root[data-vision="night"] :is(.landing-hero-photo, .landing-photo, .landing-shot)::after {
+:root[data-vision="night"] :is(.landing-hero-photo, .landing-photo, .landing-shot, .auth-photo)::after {
   content: "";
   position: absolute;
   inset: 0;

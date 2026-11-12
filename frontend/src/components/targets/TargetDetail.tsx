@@ -1,11 +1,14 @@
-import { AlertTriangle, Check, ExternalLink, Plus, X } from "lucide-react";
-import { useState } from "react";
+import { AlertTriangle, Check, ExternalLink, LogIn, Plus, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useCurrentEquipment, useVisibility } from "../../api/hooks";
 import { formatDec, formatDeg, formatRA, formatSize } from "../../lib/format";
+import { loginHref } from "../../lib/returnTo";
 import { formatDateTime, formatDuration, formatTime, tzAbbrev } from "../../lib/time";
 import { useActiveSession } from "../../state/activeSession";
 import { usePrefs } from "../../state/prefs";
 import { AltitudeChart } from "../charts/LazyCharts";
+import { AccountCheckNote, useAccountCheckRetry } from "../account/AccountCheckError";
 import { HistoryBadge } from "../astrolog/HistoryBadge";
 import { SegmentedScoreBar, ScoreBreakdown } from "../tonight/ScoreHero";
 import { Overlay, SheetTop } from "../ui/Overlay";
@@ -29,6 +32,12 @@ export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
   const q = useVisibility(shownId);
   const eq = useCurrentEquipment();
   const active = useActiveSession();
+  const loc = useLocation();
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  const signInRef = useRef<HTMLAnchorElement>(null);
+  // The account check failed: say so under Add, with a retry. Its answer brings back Add or the sign-in link.
+  const check = useAccountCheckRetry([signInRef, addRef, titleRef]);
 
   const data = q.data;
   const tz = data?.night.timezone ?? "UTC";
@@ -47,15 +56,23 @@ export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
       panelClassName="border-l border-line bg-night text-ink max-sm:border-l-0 max-sm:border-t"
     >
       <SheetTop className="border-b border-line-soft">
-      <div className="flex items-center gap-3 px-5 py-3.5">
-        <h2 id="target-detail-title" className="min-w-0 flex-1 truncate font-semibold text-xl">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3.5">
+        <h2 ref={titleRef} tabIndex={-1} id="target-detail-title" className="min-w-0 flex-1 truncate font-semibold text-xl">
           {t ? t.name : "Target"}
         </h2>
-        {t && (
+        {t && active.auth === "signedOut" && v?.can_observe ? (
+          // On phones the longer sign-in label takes its own row under the name, so the name never collapses.
+          <Link ref={signInRef} to={loginHref(loc.pathname + loc.search)} className="btn btn-primary min-h-11 max-sm:order-last max-sm:w-full">
+            <LogIn className="size-4" aria-hidden />
+            Sign in to add to session
+          </Link>
+        ) : t && (
           <button
+            ref={addRef}
             type="button"
             className={`btn ${inSession ? "btn-ghost text-ice" : "btn-primary"}`}
-            disabled={inSession || active.isAdding || !v?.can_observe}
+            disabled={active.auth === "loading" || check.failed || inSession || active.isAdding || !v?.can_observe}
+            aria-describedby={check.failed ? "td-add-account" : undefined}
             onClick={() => active.addTarget(t.id, data?.score.forecast_window ?? v?.best_window ?? null)}
           >
             {inSession ? <Check className="size-4" aria-hidden /> : <Plus className="size-4" aria-hidden />}
@@ -65,6 +82,8 @@ export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
         <button type="button" className="btn btn-ghost btn-icon" onClick={onClose} aria-label="Close details" autoFocus>
           <X className="size-5" aria-hidden />
         </button>
+        {/* Its own row under the name and controls, so the name never collapses on a phone. */}
+        {t && check.failed && <AccountCheckNote id="td-add-account" check={check} className="order-last w-full" />}
       </div>
       </SheetTop>
 

@@ -1,10 +1,16 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense } from "react";
 import { Link, Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
+import { RequireAccount } from "./components/account/RequireAccount";
 import { AppShell } from "./components/layout/AppShell";
 import { SiteLayout } from "./components/site/SiteLayout";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { PageLoading } from "./components/ui/PageLoading";
 import { EmptyState } from "./components/ui/States";
 import { LandingPage } from "./pages/LandingPage";
+import { AccountPage } from "./pages/account/AccountPage";
+import { ResetHelpPage } from "./pages/account/ResetHelpPage";
+import { SignInPage } from "./pages/account/SignInPage";
+import { SignUpPage } from "./pages/account/SignUpPage";
 import { CreditsPage } from "./pages/site/CreditsPage";
 import { HowItWorksPage } from "./pages/site/HowItWorksPage";
 import { PrivacyPage } from "./pages/site/PrivacyPage";
@@ -26,31 +32,6 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ de
 function NightRedirect() {
   const { sessionId } = useParams();
   return <Navigate to={`/astrolog/nights/${sessionId ?? ""}`} replace />;
-}
-
-/** Page-shaped skeleton, shown only if the route takes longer than 200 ms so quick loads never flash. */
-function PageLoading() {
-  const [late, setLate] = useState(false);
-  useEffect(() => {
-    const t = window.setTimeout(() => setLate(true), 200);
-    return () => window.clearTimeout(t);
-  }, []);
-  return (
-    <div role="status" aria-label="Loading page" className="mx-auto mt-6 flex max-w-[1120px] flex-col gap-4">
-      <span className="sr-only">Loading…</span>
-      {late && (
-        <div aria-hidden className="page-loading flex flex-col gap-4">
-          <div className="skeleton h-9 w-1/3" />
-          <div className="skeleton h-4 w-2/3" />
-          <div className="skeleton h-40 w-full" />
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="skeleton h-28" />
-            <div className="skeleton h-28" />
-          </div>
-        </div>
-      )}
-    </div>
-  );
 }
 
 /** Every app page shares the shell (sidebar, header controls, tab bar); the landing page does not. */
@@ -76,6 +57,9 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/credits" element={<CreditsPage />} />
         <Route path="/terms" element={<TermsPage />} />
+        <Route path="/login" element={<SignInPage />} />
+        <Route path="/login/reset-help" element={<ResetHelpPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
       </Route>
       <Route element={<ShellLayout />}>
         <Route path="/tonight" element={<TonightPage />} />
@@ -83,13 +67,18 @@ export default function App() {
         <Route path="/variables" element={<VariableHunterPage />} />
         <Route path="/variables/:slug" element={<StarPage />} />
         <Route path="/research" element={<Navigate to="/variables" replace />} />
-        <Route path="/astrolog" element={<LibraryPage />} />
-        <Route path="/astrolog/targets/:targetId" element={<TargetLogPage />} />
-        <Route path="/astrolog/import" element={<AstroLogImportPage />} />
-        <Route path="/astrolog/nights" element={<AstroLogPage />} />
-        <Route path="/astrolog/nights/:sessionId" element={<AstroLogPage />} />
-        <Route path="/astrolog/process/:captureSetId" element={<ProcessingCoachPage />} />
-        <Route path="/astrolog/:sessionId" element={<NightRedirect />} />
+        {/* AstroLog and the Processing Coach hold a person's own data: signed out, the gate replaces them. */}
+        <Route element={<RequireAccount />}>
+          <Route path="/astrolog" element={<LibraryPage />} />
+          <Route path="/astrolog/targets/:targetId" element={<TargetLogPage />} />
+          <Route path="/astrolog/import" element={<AstroLogImportPage />} />
+          <Route path="/astrolog/nights" element={<AstroLogPage />} />
+          <Route path="/astrolog/nights/:sessionId" element={<AstroLogPage />} />
+          <Route path="/astrolog/process/:captureSetId" element={<ProcessingCoachPage />} />
+          <Route path="/astrolog/:sessionId" element={<NightRedirect />} />
+        </Route>
+        {/* Signed out, the Account page sends you to sign in and back (it is not the AstroLog gate). */}
+        <Route path="/account" element={<AccountPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route
           path="*"

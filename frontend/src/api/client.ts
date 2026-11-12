@@ -43,8 +43,15 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(`${BASE}${path}`, {
       ...init,
-      // multipart bodies need the browser to set the boundary itself
-      headers: { ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(init?.headers ?? {}) },
+      // the session cookie rides along; accounts need the same-origin dev proxy (VITE_API_BASE cross-origin is unsupported)
+      credentials: "same-origin",
+      headers: {
+        // multipart bodies need the browser to set the boundary itself
+        ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+        ...(init?.headers ?? {}),
+        // the backend refuses state-changing /api/ requests without it (cross-site request guard)
+        "X-Requested-With": "AstroPlanner",
+      },
     });
   } catch {
     throw new ApiError(0, "Cannot reach the AstroPlanner API. Is the backend running on port 8000?");

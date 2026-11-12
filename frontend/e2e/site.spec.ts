@@ -1,11 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
-
-function trackErrors(page: Page) {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  return errors;
-}
+import { expect, test } from "@playwright/test";
+import { collectErrors } from "./auth";
 
 const PAGES = [
   { path: "/how-it-works", headline: "Every number shows its work." },
@@ -16,7 +10,7 @@ const PAGES = [
 
 for (const { path, headline } of PAGES) {
   test(`${path} renders outside the app shell without errors`, async ({ page }) => {
-    const errors = trackErrors(page);
+    const errors = collectErrors(page);
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(headline);
     await expect(page.getByRole("navigation", { name: "Primary" })).toHaveCount(0);
@@ -39,6 +33,17 @@ for (const { path, headline } of PAGES) {
       expect(box!.x).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(size.width);
       expect(box!.height).toBeGreaterThanOrEqual(44);
+      // Signed out, the account slot reads "Sign in": logo, slot and pill share one row, all tappable.
+      const signIn = page.getByRole("banner").getByRole("link", { name: "Sign in" });
+      await expect(signIn).toHaveAttribute("href", `/login?next=${encodeURIComponent(path)}`);
+      const slot = await signIn.boundingBox();
+      const logo = await page.getByRole("banner").getByRole("link", { name: "AstroPlanner home" }).boundingBox();
+      expect(slot!.height).toBeGreaterThanOrEqual(44);
+      expect(slot!.x).toBeGreaterThan(logo!.x + logo!.width);
+      expect(slot!.x + slot!.width).toBeLessThanOrEqual(box!.x);
+      const mid = (b: { y: number; height: number }) => b.y + b.height / 2;
+      expect(Math.abs(mid(slot!) - mid(box!)), "slot and pill on one row").toBeLessThan(4);
+      expect(Math.abs(mid(logo!) - mid(box!)), "logo and pill on one row").toBeLessThan(4);
     }
   });
 }

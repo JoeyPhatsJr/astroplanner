@@ -1,11 +1,14 @@
-import { Check, ExternalLink, Plus } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { Check, ExternalLink, LogIn, Plus } from "lucide-react";
+import { useRef } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { useCurrentEquipment, useObserver } from "../api/hooks";
 import { useStar, useStarVisibility, type StarResponse } from "../api/variables";
+import { AccountCheckNote, useAccountCheckRetry } from "../components/account/AccountCheckError";
 import { MissionCard } from "../components/variables/MissionCard";
 import { StarExplainer } from "../components/variables/StarExplainer";
 import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
+import { loginHref } from "../lib/returnTo";
 import { useActiveSession } from "../state/activeSession";
 import { vsxRange } from "./VariableHunterPage";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -28,7 +31,7 @@ export function StarPage() {
           That star is not in the curated list.
         </EmptyState>
       );
-    return <ErrorState error={q.error} onRetry={() => q.refetch()} title="Couldn't load this star" />;
+    return <ErrorState error={q.error} onRetry={() => q.refetch()} title="Couldn’t load this star" />;
   }
   if (!q.data) return null;
   return <StarBody data={q.data} slug={slug as string} />;
@@ -40,29 +43,51 @@ function AddToPlan({ starId, slug }: { starId: string; slug: string }) {
   const active = useActiveSession();
   const v = vis.data?.visibility;
   const inSession = active.inSession(starId);
+  const loc = useLocation();
+  const addRef = useRef<HTMLButtonElement>(null);
+  const signInRef = useRef<HTMLAnchorElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  // The account check failed: say so beside Add, with a retry. Its answer brings back Add or the sign-in link.
+  const check = useAccountCheckRetry([signInRef, addRef, boxRef]);
   const reason = !o
     ? "Set a location in Settings to plan this star."
     : vis.isLoading
-      ? "Checking tonight's visibility."
+      ? "Checking tonight’s visibility."
       : !v
-        ? "Tonight's visibility is unavailable."
+        ? "Tonight’s visibility is unavailable."
         : !v.can_observe
           ? v.status_text
           : null;
-  const disabled = inSession || active.isAdding || reason !== null;
+  const disabled = active.auth === "loading" || check.failed || inSession || active.isAdding || reason !== null;
+  // Plans belong to an account: signed out, the way in replaces Add, unless the star definitely can't be
+  // planned (no location, or tonight's answer is in and says no). Not while visibility loads, so it never swaps.
+  const unplannable = !o || (!vis.isLoading && !v?.can_observe);
+  // While a retry from here is still answering, the note keeps its place (and focus) one render longer.
+  if (active.auth === "signedOut" && !unplannable && !check.failed) {
+    return (
+      <Link ref={signInRef} to={loginHref(loc.pathname + loc.search)} className="btn btn-primary min-h-11">
+        <LogIn className="size-4" aria-hidden />
+        Sign in to add to session
+      </Link>
+    );
+  }
+  const showReason = reason !== null && !inSession;
+  const describedBy = [check.failed && "vh-add-account", showReason && "vh-add-reason"].filter(Boolean).join(" ");
   return (
-    <div className="flex flex-col items-start gap-1.5">
+    <div ref={boxRef} tabIndex={-1} className="flex flex-col items-start gap-1.5">
       <button
+        ref={addRef}
         type="button"
         className={`btn ${inSession ? "btn-ghost text-ice" : "btn-primary"}`}
         disabled={disabled}
-        aria-describedby={reason ? "vh-add-reason" : undefined}
+        aria-describedby={describedBy || undefined}
         onClick={() => active.addTarget(starId, v?.best_window ?? null)}
       >
         {inSession ? <Check className="size-4" aria-hidden /> : <Plus className="size-4" aria-hidden />}
-        {inSession ? "In tonight's plan" : "Add to tonight's plan"}
+        {inSession ? "In tonight’s plan" : "Add to tonight’s plan"}
       </button>
-      {reason && !inSession && (
+      {check.failed && <AccountCheckNote id="vh-add-account" check={check} />}
+      {showReason && (
         <p id="vh-add-reason" className="text-xs text-muted">
           {reason}
         </p>
@@ -111,7 +136,7 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
         <dt className="text-sm font-semibold text-ink-2">Light curve</dt>
         <dd className="m-0 flex max-w-[62ch] flex-col gap-2">
           <p className="text-sm text-ink-2">
-            AstroPlanner doesn&apos;t download AAVSO observations, so it draws no light curve. AAVSO&apos;s own pages have this star&apos;s
+            AstroPlanner doesn’t download AAVSO observations, so it draws no light curve. AAVSO’s own pages have this star’s
             record.
           </p>
           <a href={data.source_url} target="_blank" rel="noopener" className="inline-flex items-center gap-1 self-start text-sm text-ice hover:underline">

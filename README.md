@@ -27,6 +27,39 @@ Four plain pages sit beside the homescreen: `/how-it-works` (what each score and
 `/terms` (a plain-language draft, not legal advice). They share the homescreen's header and footer and
 render outside the app shell. The app's footer links to How it works and Privacy.
 
+## Accounts
+
+**Session plans, AstroLog and the Processing Coach need an account**: each person sees only their own plans, nights,
+library, final pictures and processing notes, and only their own Variable Hunter progress and "stacked" badges.
+Everything else works signed out: the homescreen, the site pages, Tonight's sky, score and targets, Explore,
+Variable Hunter star pages and Settings. The header's **Sign in** link (or your initial, with a menu for AstroLog,
+Account and Sign out) is in the top right of every page except the sign-in pages themselves.
+
+- **Local accounts.** The backend stores accounts itself, in the same database as everything else, so sign-in works
+  offline on your computer: an email, an Argon2id password hash (never the password) and sign-in sessions (the
+  browser holds the session token in an HttpOnly cookie; only its hash is stored). Supabase Auth replaces this at
+  deployment (see [ROADMAP.md](ROADMAP.md)).
+- **The first account created on an install takes over the plans and AstroLog library that existed before accounts**,
+  once; the Account page says so. No later account ever sees them.
+- **Forgot your password?** There is no email sender, so it is reset from the terminal (it asks for the new password):
+
+  ```bash
+  cd backend && .venv/bin/python -m app.accounts reset-password you@example.com
+  ```
+
+  If sign-in was locked after wrong tries, wait 15 minutes or restart the backend. (The lockout is kept in the
+  running server's memory, so the command cannot clear it.)
+
+- **Account page** (`/account`): your email and when the account was created, change password (other devices are
+  signed out; this one stays signed in), sign out, and **delete account**. Deleting asks for your password and a typed
+  `DELETE`, then removes the account, its sign-in sessions, its session plans and nights, its AstroLog library, its
+  processing notes and their preview files. Your original files on your computer are never touched.
+- **Saved places and equipment are shared**, not per account, in this build: anyone using the app can edit them, and
+  editing a place changes the times computed for nights planned there (see PROGRESS, known limitations).
+- **Same origin only.** The session cookie needs the app and the API on one origin: the Vite dev proxy, the e2e
+  servers and single-process mode all are. Cross-origin `VITE_API_BASE` mode is not supported with accounts in this
+  build.
+
 ## What it does (Phase 1)
 
 - **Tonight:** a 0–100 **Tonight's Score** with every component shown (cloud 45, rain 25,
@@ -171,10 +204,10 @@ Optional environment variables:
 ## Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q        # 453 passed, 12 skipped (astronomy references, scoring, weather, sky images, API, AstroLog, Variable Hunter, Processing Coach, migrations)
-cd frontend && npm run typecheck && npm test       # 276 tests: routes, landing page and city box, location matching, time formatting, header slicing, import merge, night strip, sheets, Variable Hunter, Processing Coach, components
+cd backend && .venv/bin/python -m pytest -q        # 512 passed, 12 skipped (astronomy references, scoring, weather, sky images, API, AstroLog, Variable Hunter, Processing Coach, accounts and ownership, migrations)
+cd frontend && npm run typecheck && npm test       # 395 tests: routes, landing page and city box, site pages, accounts (sign in, gates, Account page), location matching, time formatting, header slicing, import merge, night strip, sheets, Variable Hunter, Processing Coach, components
 cd frontend && npm run build
-cd frontend && npx playwright install chromium && npm run test:e2e   # 38 end-to-end runs over desktop + mobile (36 pass, 2 phone-only skipped on desktop): landing page, Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach
+cd frontend && npx playwright install chromium && npm run test:e2e   # 88 end-to-end runs over desktop + mobile (83 pass, 5 skipped: checks for one viewport only): landing page, site pages, accounts, Phase 1 smoke, AstroLog import, Variable Hunter, Processing Coach
 ```
 
 The end-to-end suite starts its own backend (fresh SQLite file and preview folder under

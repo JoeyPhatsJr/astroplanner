@@ -7,7 +7,7 @@ from typing import Any, Literal
 from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db import Base, _utcnow, _uuid
+from app.db import Base, _utcnow, _uuid, owner_column
 
 # Where a piece of advice or a finding comes from (see rules.py for the meanings).
 Basis = Literal["measured", "siril-docs", "tutorial-default", "taste"]
@@ -38,6 +38,7 @@ class ProcessingRun(Base):
 
     __tablename__ = "processing_runs"
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    owner_id: Mapped[str | None] = owner_column("processing_runs")
     capture_set_id: Mapped[str] = mapped_column(
         ForeignKey("capture_sets.id", ondelete="RESTRICT"), unique=True)
     siril_version: Mapped[str | None] = mapped_column(String(32), nullable=True)
@@ -48,3 +49,15 @@ class ProcessingRun(Base):
     comparison: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[str] = mapped_column(String, default=_utcnow)
     updated_at: Mapped[str] = mapped_column(String, default=_utcnow, onupdate=_utcnow)
+
+
+COMPARISON_KEY_FIELDS = ("preview_key", "thumb_key")
+
+
+def comparison_keys(run: ProcessingRun) -> set[str]:
+    """Every stored preview and thumbnail key listed in ``run.comparison`` (stacks and the Seestar picture).
+
+    The one source for both the keys the image route may serve and the files deleting the run must remove.
+    """
+    return {e[k] for e in (run.comparison or {}).values() if isinstance(e, dict)
+            for k in COMPARISON_KEY_FIELDS if isinstance(e.get(k), str) and e[k]}

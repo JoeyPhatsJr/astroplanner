@@ -1,17 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
+import { collectErrors, signUp } from "./auth";
 
 // These checks are deliberately tolerant of live weather: a forecast may be available
 // or explicitly unavailable, but the page must never show a crash or an invented value.
 
-async function collectErrors(page: Page) {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  return errors;
-}
+// Session plans belong to an account, and Tonight and Explore load the active plan; sign in first.
+test.beforeEach(async ({ page }) => {
+  await signUp(page);
+});
 
 test("Tonight renders computed night, score state and recommendations", async ({ page }) => {
-  const errors = await collectErrors(page);
+  const errors = collectErrors(page);
   // The e2e backend runs with sky images off: targets say so, and the page asks for none.
   const skyRequests: string[] = [];
   page.on("request", (r) => r.url().includes("/sky-image") && skyRequests.push(r.url()));
@@ -72,7 +71,7 @@ test("Add targets, reorder, reload persists, delete with confirmation", async ({
 });
 
 test("Explore search opens a target with its altitude chart", async ({ page }) => {
-  const errors = await collectErrors(page);
+  const errors = collectErrors(page);
   await page.goto("/explore");
   await page.getByLabel(/Search by name/).fill("whirlpool");
   const results = page.getByRole("list", { name: "Targets" });

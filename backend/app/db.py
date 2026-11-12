@@ -12,12 +12,14 @@ import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from alembic import command
 from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
 from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text, create_engine, event, inspect, select
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, MappedColumn, Session, mapped_column, relationship, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "astroplanner.db"
@@ -52,16 +54,62 @@ def run_migrations(url: str, engine: Engine | None = None) -> None:
     cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     own = engine is None
     engine = engine or create_engine(url)
+
+    def upgrade(conn) -> None:
+        cfg.attributes["connection"] = conn
+        tables = set(inspect(conn).get_table_names())
+        if "observing_locations" in tables and "alembic_version" not in tables:
+            command.stamp(cfg, BASELINE_REVISION)
+        command.upgrade(cfg, "head")
+
     try:
-        with engine.begin() as conn:
-            cfg.attributes["connection"] = conn
-            tables = set(inspect(conn).get_table_names())
-            if "observing_locations" in tables and "alembic_version" not in tables:
-                command.stamp(cfg, BASELINE_REVISION)
-            command.upgrade(cfg, "head")
+        if engine.dialect.name == "sqlite":
+            _upgrade_sqlite_without_fk_actions(engine, upgrade)
+        else:
+            with engine.begin() as conn:
+                upgrade(conn)
     finally:
         if own:
             engine.dispose()
+
+
+BROKEN_REFERENCES = "Migration would leave broken references; nothing was changed."
+
+
+def _upgrade_sqlite_without_fk_actions(engine: Engine, upgrade) -> None:
+    """Run ``upgrade`` on SQLite with foreign keys off, in one transaction checked before it commits.
+
+    Batch mode rebuilds a table by copying it, dropping the original and renaming the copy. With foreign keys on
+    (``Database`` turns them on for every connection), dropping a parent fires its children's ON DELETE actions:
+    CASCADE would delete frames, SET NULL would clear links, RESTRICT would abort. ``PRAGMA foreign_keys`` is
+    ignored inside a transaction, so it is switched off first, and back on in ``finally`` (an in-memory
+    ``StaticPool`` connection is shared with the app).
+
+    The stock ``sqlite3`` driver opens a transaction only before INSERT/UPDATE/DELETE, so a batch rebuild's first
+    CREATE TABLE would commit on its own. An explicit BEGIN makes the whole upgrade, DDL included, one transaction
+    that ``PRAGMA foreign_key_check`` can veto.
+    """
+    with engine.connect() as conn:
+        conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        off = conn.exec_driver_sql("PRAGMA foreign_keys").scalar() == 0
+        conn.commit()
+        try:
+            if not off:
+                raise RuntimeError("Could not turn SQLite foreign keys off for the migration; nothing was changed.")
+            with conn.begin():
+                if not conn.connection.driver_connection.in_transaction:
+                    conn.exec_driver_sql("BEGIN")
+                before = MigrationContext.configure(conn).get_current_revision()
+                upgrade(conn)
+                changed = MigrationContext.configure(conn).get_current_revision() != before
+                # Checked only when a revision ran: with nothing to migrate there is nothing to roll back.
+                if changed and conn.exec_driver_sql("PRAGMA foreign_key_check").first() is not None:
+                    raise RuntimeError(BROKEN_REFERENCES)  # leaving the block rolls everything back
+        finally:
+            if conn.in_transaction():
+                conn.rollback()
+            conn.exec_driver_sql("PRAGMA foreign_keys=ON")
+            conn.commit()
 
 
 def _utcnow() -> str:
@@ -74,6 +122,16 @@ def _uuid() -> str:
 
 class Base(DeclarativeBase):
     pass
+
+
+def owner_column(table: str) -> MappedColumn[Any]:
+    """``owner_id`` for an owned table (migration 0007_ownership).
+
+    Nullable only for rows from before accounts, which keep NULL until the first account claims them
+    (``app.accounts.owned``); code always sets it from then on. RESTRICT: a user is deleted only after their rows.
+    """
+    return mapped_column(ForeignKey("users.id", ondelete="RESTRICT", name=f"fk_{table}_owner"),
+                         nullable=True, index=True)
 
 
 class ObservingLocation(Base):
@@ -121,6 +179,7 @@ class ObservingSession(Base):
     source: Mapped[str] = mapped_column(String(16), default="planned", server_default="planned")  # planned|imported|both
     created_at: Mapped[str] = mapped_column(String, default=_utcnow)
     updated_at: Mapped[str] = mapped_column(String, default=_utcnow, onupdate=_utcnow)
+    owner_id: Mapped[str | None] = owner_column("sessions")
     targets: Mapped[list["SessionTarget"]] = relationship(
         back_populates="session", cascade="all, delete-orphan", order_by="SessionTarget.sort_order"
     )
@@ -150,6 +209,7 @@ class AppMeta(Base):
 
 import app.astrolog.models  # noqa: E402,F401  (registers Phase 2 tables on Base.metadata)
 import app.processing.models  # noqa: E402,F401  (registers Phase 4 tables on Base.metadata)
+import app.accounts.models  # noqa: E402,F401  (registers the account tables on Base.metadata)
 
 SEESTAR_S30 = {
     "id": "seestar-s30",

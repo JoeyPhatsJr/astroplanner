@@ -22,9 +22,14 @@ vi.mock("../api/hooks", () => ({
   useRecommendations: () => ({ ...idle, data: { observable_count: 0, results: [] } }),
 }));
 vi.mock("../state/activeSession", () => ({
-  useActiveSession: () => ({ addTarget: () => {}, inSession: () => false, isAdding: false, error: null }),
+  useActiveSession: () => ({ auth: "signedIn", signedIn: true, addTarget: () => {}, inSession: () => false, isAdding: false, error: null }),
 }));
 vi.mock("../components/session/SessionPlanPanel", () => ({ SessionPlanPanel: () => null }));
+// The target sheet's account-check retry reads the account query; here the account is mocked as signed in.
+vi.mock("../components/account/AccountCheckError", () => ({
+  useAccountCheckRetry: () => ({ failed: false, retrying: false, retry: async () => {}, buttonRef: { current: null }, error: null }),
+  AccountCheckNote: () => null,
+}));
 
 const s30 = (over: Partial<EquipmentProfile> = {}) =>
   ({ id: "e1", name: "Seestar S30 (original)", fov_deg: 2.46, fov_definition: "unknown", ...over }) as EquipmentProfile;

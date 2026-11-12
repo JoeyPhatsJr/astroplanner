@@ -16,10 +16,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, object_session
 
 from . import catalog, geo, targets
+from .accounts.deps import current_user
+from .accounts.models import User
+from .accounts.owned import get_owned
 from .astrolog.library import capture_info, session_capture_info
 from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
-from .db import Database, EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
+from .deps import get_db  # noqa: F401  (re-exported: other routers import it from here)
+from .db import EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
 from .sky_images import BUSY_RETRY_AFTER_S, SkyImageBusy, SkyImageProvider
 from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, night_clear, target_score, tonight_score
 from .visibility import DEFAULT_MIN_ALT_DEG, analyse_target, visibility_payload
@@ -32,12 +36,6 @@ MIN_DATE, MAX_DATE = date(1950, 1, 1), date(2099, 12, 31)
 
 
 # ---- dependencies ------------------------------------------------------------
-
-def get_db(request: Request):
-    db: Database = request.app.state.db
-    with db.session() as s:
-        yield s
-
 
 def get_weather(request: Request) -> OpenMeteoProvider:
     return request.app.state.weather
@@ -404,7 +402,8 @@ def delete_location(location_id: str, db: Session = Depends(get_db)) -> Response
         raise HTTPException(404, "Location not found")
     in_use = db.scalar(select(func.count()).select_from(ObservingSession).where(ObservingSession.location_id == location_id))
     if in_use:
-        raise HTTPException(409, f"Location is used by {in_use} saved session(s).")
+        # No count: plans belong to accounts, and the number would include other accounts' plans.
+        raise HTTPException(409, "This place is used by saved plans or nights (yours or another account’s).")
     db.delete(loc)
     db.commit()
     return Response(status_code=204)
@@ -502,7 +501,8 @@ def delete_equipment(equipment_id: str, db: Session = Depends(get_db)) -> Respon
     eq = _custom_or_403(db, equipment_id)
     in_use = db.scalar(select(func.count()).select_from(ObservingSession).where(ObservingSession.equipment_id == equipment_id))
     if in_use:
-        raise HTTPException(409, f"Equipment is used by {in_use} saved session(s).")
+        # No count: plans belong to accounts, and the number would include other accounts' plans.
+        raise HTTPException(409, "This equipment is used by saved plans or nights (yours or another account’s).")
     db.delete(eq)
     db.commit()
     return Response(status_code=204)
@@ -583,26 +583,25 @@ def _check_refs(db: Session, location_id: str | None, equipment_id: str | None) 
         raise HTTPException(422, "equipment_id does not exist")
 
 
-def _get_session(db: Session, session_id: str) -> ObservingSession:
-    s = db.get(ObservingSession, session_id)
-    if s is None:
-        raise HTTPException(404, "Session not found")
-    return s
+def _get_session(db: Session, session_id: str, user: User) -> ObservingSession:
+    """The user's own session; someone else's answers the same 404 as a missing one."""
+    return get_owned(db, ObservingSession, session_id, user, "Session not found")
 
 
 @router.get("/sessions")
-def list_sessions(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
-    rows = db.scalars(select(ObservingSession).order_by(ObservingSession.local_night_date.desc(),
-                                                        ObservingSession.created_at.desc()))
+def list_sessions(db: Session = Depends(get_db), user: User = Depends(current_user)) -> list[dict[str, Any]]:
+    rows = db.scalars(select(ObservingSession).where(ObservingSession.owner_id == user.id)
+                      .order_by(ObservingSession.local_night_date.desc(), ObservingSession.created_at.desc()))
     rows = list(rows)
     infos = capture_info(db, [s.id for s in rows])
     return [_session_out(s, with_targets=True, info=infos[s.id]) for s in rows]
 
 
 @router.post("/sessions", status_code=201)
-def create_session(body: SessionIn, db: Session = Depends(get_db)) -> dict[str, Any]:
+def create_session(body: SessionIn, db: Session = Depends(get_db),
+                   user: User = Depends(current_user)) -> dict[str, Any]:
     _check_refs(db, body.location_id, body.equipment_id)
-    s = ObservingSession(title=body.title, local_night_date=body.local_night_date.isoformat(),
+    s = ObservingSession(owner_id=user.id, title=body.title, local_night_date=body.local_night_date.isoformat(),
                          location_id=body.location_id, equipment_id=body.equipment_id, notes=body.notes)
     db.add(s)
     db.commit()
@@ -610,13 +609,15 @@ def create_session(body: SessionIn, db: Session = Depends(get_db)) -> dict[str, 
 
 
 @router.get("/sessions/{session_id}")
-def get_session(session_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
-    return _session_out(_get_session(db, session_id))
+def get_session(session_id: str, db: Session = Depends(get_db),
+                user: User = Depends(current_user)) -> dict[str, Any]:
+    return _session_out(_get_session(db, session_id, user))
 
 
 @router.patch("/sessions/{session_id}")
-def update_session(session_id: str, body: SessionPatch, db: Session = Depends(get_db)) -> dict[str, Any]:
-    s = _get_session(db, session_id)
+def update_session(session_id: str, body: SessionPatch, db: Session = Depends(get_db),
+                   user: User = Depends(current_user)) -> dict[str, Any]:
+    s = _get_session(db, session_id, user)
     data = body.model_dump(exclude_unset=True)
     _check_refs(db, data.get("location_id"), data.get("equipment_id"))
     for k, v in data.items():
@@ -627,8 +628,9 @@ def update_session(session_id: str, body: SessionPatch, db: Session = Depends(ge
 
 
 @router.delete("/sessions/{session_id}", status_code=204)
-def delete_session(session_id: str, db: Session = Depends(get_db)) -> Response:
-    s = _get_session(db, session_id)
+def delete_session(session_id: str, db: Session = Depends(get_db),
+                   user: User = Depends(current_user)) -> Response:
+    s = _get_session(db, session_id, user)
     if db.scalar(select(func.count()).select_from(CaptureSet).where(CaptureSet.session_id == session_id)):
         raise HTTPException(409, "This night has imported captures, so it can't be deleted.")
     db.delete(s)
@@ -637,8 +639,9 @@ def delete_session(session_id: str, db: Session = Depends(get_db)) -> Response:
 
 
 @router.post("/sessions/{session_id}/targets", status_code=201)
-def add_session_target(session_id: str, body: SessionTargetIn, db: Session = Depends(get_db)) -> dict[str, Any]:
-    s = _get_session(db, session_id)
+def add_session_target(session_id: str, body: SessionTargetIn, db: Session = Depends(get_db),
+                       user: User = Depends(current_user)) -> dict[str, Any]:
+    s = _get_session(db, session_id, user)
     if targets.lookup(body.target_id) is None:
         raise HTTPException(422, f"Unknown target {body.target_id!r}")
     if any(st.target_id == body.target_id for st in s.targets):
@@ -658,8 +661,8 @@ def add_session_target(session_id: str, body: SessionTargetIn, db: Session = Dep
 
 @router.patch("/sessions/{session_id}/targets/{session_target_id}")
 def update_session_target(session_id: str, session_target_id: str, body: SessionTargetPatch,
-                          db: Session = Depends(get_db)) -> dict[str, Any]:
-    s = _get_session(db, session_id)
+                          db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict[str, Any]:
+    s = _get_session(db, session_id, user)
     st = next((x for x in s.targets if x.id == session_target_id), None)
     if st is None:
         raise HTTPException(404, "Session target not found")
@@ -672,8 +675,9 @@ def update_session_target(session_id: str, session_target_id: str, body: Session
 
 
 @router.delete("/sessions/{session_id}/targets/{session_target_id}")
-def remove_session_target(session_id: str, session_target_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
-    s = _get_session(db, session_id)
+def remove_session_target(session_id: str, session_target_id: str, db: Session = Depends(get_db),
+                          user: User = Depends(current_user)) -> dict[str, Any]:
+    s = _get_session(db, session_id, user)
     st = next((x for x in s.targets if x.id == session_target_id), None)
     if st is None:
         raise HTTPException(404, "Session target not found")
@@ -686,8 +690,9 @@ def remove_session_target(session_id: str, session_target_id: str, db: Session =
 
 
 @router.put("/sessions/{session_id}/targets/order")
-def reorder_session_targets(session_id: str, body: ReorderIn, db: Session = Depends(get_db)) -> dict[str, Any]:
-    s = _get_session(db, session_id)
+def reorder_session_targets(session_id: str, body: ReorderIn, db: Session = Depends(get_db),
+                            user: User = Depends(current_user)) -> dict[str, Any]:
+    s = _get_session(db, session_id, user)
     current = {st.id: st for st in s.targets}
     if sorted(body.session_target_ids) != sorted(current):
         raise HTTPException(422, "session_target_ids must list every target in the session exactly once")

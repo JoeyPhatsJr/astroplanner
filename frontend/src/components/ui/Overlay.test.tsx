@@ -86,6 +86,18 @@ describe("Overlay", () => {
     expect(document.querySelector("dialog[open]")).toBeNull();
   });
 
+  it("takes the alertdialog role when asked, and keeps the native dialog role otherwise", () => {
+    const alert = render(
+      <Overlay open onClosed={() => {}} variant="modal" role="alertdialog" labelledBy="a">
+        <h2 id="a">Delete?</h2>
+      </Overlay>,
+    );
+    expect(dialog(alert.container)).toHaveAttribute("role", "alertdialog");
+    alert.unmount();
+    const plain = render(ui(true));
+    expect(dialog(plain.container)).not.toHaveAttribute("role");
+  });
+
   it("Esc runs the close path and asks the parent to dismiss", () => {
     const onDismiss = vi.fn();
     const { container } = render(ui(true, () => {}, onDismiss));
@@ -102,6 +114,21 @@ describe("Overlay", () => {
     expect(dialog(container).dataset.state).toBe("open");
     fireEvent.click(container.querySelector(".overlay-scrim")!);
     expect(dialog(container).dataset.state).toBe("closing");
+  });
+
+  it("not dismissible: Escape and the scrim do nothing, and the native close is still prevented", () => {
+    const onDismiss = vi.fn();
+    const { container } = render(
+      <Overlay open onClosed={() => {}} onDismiss={onDismiss} variant="modal" dismissible={false} labelledBy="t">
+        <h2 id="t">Busy</h2>
+      </Overlay>,
+    );
+    const ev = new Event("cancel", { cancelable: true });
+    act(() => void dialog(container).dispatchEvent(ev));
+    expect(ev.defaultPrevented).toBe(true);
+    fireEvent.click(container.querySelector(".overlay-scrim")!);
+    expect(dialog(container).dataset.state).toBe("open");
+    expect(onDismiss).not.toHaveBeenCalled();
   });
 
   it("a tap on a select's own full-screen backdrop beside the panel does not dismiss it", () => {

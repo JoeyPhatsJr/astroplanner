@@ -1,5 +1,6 @@
 import { ArrowUpRight, Check, Circle, X } from "lucide-react";
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { SitePageIntro } from "../../components/site/SitePageIntro";
 
 function Card({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
@@ -24,7 +25,7 @@ export function PrivacyPage() {
         eyebrow="Privacy"
         title="Your pictures stay yours."
         lede="What AstroPlanner reads, what it keeps, and the few things it sends anywhere else."
-        meta="Describes the app as it runs today, on your own computer. Updated 10 Nov 2026."
+        meta="Describes the app as it runs today, on your own computer. Updated 11 Nov 2026."
       />
 
       <div className="site-cards">
@@ -37,6 +38,7 @@ export function PrivacyPage() {
           <li>Location coordinates inside your files: used to match a saved place, never stored</li>
         </Card>
         <Card icon={<Circle size={10} />} title="What it keeps">
+          <li>Your account: your email and a password hash</li>
           <li>Saved places and equipment</li>
           <li>Session plans</li>
           <li>Facts from file headers, and the file names: target, times, exposure, device</li>
@@ -66,6 +68,13 @@ export function PrivacyPage() {
           When you add a final picture, AstroPlanner makes a preview about 1,600 pixels wide and a thumbnail, removes the picture’s
           metadata, and keeps only those. When you add a Siril stack, it is measured in memory (star size, noise, background, colour) and
           only the numbers and a small preview are kept.
+        </p>
+        <h2 className="landing-h2 site-h2">Your account</h2>
+        <p>
+          An account stores your email, a password hash (never the password itself) and your sign-in sessions, in the same local database
+          as everything else. Deleting your account on the <Link to="/account">Account page</Link> removes it, its sign-in sessions, your
+          session plans and nights, your AstroLog library, your processing notes and their previews. Your original files are never
+          touched. Saved places and equipment are shared by everyone using the app, so they stay; remove them in Settings.
         </p>
         <h2 className="landing-h2 site-h2">Deleting</h2>
         <p>

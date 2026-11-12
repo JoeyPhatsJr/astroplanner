@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { useMemo } from "react";
 import { defaultNightDate } from "../lib/time";
 import { usePrefs } from "../state/prefs";
+import { useAuthStatus } from "./auth";
 import { api, type ObserverParams } from "./client";
 import type { Category, EquipmentProfile, ObservingLocation, ObservingSession } from "./types";
 
@@ -21,8 +22,10 @@ export function useEquipmentList() {
   return useQuery({ queryKey: qk.equipment, queryFn: api.equipment, staleTime: 60_000 });
 }
 
+/** The signed-in user's plans and nights. Never requested signed out, or while the account is still loading. */
 export function useSessions() {
-  return useQuery({ queryKey: qk.sessions, queryFn: api.sessions });
+  const signedIn = useAuthStatus() === "signedIn";
+  return useQuery({ queryKey: qk.sessions, queryFn: api.sessions, enabled: signedIn });
 }
 
 export function useAbout() {

@@ -1,5 +1,8 @@
 import { AlertTriangle, Check, Plus } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { useAuthStatus } from "../../api/auth";
 import type { Recommendation } from "../../api/types";
+import { loginHref } from "../../lib/returnTo";
 import { formatDuration, formatTime, tzAbbrev } from "../../lib/time";
 import { HistoryBadge } from "../astrolog/HistoryBadge";
 import { SkyThumb } from "./SkyThumb";
@@ -59,6 +62,10 @@ export function TargetCard({
     .filter(Boolean)
     .join(" · ");
   const caution = score.cautions[0];
+  const auth = useAuthStatus();
+  const loc = useLocation();
+  // 36 px tall to sit quietly in the card; the invisible ::before stretches the touch target to 44 px.
+  const addClass = "btn press relative z-10 ml-auto flex-none before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']";
   return (
     <article
       className={`panel relative flex min-w-0 gap-3 p-3 transition-transform duration-[120ms] ease-[var(--ease-out)] has-[.card-open:active]:scale-[0.97] motion-reduce:has-[.card-open:active]:scale-100 ${inSession ? "border-ice/50" : ""}`}
@@ -118,26 +125,35 @@ export function TargetCard({
             height={18}
           />
           <HistoryBadge catalogId={t.id} className="relative z-10" />
-          <button
-            type="button"
-            className={`btn press relative z-10 ml-auto flex-none ${inSession ? "btn-icon btn-ghost size-11 text-ice" : "btn-tinted min-h-9 min-w-11"}`}
-            onClick={onAdd}
-            disabled={inSession || adding || !v.can_observe}
-            aria-label={
-              inSession
-                ? `${t.name} is in your session`
-                : `Add ${t.name} to session`
-            }
-          >
-            {inSession ? (
-              <Check className="size-4" aria-hidden />
-            ) : (
-              <>
-                <Plus className="size-4" aria-hidden />
-                <span className="max-sm:sr-only">Add</span>
-              </>
-            )}
-          </button>
+          {auth === "signedOut" && v.can_observe ? (
+            // Plans belong to an account: the same control, as a way in that comes back to this page.
+            // (A target that can't be observed keeps its disabled Add, signed in or not.)
+            <Link
+              to={loginHref(loc.pathname + loc.search)}
+              className={`${addClass} btn-tinted min-h-9 min-w-11`}
+              aria-label={`Sign in to add ${t.name} to a session`}
+            >
+              <Plus className="size-4" aria-hidden />
+              <span className="max-sm:sr-only">Sign in to add</span>
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className={`${addClass} ${inSession ? "btn-icon btn-ghost size-11 text-ice" : "btn-tinted min-h-9 min-w-11"}`}
+              onClick={onAdd}
+              disabled={auth === "loading" || auth === "error" || inSession || adding || !v.can_observe}
+              aria-label={inSession ? `${t.name} is in your session` : `Add ${t.name} to session`}
+            >
+              {inSession ? (
+                <Check className="size-4" aria-hidden />
+              ) : (
+                <>
+                  <Plus className="size-4" aria-hidden />
+                  <span className="max-sm:sr-only">Add</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </article>

@@ -123,7 +123,7 @@ describe("LandingPage content", () => {
 
   it.each(SITE_PATHS)("only links to real app routes, header and footer included (%s)", (path) => {
     const { container } = renderAppAt(path);
-    const routes = new Set(["/", "/tonight", "/explore", "/astrolog", "/variables", "/settings", "/how-it-works", "/privacy", "/credits", "/terms", "#site-main"]);
+    const routes = new Set(["/", "/tonight", "/explore", "/astrolog", "/variables", "/settings", "/account", "/how-it-works", "/privacy", "/credits", "/terms", "#site-main"]);
     const anchors = container.querySelectorAll<HTMLAnchorElement>("a[href]");
     expect(anchors.length).toBeGreaterThan(0);
     for (const a of anchors) {

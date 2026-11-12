@@ -1,13 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
+import { API_HEADERS, collectErrors, signUp } from "./auth";
 
 // AstroPlanner downloads no AAVSO observations: star pages show VSX catalog facts and link to AAVSO.
 
-function trackErrors(page: Page) {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  return errors;
-}
+// Plans belong to an account, and Tonight and the star pages load the active plan; sign in first.
+test.beforeEach(async ({ page }) => {
+  await signUp(page);
+});
 
 async function navLink(page: Page, projectName: string) {
   const mobile = projectName.endsWith("mobile");
@@ -16,7 +15,7 @@ async function navLink(page: Page, projectName: string) {
 }
 
 test("nav reaches Variable Hunter; /research redirects there", async ({ page }, testInfo) => {
-  const errors = trackErrors(page);
+  const errors = collectErrors(page);
   await page.goto("/tonight");
   await (await navLink(page, testInfo.project.name)).click();
   await expect(page).toHaveURL(/\/variables$/);
@@ -31,13 +30,16 @@ test("nav reaches Variable Hunter; /research redirects there", async ({ page }, 
   expect(errors).toEqual([]);
 });
 
-test("SS Cyg page: VSX link, no chart, plan add survives reload", async ({ page, request }) => {
-  // The e2e database is shared by every project and spec: start and finish without SS Cyg planned.
+test("SS Cyg page: VSX link, no chart, plan add survives reload", async ({ page }) => {
+  // Start and finish without SS Cyg planned. The account is new, but the cleanup keeps the test self-contained.
+  // page.request carries the signed-in page's session cookie.
   const unplan = async () => {
-    const sessions = await (await request.get("/api/sessions")).json();
-    for (const s of sessions)
+    const r = await page.request.get("/api/sessions");
+    expect(r.ok()).toBeTruthy();
+    for (const s of await r.json())
       for (const t of s.targets)
-        if (t.target_id === "var:ss-cyg") await request.delete(`/api/sessions/${s.id}/targets/${t.id}`);
+        if (t.target_id === "var:ss-cyg")
+          await page.request.delete(`/api/sessions/${s.id}/targets/${t.id}`, { headers: API_HEADERS });
   };
   await unplan();
   try {
@@ -56,7 +58,7 @@ async function checkSsCygPage(page: Page) {
   await expect(page.locator("svg[role='img'], canvas")).toHaveCount(0);
   await expect(page.getByText("Magnitude (V)")).toHaveCount(0);
 
-  const add = page.getByRole("button", { name: "Add to tonight's plan" });
+  const add = page.getByRole("button", { name: "Add to tonight’s plan" });
   await expect(add).toBeVisible();
   if (await add.isDisabled()) {
     // SS Cyg may be below the horizon all night at some times of year: the reason must be stated
@@ -64,7 +66,7 @@ async function checkSsCygPage(page: Page) {
     return;
   }
   await add.click();
-  await expect(page.getByRole("button", { name: "In tonight's plan" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "In tonight’s plan" })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("button", { name: "In tonight's plan" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "In tonight’s plan" })).toBeVisible();
 }

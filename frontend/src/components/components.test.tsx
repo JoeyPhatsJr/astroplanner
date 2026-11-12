@@ -1,7 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useRef } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
+import { seedSignedIn, seedSignedOut } from "../test/auth";
 import { describe, expect, it, vi } from "vitest";
 import type { History } from "../api/astrolog";
 import { TargetCard } from "./targets/TargetCard";
@@ -160,12 +162,27 @@ vi.mock("../api/astrolog", async (orig) => ({
   useAstroLogHistory: () => ({ data: mockHistory.data }),
 }));
 
+/** A router and a query client with the account already known (signed in unless `signedOut`). */
+function Account({ children, signedOut = false }: { children: React.ReactNode; signedOut?: boolean }) {
+  const [qc] = useState(() => {
+    const c = new QueryClient();
+    if (signedOut) seedSignedOut(c);
+    else seedSignedIn(c);
+    return c;
+  });
+  return (
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={["/tonight"]}>{children}</MemoryRouter>
+    </QueryClientProvider>
+  );
+}
+
 function renderBadge(history: History | undefined, id = "ngc7635") {
   mockHistory.data = history;
   return render(
-    <MemoryRouter>
+    <Account>
       <HistoryBadge catalogId={id} />
-    </MemoryRouter>,
+    </Account>,
   );
 }
 
@@ -186,6 +203,15 @@ describe("HistoryBadge", () => {
     renderBadge(undefined);
     expect(screen.queryByText(/You have/)).toBeNull();
   });
+  it("shows nothing signed out, even with history still in the cache", () => {
+    mockHistory.data = { ngc7635: { seconds: 6540, label: "stack", library_target_id: "lt1" } };
+    const { container } = render(
+      <Account signedOut>
+        <HistoryBadge catalogId="ngc7635" />
+      </Account>,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
 });
 
 describe("TargetCard history badge", () => {
@@ -197,9 +223,9 @@ describe("TargetCard history badge", () => {
   } as unknown as Recommendation;
   const card = () =>
     render(
-      <MemoryRouter>
+      <Account>
         <TargetCard rec={rec} tz="UTC" minAlt={30} onOpen={() => {}} onAdd={() => {}} inSession={false} adding={false} />
-      </MemoryRouter>,
+      </Account>,
     );
 
   it("shows the badge linking to the library target when history exists", () => {
@@ -217,9 +243,9 @@ describe("TargetCard history badge", () => {
 describe("PageHeader", () => {
   it("renders one h1, a back link with an icon, subtitle and actions", () => {
     const { container } = render(
-      <MemoryRouter>
+      <Account>
         <PageHeader title="Nights" subtitle="Every night" back={{ to: "/astrolog", label: "Library" }} actions={<button type="button">Act</button>} />
-      </MemoryRouter>,
+      </Account>,
     );
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByRole("heading", { level: 1, name: "Nights" })).toBeTruthy();
@@ -233,9 +259,9 @@ describe("PageHeader", () => {
 
   it("omits the back link when none is given", () => {
     render(
-      <MemoryRouter>
+      <Account>
         <PageHeader title="Settings" />
-      </MemoryRouter>,
+      </Account>,
     );
     expect(screen.queryByRole("link")).toBeNull();
   });
@@ -277,9 +303,9 @@ describe("TargetCard layout", () => {
   const show = (rec: Recommendation, onOpen = vi.fn(), onAdd = vi.fn()) => {
     mockHistory.data = {};
     render(
-      <MemoryRouter>
+      <Account>
         <TargetCard rec={rec} tz="UTC" minAlt={30} fovDeg={2.46} onOpen={onOpen} onAdd={onAdd} inSession={false} adding={false} />
-      </MemoryRouter>,
+      </Account>,
     );
     return { onOpen, onAdd };
   };
@@ -324,12 +350,37 @@ describe("TargetCard layout", () => {
     const label = within(add).getByText("Add");
     expect(label.className).toContain("max-sm:sr-only");
   });
+  it("signed out, Add is a sign-in link of the same size that comes back here", () => {
+    const onAdd = vi.fn();
+    render(
+      <Account signedOut>
+        <TargetCard rec={mk()} tz="UTC" minAlt={30} fovDeg={2.46} onOpen={() => {}} onAdd={onAdd} inSession={false} adding={false} />
+      </Account>,
+    );
+    expect(screen.queryByRole("button", { name: "Add Bubble Nebula to session" })).toBeNull();
+    const link = screen.getByRole("link", { name: "Sign in to add Bubble Nebula to a session" });
+    expect(link).toHaveAttribute("href", "/login?next=%2Ftonight");
+    expect(link.className).toContain("btn-tinted");
+    expect(link.className).toContain("min-h-9");
+    expect(link.className).toContain("min-w-11");
+    expect(link.querySelector("svg")).not.toBeNull();
+    expect(within(link).getByText("Sign in to add").className).toContain("max-sm:sr-only");
+  });
+  it("signed out, a target that can't be observed keeps its disabled Add", () => {
+    render(
+      <Account signedOut>
+        <TargetCard rec={mk({ visibility: { best_window: null, status_text: "Too low", max_alt_dark_deg: 10, can_observe: false } })} tz="UTC" minAlt={30} onOpen={() => {}} onAdd={() => {}} inSession={false} adding={false} />
+      </Account>,
+    );
+    expect(screen.queryByRole("link", { name: /Sign in to add/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add Bubble Nebula to session" })).toBeDisabled();
+  });
   it("keeps the in-session button as it was", () => {
     mockHistory.data = {};
     render(
-      <MemoryRouter>
+      <Account>
         <TargetCard rec={mk()} tz="UTC" minAlt={30} fovDeg={2.46} onOpen={() => {}} onAdd={() => {}} inSession adding={false} />
-      </MemoryRouter>,
+      </Account>,
     );
     const done = screen.getByRole("button", { name: "Bubble Nebula is in your session" });
     expect(done.className).toContain("btn-ghost");

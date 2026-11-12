@@ -66,7 +66,26 @@ describe("Privacy", () => {
     expect(screen.getByText(/saved preferences in your browser/)).toHaveTextContent(/clearing this site's data in your browser/);
     expect(screen.getByText(/DATABASE_URL/)).toBeInTheDocument();
     expect(screen.queryByText(/For the login design/)).toBeNull();
-    expect(screen.getByText(/Updated 10 Nov 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Updated 11 Nov 2026/)).toBeInTheDocument();
+    noDashes(container);
+  });
+
+  it("says what an account stores and how deleting it works", () => {
+    const { container } = renderAt("/privacy");
+    expect(screen.getByRole("heading", { level: 2, name: "Your account" })).toBeInTheDocument();
+    const keeps = screen.getByRole("heading", { name: "What it keeps" }).closest("section")!;
+    const items = within(keeps).getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent(/^Your account: your email and a password hash$/);
+    const section = screen.getByText(/^An account stores your email/);
+    expect(within(section).getByRole("link", { name: "Account page" })).toHaveAttribute("href", "/account");
+    expect(section).toHaveTextContent(
+        "An account stores your email, a password hash (never the password itself) and your sign-in sessions, in the same local database as everything else. Deleting your account on the Account page removes it, its sign-in sessions, your session plans and nights, your AstroLog library, your processing notes and their previews. Your original files are never touched. Saved places and equipment are shared by everyone using the app, so they stay; remove them in Settings.",
+    );
+    expect(screen.getAllByText(/password hash/).length).toBeGreaterThanOrEqual(2);
+    // The section comes after "Pictures and stacks".
+    const h2s = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(h2s.indexOf("Your account")).toBe(h2s.indexOf("Pictures and stacks") + 1);
+    expect(container.textContent).not.toMatch(/encrypted/i);
     noDashes(container);
   });
 });

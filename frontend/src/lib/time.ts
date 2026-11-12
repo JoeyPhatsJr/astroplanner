@@ -75,6 +75,18 @@ export function formatCalendarDate(isoDate: string, withYear = false): string {
   return s.replace(",", "");
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * "11 Nov 2026": the day an instant fell on in this browser's timezone. Months are spelled out here because
+ * some engines write September as "Sept" in en-GB. Returns null for a value that is not a date.
+ */
+export function formatDayMonthYear(iso: string): string | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 /** "Night of Mon 2 Nov → morning of Tue 3 Nov" */
 export function nightLabel(isoDate: string): string {
   return `Night of ${formatCalendarDate(isoDate)} → morning of ${formatCalendarDate(addDays(isoDate, 1))}`;

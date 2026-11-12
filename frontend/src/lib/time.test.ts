@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, defaultNightDate, formatDuration, formatExposures, formatIntegration, formatLocalSpan, formatTime, formatTimeTz, localDate, nightLabel, tzAbbrev } from "./time";
+import { addDays, defaultNightDate, formatDayMonthYear, formatDuration, formatExposures, formatIntegration, formatLocalSpan, formatTime, formatTimeTz, localDate, nightLabel, tzAbbrev } from "./time";
 
 describe("formatTime in the observer's timezone", () => {
   it("formats in the given zone, not the runner's", () => {
@@ -110,5 +110,14 @@ describe("formatLocalSpan", () => {
   });
   it("is empty when the times are unknown", () => {
     expect(formatLocalSpan(null, null, "UTC")).toBe("");
+  });
+});
+
+describe("formatDayMonthYear", () => {
+  it("writes the day, a three-letter month and the year", () => {
+    expect(formatDayMonthYear("2026-11-11T10:00:00Z")).toBe("11 Nov 2026");
+    // September stays "Sep" (en-GB in some engines writes "Sept").
+    expect(formatDayMonthYear("2026-09-15T12:00:00Z")).toBe("15 Sep 2026");
+    expect(formatDayMonthYear("not a date")).toBeNull();
   });
 });

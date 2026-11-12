@@ -3,10 +3,16 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import { API_HEADERS, signUp } from "./auth";
 
 // Processing Coach end to end on a SYNTHETIC night (backend/scripts/make_synthetic_night.py): dummy coordinates,
 // header-only FITS lights and Siril-style text files, no real data and no absolute paths. The desktop and mobile
 // projects share one database, so each imports a different object on a different night.
+
+// The import and the coach's runs belong to an account: sign up a fresh one per test.
+test.beforeEach(async ({ page }) => {
+  await signUp(page);
+});
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BACKEND = join(HERE, "..", "..", "backend");
@@ -16,7 +22,7 @@ const PER_PROJECT = {
   mobile: { object: "IC 1805", start: "2026-10-06T03:00:00", lat: 43.0, lon: -78.0 },
 } as const;
 
-test("import a synthetic night, read its Siril folder, choose frames, download both scripts, open Compare", async ({ page, request }, testInfo) => {
+test("import a synthetic night, read its Siril folder, choose frames, download both scripts, open Compare", async ({ page }, testInfo) => {
   const cfg = PER_PROJECT[testInfo.project.name as keyof typeof PER_PROJECT];
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -28,7 +34,8 @@ test("import a synthetic night, read its Siril folder, choose frames, download b
     { cwd: BACKEND },
   );
 
-  const loc = await request.post("/api/locations", {
+  const loc = await page.request.post("/api/locations", {
+    headers: API_HEADERS,
     data: { label: `E2E coach ${testInfo.project.name}`, latitude_deg: cfg.lat, longitude_deg: cfg.lon, timezone: "America/New_York" },
   });
   expect(loc.ok()).toBeTruthy();

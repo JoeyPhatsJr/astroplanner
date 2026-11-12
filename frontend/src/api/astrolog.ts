@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuthStatus } from "./auth";
 import { request } from "./client";
 import { qk } from "./hooks";
 
@@ -244,16 +245,25 @@ export const alk = {
   target: (id: string) => ["astrolog", "target", id] as const,
 };
 
+// Owned AstroLog data is never requested signed out, so nothing owned is sent even when a reset query on
+// screen would otherwise refetch (on reconnect, say).
 export function useAstroLogLibrary() {
-  return useQuery({ queryKey: alk.library, queryFn: astrologApi.library });
+  const signedIn = useAuthStatus() === "signedIn";
+  return useQuery({ queryKey: alk.library, queryFn: astrologApi.library, enabled: signedIn });
 }
 
 export function useAstroLogTarget(id: string | undefined) {
-  return useQuery({ queryKey: alk.target(id ?? ""), queryFn: () => astrologApi.target(id as string), enabled: !!id });
+  const signedIn = useAuthStatus() === "signedIn";
+  return useQuery({ queryKey: alk.target(id ?? ""), queryFn: () => astrologApi.target(id as string), enabled: signedIn && !!id });
 }
 
+/**
+ * The "You have … stacked" badges. The route is open (signed out it answers with nothing personal), but the
+ * badges are personal, so it is asked only when signed in.
+ */
 export function useAstroLogHistory() {
-  return useQuery({ queryKey: alk.history, queryFn: astrologApi.history });
+  const signedIn = useAuthStatus() === "signedIn";
+  return useQuery({ queryKey: alk.history, queryFn: astrologApi.history, enabled: signedIn });
 }
 
 export function useImportPreview() {

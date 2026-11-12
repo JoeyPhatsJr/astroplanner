@@ -1,8 +1,66 @@
 # PROGRESS
 
-_Last updated: 2026-11-10 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
+_Last updated: 2026-11-12 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
-## Current work: site pages (branch `site-pages-design`, awaiting developer review)
+## Current work: accounts and sign-in (branch `login-design`, awaiting developer review)
+
+Spec: `docs/superpowers/specs/2026-11-11-accounts-design.md` (amended to match what shipped); plan:
+`docs/superpowers/plans/2026-11-11-accounts.md`; mockup: `docs/superpowers/mockups/2026-11-11-login/index.html`.
+
+| Area | What changed |
+|---|---|
+| Backend accounts | `backend/app/accounts/`: `users` and `user_sessions` tables (migration 0006), Argon2id hashes, 30-day sessions in an HttpOnly `SameSite=Lax` cookie (only the token's SHA-256 is stored), in-memory throttle, `X-Requested-With` guard on state-changing `/api/` requests, `/api/auth/*` routes, `python -m app.accounts reset-password` |
+| Ownership | Migration 0007 adds `owner_id` to plans, nights, AstroLog and coach tables and makes dedup keys unique per owner (SQLite tables rebuilt without firing `ON DELETE`). Every owned route answers 401 signed out and 404 for someone else's row; the first account created takes over the rows that existed before, once |
+| Delete account | Removes the user, their sessions, owned rows and preview files, in dependency order; nothing shared or another user's is touched |
+| Frontend | Sign in, Create account and reset help pages; the header account slot (Sign in, or the initial with AstroLog, Account and Sign out); the AstroLog gate; "Sign in to plan" on Tonight and star pages; personal badges and progress only when signed in; a 401 mid-session shows the signed-out screen |
+| Account page | `/account`: email and created date, the first-account claim notice, change password, sign out, delete account (password plus typed DELETE, `role="alertdialog"`); signed out it goes to sign in and back |
+| Privacy | "What it keeps" starts with "Your account: your email and a password hash"; a new "Your account" section says what an account stores and what deleting it removes; Updated 11 Nov 2026 |
+| Final review fixes | The AstroLog import's stashed files are dropped on any sign-in, sign-out or 401, so they never cross accounts in one tab; a failed account check (backend down) shows "Couldn’t check your account" with Try again instead of "Sign in", and on star pages and Explore's target sheet the disabled Add says "Couldn’t check your account." beside it, with a Try again that keeps focus while it asks and hands focus to Add or "Sign in to add" when it answers; deleting a place or equipment in use no longer reports other accounts' plan counts; reset help says how to clear a sign-in lockout |
+| Tests | Backend accounts, ownership, migration and deletion tests; `auth.test.tsx`, `gates.test.tsx`, `account.test.tsx`, site pages; `frontend/e2e/accounts.spec.ts` (create, sign out, gate, sign in, return-to, generic wrong-password message, token only in an HttpOnly cookie, two users' isolation, delete account, nothing owned requested signed out, forgot password, header at 320 px, night vision on sign in) |
+
+### Commands last run (2026-11-12, after the Add-button account-check fix; all passing)
+
+```bash
+cd backend && .venv/bin/python -m pytest -q            # 512 passed, 12 skipped (last run after the final review fixes)
+cd frontend && npx tsc -b --noEmit                     # clean
+cd frontend && npx vitest run                          # 395 passed (37 files)
+cd frontend && npm run build                           # built
+cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 83 passed, 5 skipped (desktop + mobile; last full run after the final review fixes)
+cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test e2e/variables.spec.ts e2e/smoke.spec.ts e2e/accounts.spec.ts   # 48 passed, 4 skipped (after the Add-button fix)
+```
+
+Design-skills check of the Account page, the change-password form, the delete dialog and the Privacy section: live
+browser pass at 1440, 390, 360 and 320 px, night vision on and off, plus emulated reduced motion and increased
+contrast (reduced transparency was not emulated). It fixed focus dropping to the page when "Change password" opens
+(Current password is focused), mixed label layouts on phones (every row stacks below 640 px), a dialog without
+overscroll containment, the email without `translate="no"` and a faint dialog edge under increased contrast; dialog
+buttons measured 44 px tall and stack full width below 380 px.
+
+### Known limitations (accounts)
+
+- Saved places and equipment stay shared and editable by anyone using the app. A night's computed times and the
+  coach's altitude numbers come from its place, so editing a place changes them. Revisit before deployment.
+- Sign-in lockout is per email (5 failures in 15 minutes): someone on the same machine can delay one person's sign-in
+  by 15 minutes. Supabase Auth replaces it at deployment.
+- The throttle is in memory, so it resets when the backend restarts.
+- The session cookie is `Secure` only when served over HTTPS; local http://127.0.0.1 does not need it.
+- No email password reset: a password is reset from the terminal (`python -m app.accounts reset-password`).
+- Cross-origin `VITE_API_BASE` mode is not supported with accounts; the dev proxy, e2e and single-process mode are
+  same-origin.
+- The Postgres branch of the 0006 and 0007 migrations was not run locally (no Postgres here), but CI ran it on
+  PR #9 (2026-11-12, "Migrations on Postgres" job, Postgres 16): `test_migrations_on_postgres` passed, 17 passed.
+- The explicit `BEGIN` that makes the 0007 upgrade one transaction (`run_migrations` in `backend/app/db.py`) is
+  SQLite-only SQL, deliberately, inside the dialect guard with the `PRAGMA foreign_keys` switch; Postgres never runs
+  it.
+- Downgrading 0007 keeps the `accounts_claimed` marker in `app_meta`, so the first-account claim never runs twice;
+  after a downgrade and upgrade, ownerless rows need a one-line manual claim.
+
+### Exact next step (accounts)
+
+Ask the developer to review the accounts branch (`login-design`) and whether to merge it (PR to `main`).
+Deployment with Supabase Auth comes later (ROADMAP "Deployment").
+
+## Previous work: site pages (branch `site-pages-design`, merged as PR #8, merge commit 09d51e4)
 
 Spec: `docs/superpowers/specs/2026-11-10-site-pages-design.md`; plan: `docs/superpowers/plans/2026-11-10-site-pages.md`.
 
@@ -26,13 +84,13 @@ cd frontend && E2E_API_PORT=8130 E2E_WEB_PORT=5210 npx playwright test   # 64 pa
 ### Known limitations (site pages)
 
 - Terms is a draft written in plain language, not legal advice.
-- Privacy describes the local app only; the account section waits for the login design.
+- Privacy describes the local app only. (Its account section was added with accounts, 2026-11-11.)
 - Browser check done 2026-11-10 by the controller at 1440 and 320 px, with night vision. Two cosmetic differences from the mockup remain: no logo in the footer brand column, and the "What it won’t claim" list is indented more.
 - Final review fix pass: scroll resets on page change, link and label rules now run over the whole app, Privacy lists everything the database keeps, per-page tab titles.
 
 ### Next step
 
-Developer reviews the site pages, then PR and merge. The login design is next.
+Developer reviews the site pages, then PR and merge. (The login design followed: see "accounts and sign-in" above.)
 
 ## Current work: polish pass 2 (branch `worktree-polish-pass-2`, merged as PR #7)
 

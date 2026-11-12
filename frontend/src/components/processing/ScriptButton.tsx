@@ -1,6 +1,8 @@
 import { Download } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { fetchScript, type ScriptKind, type SelectionCounts } from "../../api/processing";
+import { markSignedOutIf401 } from "../../api/queryClient";
 
 const LABEL: Record<ScriptKind, string> = { prepare: "script 1 (prepare)", stack: "script 2 (stack)" };
 // Display only; the downloaded file is named by the server's Content-Disposition.
@@ -15,6 +17,7 @@ export function formatGB(bytes: number): string {
  *  While `disabledReason` is set the button is disabled and the reason is shown under it. */
 export function ScriptButton({ runId, which, disabledReason }: { runId: string; which: ScriptKind; disabledReason: string | null }) {
   const reasonId = useId();
+  const qc = useQueryClient();
   const [state, setState] = useState<{ status: "idle" | "pending" | "done" | "error"; text?: string }>({ status: "idle" });
 
   const download = async () => {
@@ -31,6 +34,11 @@ export function ScriptButton({ runId, which, disabledReason }: { runId: string; 
       setTimeout(() => URL.revokeObjectURL(url), 0);
       setState({ status: "done", text: filename });
     } catch (e) {
+      // A 401 means the session ended: the account gate replaces the coach, so no error is shown here.
+      if (markSignedOutIf401(qc, e)) {
+        setState({ status: "idle" });
+        return;
+      }
       setState({ status: "error", text: e instanceof Error ? e.message : String(e) });
     }
   };

@@ -127,7 +127,16 @@ def test_session_lifecycle_persists_across_restart(make_client, clear_provider, 
         assert [t["target_id"] for t in s["targets"]] == ["m45", "m42"]
         assert [t["sort_order"] for t in s["targets"]] == [0, 1]
         c.patch(f"/api/sessions/{sid}", json={"notes": "bring dew heater"})
-        assert c.delete("/api/locations/sample-location").status_code == 409  # in use
+        # In use. No count: plans belong to accounts, so a number would include other accounts' plans.
+        r = c.delete("/api/locations/sample-location")
+        assert r.status_code == 409
+        assert r.json() == {"detail": "This place is used by saved plans or nights (yours or another account’s)."}
+        eq_id = c.post("/api/equipment/seestar-s30/duplicate").json()["id"]
+        c.post("/api/sessions", json={"title": "Night of 3 Nov", "local_night_date": "2026-11-03",
+                                      "location_id": "sample-location", "equipment_id": eq_id})
+        r = c.delete(f"/api/equipment/{eq_id}")
+        assert r.status_code == 409
+        assert r.json() == {"detail": "This equipment is used by saved plans or nights (yours or another account’s)."}
 
     with make_client(clear_provider, db_path) as c2:  # fresh app, same database file
         s = c2.get(f"/api/sessions/{sid}").json()

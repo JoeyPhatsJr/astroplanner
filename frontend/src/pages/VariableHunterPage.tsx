@@ -43,7 +43,7 @@ export function VariableHunterPage() {
                   {s.constellation} · {vsxRange(s.vsx)}
                 </span>
                 <TonightWindow slug={s.slug} plain />
-                {s.nights_count > 0 && <span className="text-sm text-ink-2">Your nights: {s.nights_count}</span>}
+                {s.nights_count != null && s.nights_count > 0 && <span className="text-sm text-ink-2">Your nights: {s.nights_count}</span>}
               </Link>
             </li>
           ))}

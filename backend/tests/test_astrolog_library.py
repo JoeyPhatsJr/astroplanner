@@ -136,7 +136,8 @@ def test_headline_fallbacks_without_livetime(api):
         for kw, want in (({"livetime_s": None, "stack_count": 20, "exptime_s": 10.0}, 200.0),
                          ({"livetime_s": None, "stack_count": None, "exptime_s": None,
                            "source_filename": "NGC_7635_77x10sec.fit"}, 770.0)):
-            s.add(Stack(library_target_id=tid, source_filename=kw.pop("source_filename", "x.fit"), provenance="header",
+            s.add(Stack(owner_id=api.user_id, library_target_id=tid, provenance="header",
+                        source_filename=kw.pop("source_filename", "x.fit"),
                         dedup_key=f"k{want}", **kw))
         s.commit()
         ids = {st.dedup_key: st.id for st in s.scalars(select(Stack))}
@@ -249,7 +250,8 @@ def test_linked_stack_without_integration_falls_back_to_captured(api):
     commit(api, ngc_frames(3), loc)
     tid = lib_id(api)
     with api.app.state.db.session() as s:
-        st = Stack(library_target_id=tid, source_filename="mystery.fit", provenance="header", dedup_key="none")
+        st = Stack(owner_id=api.user_id, library_target_id=tid, source_filename="mystery.fit", provenance="header",
+                   dedup_key="none")
         s.add(st); s.commit(); sid = st.id
     upload(api, tid, sid)
     h = api.get(f"/api/astrolog/targets/{tid}").json()["headline"]

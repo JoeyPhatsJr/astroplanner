@@ -18,6 +18,7 @@ the architectural seams that let later phases grow cleanly, and a decision log.
 | 4 | Processing Coach | Step-by-step Siril processing guide for a night's Seestar frames, built from Siril's own measurements; Siril scripts; Seestar vs your stack side by side | ✅ **Complete**: merged 2026-11-04 (PR #3, git tag `phase-4`; spec `docs/superpowers/specs/2026-11-03-processing-coach-design.md`). Open: Seestar stacked FITS for the measured comparison (G2) |
 | **Polish** | Polish pass | Foundations, redesigned Tonight, sky images, motion, phone, night vision, consistency | ✅ **Complete**: merged (PR #4, merge commit 0ad8aae); design approved 2026-11-09 (spec `docs/superpowers/specs/2026-11-09-polish-pass-design.md`); real-phone and dark-room tests pending |
 | **Polish 2** | Polish pass 2 | Type scale, night-vision contrast, Tonight and card calm, grouped Explore, star page, two badge styles | **Built and validated, awaiting developer review**: design approved 2026-11-10 (spec `docs/superpowers/specs/2026-11-10-polish-pass-2-design.md`); dark-room check of night vision pending |
+| **Accounts** | Accounts and sign-in | Local accounts; plans, AstroLog and the coach per user; Account page with change password and delete | **Built and validated, awaiting developer review** on branch `login-design` (spec `docs/superpowers/specs/2026-11-11-accounts-design.md`) |
 | 5 | Scientific image analysis | FITS photometry, user-generated light curves | Planned, after the polish pass |
 | 6 | Advanced features | Personalization, collaboration, 3D visualization, telescope integrations | Not started |
 
@@ -100,8 +101,10 @@ milestone scheduled when the project is nearly complete, so hosting choices can 
 for later phases' needs (e.g. image storage in Phase 2, FITS processing in Phase 4).
 
 - Current target: Vercel (frontend + Python function) + Supabase (Postgres, Auth, Storage).
-- Prerequisites before going public: `owner_id` on user-owned rows, Supabase Auth JWT
-  verification in FastAPI (owner-only writes), production CORS, secrets in environment variables.
+- Prerequisites before going public: Supabase Auth JWT verification in FastAPI replacing the local
+  `current_user` dependency (`owner_id` on user-owned rows and owner-only reads and writes exist since the
+  2026-11-11 accounts work), email password reset, production CORS, secrets in environment variables. To decide
+  before going public: whether saved places and equipment become per account (shared in the local build).
 - Variable Hunter prerequisite before going public: the four stars' VSX catalog facts are used under VSX's
   "personal, non-commercial use only" terms, so a public site needs AAVSO's permission for them (or drop them).
 - Sky image prerequisite before going public: DSS is copyrighted and free only for non-profit use, and its terms do not address
@@ -154,8 +157,9 @@ are where later phases attach; each "later" item is a note, not code.
 
 **Done in Phase 2:** Alembic migrations with a baseline of the Phase 1 schema (an existing Phase 1 database is stamped, then upgraded).
 
-**Planned before any public deployment:** an `owner_id` on user-owned rows and JWT
-verification in FastAPI (Supabase Auth). Until then the app is single-user and local.
+**Done with accounts (2026-11-11):** local accounts, an `owner_id` on user-owned rows (plans, nights, AstroLog,
+Processing Coach) and owner-only access through one `current_user` dependency. **At deployment:** Supabase Auth JWT
+verification replaces `current_user` (see "Deployment" and the 2026-11-11 decision rows).
 
 ## Decision log
 
@@ -206,3 +210,6 @@ verification in FastAPI (Supabase Auth). Until then the app is single-user and l
 | 2026-11-10 | **The S30 FOV-axis caveat is stated once per surface**, not on every card | Requirement 5 needs the caveat wherever framing notes appear; repeating it on every card is noise. The sentence is built from the equipment name and `fov_deg` |
 | 2026-11-10 | **The framing-diagram fallback shows no caption**; only sky images show the field width | Labelling the dashed circle with a width would imply an FOV axis that is unverified |
 | 2026-11-10 | **Site pages live outside the app shell, sharing the homescreen header and footer** | How it works, Privacy, Credits and Terms are reference pages, not tools, so they get the landing layout and no app navigation. Terms is a plain-language draft, Privacy covers the local app only, and the account section waits for the login design |
+| 2026-11-11 | **Local accounts now (in the FastAPI backend), Supabase Auth at deployment** | Developer decision: sign-in comes before deployment and must work offline on one computer. Argon2id hashes, server-side sessions in an HttpOnly cookie, one `current_user` dependency so Supabase can replace it. No email sending, so a forgotten password is reset from the terminal (`python -m app.accounts reset-password`). Spec `docs/superpowers/specs/2026-11-11-accounts-design.md` |
+| 2026-11-11 | **Session plans, AstroLog and the Processing Coach need an account; progress is personal** | Developer decision (builder check): a night is a session plan, so plans are owned too. Tonight, Explore, Variable Hunter star pages, Settings and the site pages stay open; signed out they show no personal progress. Saved places and equipment stay shared in this build (a known limitation, see PROGRESS) |
+| 2026-11-11 | **Deleting an account deletes its plans, nights, AstroLog and coach rows and preview files** | This is the one deliberate exception to "imported observations are never deleted as a side effect" (2026-11-02), because it is the explicit, confirmed request (password plus typed DELETE). Rows go in dependency order in code (foreign keys stay RESTRICT); original files on the computer are never touched |

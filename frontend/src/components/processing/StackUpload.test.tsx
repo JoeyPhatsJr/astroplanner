@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunOut, StepView } from "../../api/processing";
 import { ProcessingCoachPage } from "../../pages/ProcessingCoachPage";
 import { PrefsProvider } from "../../state/prefs";
+import { seedSignedIn } from "../../test/auth";
 
 const IDS = ["report", "convert", "align", "select", "stack", "background", "colour", "stretch", "finish", "compare"] as const;
 const PROMPT = "Add your Siril stack to get advice for this night";
@@ -73,6 +74,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  seedSignedIn(qc); // the coach is behind the account gate
   return render(
     <PrefsProvider>
       <QueryClientProvider client={qc}>
