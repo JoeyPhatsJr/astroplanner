@@ -8,16 +8,17 @@ the header coordinates).
 from __future__ import annotations
 
 from pathlib import PurePosixPath
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api import get_db
+from app.deps import validate_body
 from app.db import ObservingLocation
 from app.variables import catalog as variables
 
@@ -54,17 +55,6 @@ class SuggestIn(BaseModel):
     items: list[ImportItem] = Field(..., max_length=MAX_ITEMS)
 
 
-M = TypeVar("M", bound=BaseModel)
-
-
-def _validate(model: type[M], body: Any) -> M:
-    try:
-        return model.model_validate(body)
-    except ValidationError as exc:
-        raise HTTPException(422, [{"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]}
-                                  for e in exc.errors(include_input=False, include_url=False)])
-
-
 def _location(db: Session, location_id: str | None) -> ObservingLocation | None:
     if location_id is None:
         return None
@@ -76,7 +66,7 @@ def _location(db: Session, location_id: str | None) -> ObservingLocation | None:
 
 @router.post("/import/preview")
 def import_preview(body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
-    req = _validate(PreviewIn, body)
+    req = validate_body(PreviewIn, body)
     parsed, skipped = importer.parse_items(req.items)
     loc = _location(db, req.location_id)
     candidates: list[dict[str, Any]] = []
@@ -104,7 +94,7 @@ def import_preview(body: Any = Body(...), db: Session = Depends(get_db)) -> dict
 
 @router.post("/import/commit")
 def import_commit(body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
-    req = _validate(CommitIn, body)
+    req = validate_body(CommitIn, body)
     if not req.location_id:
         raise HTTPException(422, "location_id is required: choose the saved location these files were taken at.")
     loc = _location(db, req.location_id)
@@ -128,7 +118,7 @@ def import_commit(body: Any = Body(...), db: Session = Depends(get_db)) -> dict[
 
 @router.post("/import/suggest-location")
 def import_suggest_location(body: Any = Body(...)) -> dict[str, Any]:
-    req = _validate(SuggestIn, body)
+    req = validate_body(SuggestIn, body)
     parsed, _ = importer.parse_items(req.items)
     out = importer.suggest_location(parsed)
     if out is None:
@@ -230,7 +220,7 @@ def image_thumb(final_image_id: str, request: Request, db: Session = Depends(get
 
 @router.post("/targets/{library_target_id}/stack-link")
 def stack_link(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
-    req = _validate(StackLinkIn, body)
+    req = validate_body(StackLinkIn, body)
     img = db.get(FinalImage, req.final_image_id)
     if img is None or img.library_target_id != library_target_id:
         raise HTTPException(404, "Final image not found for this target")
@@ -278,7 +268,7 @@ def get_target_page(library_target_id: str, db: Session = Depends(get_db)) -> di
 
 @router.patch("/targets/{library_target_id}")
 def patch_target(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
-    req = _validate(TargetPatch, body)
+    req = validate_body(TargetPatch, body)
     lt = _library_target(db, library_target_id)
     if lt.kind in ("catalog", "variable"):
         raise HTTPException(403, "Catalog and variable-star targets cannot be renamed or moved.")
@@ -305,7 +295,7 @@ def patch_target(library_target_id: str, body: Any = Body(...), db: Session = De
 @router.post("/targets/{library_target_id}/link-variable")
 def link_variable(library_target_id: str, body: Any = Body(...), db: Session = Depends(get_db)) -> dict[str, Any]:
     """Explicit "This is SS Cyg" for a custom target (never automatic; spec 7.4)."""
-    req = _validate(LinkVariableIn, body)
+    req = validate_body(LinkVariableIn, body)
     lt = _library_target(db, library_target_id)
     if lt.kind != "custom":
         raise HTTPException(403, "Only custom targets can be linked to a variable star.")

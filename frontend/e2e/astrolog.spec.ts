@@ -61,6 +61,7 @@ test("import a folder, review it, commit, and see the target history", async ({ 
   page.on("pageerror", (e) => errors.push(e.message));
 
   const loc = await request.post("/api/locations", {
+    headers: { "X-Requested-With": "AstroPlanner" },
     data: { label: `E2E ${testInfo.project.name}`, latitude_deg: cfg.lat, longitude_deg: cfg.lon, timezone: "America/New_York" },
   });
   expect(loc.ok()).toBeTruthy();

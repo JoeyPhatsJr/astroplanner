@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import pytest
 import sqlalchemy
-from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.astrolog.models import CaptureFrame, CaptureSet, FinalImage, LibraryTarget, Stack
 from app.db import Database, EquipmentProfile, ObservingSession
-from app.main import create_app
 
 CANON = "canon-t3-18-55"
 
@@ -70,7 +68,7 @@ def test_stack_and_final_image_models(tmp_path):
         s.commit()
 
 
-def test_canon_profile_seeded_once_and_editable(tmp_path):
+def test_canon_profile_seeded_once_and_editable(tmp_path, make_client, clear_provider):
     db = _db(tmp_path)
     db.init()  # idempotent
     with db.session() as s:
@@ -83,13 +81,13 @@ def test_canon_profile_seeded_once_and_editable(tmp_path):
         assert eq.fov_definition == "diagonal"
         assert eq.is_verified is False and eq.is_preset is False
         assert "18–55" in eq.notes and "approximate" in eq.notes.lower()
-    with TestClient(create_app(db=db)) as c:
+    with make_client(clear_provider, db_path=tmp_path / "a.db") as c:
         assert c.patch(f"/api/equipment/{CANON}", json={"notes": "mine"}).status_code == 200
 
 
-def test_canon_not_recreated_after_delete(tmp_path):
+def test_canon_not_recreated_after_delete(tmp_path, make_client, clear_provider):
     db = _db(tmp_path)
-    with TestClient(create_app(db=db)) as c:
+    with make_client(clear_provider, db_path=tmp_path / "a.db") as c:
         assert c.delete(f"/api/equipment/{CANON}").status_code == 204
     db.init()
     with db.session() as s:
@@ -153,10 +151,10 @@ def test_deleting_session_only_nulls_stack_session(tmp_path):
         assert st.session_id is None
 
 
-def test_api_delete_session_with_captures_is_409(tmp_path):
+def test_api_delete_session_with_captures_is_409(tmp_path, make_client, clear_provider):
     db = _db(tmp_path)
     obs_id, _, _ = _graph(db)
-    with TestClient(create_app(db=db)) as c:
+    with make_client(clear_provider, db_path=tmp_path / "a.db") as c:
         r = c.delete(f"/api/sessions/{obs_id}")
     assert r.status_code == 409
     assert r.json()["detail"] == "This night has imported captures, so it can't be deleted."

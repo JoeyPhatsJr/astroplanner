@@ -29,6 +29,7 @@ test("import a synthetic night, read its Siril folder, choose frames, download b
   );
 
   const loc = await request.post("/api/locations", {
+    headers: { "X-Requested-With": "AstroPlanner" },
     data: { label: `E2E coach ${testInfo.project.name}`, latitude_deg: cfg.lat, longitude_deg: cfg.lon, timezone: "America/New_York" },
   });
   expect(loc.ok()).toBeTruthy();

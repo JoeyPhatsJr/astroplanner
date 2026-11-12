@@ -187,3 +187,22 @@ def test_0004_adds_and_drops_exif_columns(tmp_path):
     command.upgrade(cfg, "head")
     eng.dispose()
 
+
+def test_0006_adds_and_drops_account_tables(tmp_path):
+    from alembic import command
+    from alembic.config import Config
+    from app.db import BACKEND_DIR
+    url = f"sqlite:///{tmp_path / 'f.db'}"
+    run_migrations(url)
+    eng = create_engine(url)
+    insp = sqlalchemy.inspect(eng)
+    assert {"users", "user_sessions"} <= set(insp.get_table_names())
+    assert "ix_user_sessions_user_id" in {i["name"] for i in insp.get_indexes("user_sessions")}
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
+    cfg.set_main_option("sqlalchemy.url", url)
+    command.downgrade(cfg, "0005_processing_runs")
+    assert not {"users", "user_sessions"} & set(sqlalchemy.inspect(eng).get_table_names())
+    command.upgrade(cfg, "head")
+    eng.dispose()
+

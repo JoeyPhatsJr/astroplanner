@@ -19,7 +19,8 @@ from . import catalog, geo, targets
 from .astrolog.library import capture_info, session_capture_info
 from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
-from .db import Database, EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
+from .deps import get_db  # noqa: F401  (re-exported: other routers import it from here)
+from .db import EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
 from .sky_images import BUSY_RETRY_AFTER_S, SkyImageBusy, SkyImageProvider
 from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, night_clear, target_score, tonight_score
 from .visibility import DEFAULT_MIN_ALT_DEG, analyse_target, visibility_payload
@@ -32,12 +33,6 @@ MIN_DATE, MAX_DATE = date(1950, 1, 1), date(2099, 12, 31)
 
 
 # ---- dependencies ------------------------------------------------------------
-
-def get_db(request: Request):
-    db: Database = request.app.state.db
-    with db.session() as s:
-        yield s
-
 
 def get_weather(request: Request) -> OpenMeteoProvider:
     return request.app.state.weather

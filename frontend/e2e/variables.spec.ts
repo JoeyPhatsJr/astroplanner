@@ -37,7 +37,9 @@ test("SS Cyg page: VSX link, no chart, plan add survives reload", async ({ page,
     const sessions = await (await request.get("/api/sessions")).json();
     for (const s of sessions)
       for (const t of s.targets)
-        if (t.target_id === "var:ss-cyg") await request.delete(`/api/sessions/${s.id}/targets/${t.id}`);
+        if (t.target_id === "var:ss-cyg") await request.delete(`/api/sessions/${s.id}/targets/${t.id}`, {
+            headers: { "X-Requested-With": "AstroPlanner" },
+          });
   };
   await unplan();
   try {

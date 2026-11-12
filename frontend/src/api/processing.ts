@@ -268,7 +268,9 @@ export function useUploadPicture(runId: string | undefined) {
 export async function fetchScript(runId: string, which: ScriptKind): Promise<{ filename: string; blob: Blob }> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}/api/processing/runs/${encodeURIComponent(runId)}/scripts/${which}`);
+    res = await fetch(`${BASE}/api/processing/runs/${encodeURIComponent(runId)}/scripts/${which}`, {
+      credentials: "same-origin",
+    });
   } catch {
     throw new ApiError(0, "Cannot reach the AstroPlanner API. Is the backend running on port 8000?");
   }

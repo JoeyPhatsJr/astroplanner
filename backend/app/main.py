@@ -6,14 +6,18 @@ Run locally:  uvicorn app.main:app --reload  (from backend/)
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from .accounts.routes import router as auth_router
+from .accounts.throttle import Throttle
 from .api import router
 from .astrolog.routes import router as astrolog_router
 from .astrolog.storage import LocalStorage, Storage
@@ -29,10 +33,20 @@ FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 DEFAULT_PREVIEWS_DIR = Path(__file__).resolve().parents[1] / "data" / "previews"
 MAX_UPLOAD_BYTES = 150 * 1024 * 1024
 
+# Every state-changing /api/ request must carry this header. A cross-site form cannot set it, and with
+# SameSite=Lax cookies that blocks cross-site requests made with the user's session.
+CSRF_HEADER, CSRF_VALUE = "X-Requested-With", "AstroPlanner"
+UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
 
 def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = None,
                storage: Storage | None = None, max_upload_bytes: int = MAX_UPLOAD_BYTES,
-               sky_images: SkyImageProvider | None = None) -> FastAPI:
+               sky_images: SkyImageProvider | None = None,
+               clock: Callable[[], datetime] | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.db.init()
@@ -44,11 +58,23 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     app.state.storage = storage or LocalStorage(Path(os.environ.get("ASTROPLANNER_PREVIEWS_DIR") or DEFAULT_PREVIEWS_DIR))
     app.state.sky_images = sky_images or SkyImageProvider.from_env()
     app.state.max_upload_bytes = max_upload_bytes
+    app.state.clock = clock or _utc_now
+    app.state.login_throttle = Throttle(app.state.clock)
+    app.state.signup_throttle = Throttle(app.state.clock)
+
+    # Registered before CORS so CORS stays the outermost middleware.
+    @app.middleware("http")
+    async def require_csrf_header(request: Request, call_next):
+        if (request.method in UNSAFE_METHODS and request.url.path.startswith("/api/")
+                and request.headers.get(CSRF_HEADER) != CSRF_VALUE):
+            return JSONResponse({"detail": "Missing X-Requested-With header."}, status_code=403)
+        return await call_next(request)
 
     origins = [o.strip() for o in os.environ.get("ASTROPLANNER_CORS", "http://localhost:5173,http://127.0.0.1:5173").split(",") if o.strip()]
     # Content-Disposition is exposed so a cross-origin frontend can read the Siril script's file name.
     app.add_middleware(CORSMiddleware, allow_origins=origins, allow_methods=["*"], allow_headers=["*"],
                        expose_headers=["Content-Disposition"])
+    app.include_router(auth_router)
     app.include_router(router)
     app.include_router(astrolog_router)
     app.include_router(variables_router)
