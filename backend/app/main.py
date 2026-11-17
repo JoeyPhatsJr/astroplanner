@@ -20,7 +20,7 @@ from .accounts.routes import router as auth_router
 from .accounts.throttle import Throttle
 from .api import router
 from .astrolog.routes import open_router as astrolog_open_router, router as astrolog_router
-from .astrolog.storage import LocalStorage, Storage
+from .astrolog.storage import Storage, StorageError, storage_from_env
 from .processing.routes import router as processing_router
 from .variables.routes import router as variables_router
 from .db import Database
@@ -33,6 +33,16 @@ FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 DEFAULT_PREVIEWS_DIR = Path(__file__).resolve().parents[1] / "data" / "previews"
 MAX_UPLOAD_BYTES = 150 * 1024 * 1024
 
+
+def max_upload_bytes_from_env(default: int = MAX_UPLOAD_BYTES) -> int:
+    """ASTROPLANNER_MAX_UPLOAD_MB lowers the upload limit on small hosts; unset or invalid keeps the default."""
+    raw = os.environ.get("ASTROPLANNER_MAX_UPLOAD_MB", "").strip()
+    try:
+        mb = float(raw)
+    except ValueError:
+        return default
+    return int(mb * 1024 * 1024) if 0 < mb * 1024 * 1024 <= default else default
+
 # Every state-changing /api/ request must carry this header. A cross-site form cannot set it, and with
 # SameSite=Lax cookies that blocks cross-site requests made with the user's session.
 CSRF_HEADER, CSRF_VALUE = "X-Requested-With", "AstroPlanner"
@@ -44,7 +54,7 @@ def _utc_now() -> datetime:
 
 
 def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = None,
-               storage: Storage | None = None, max_upload_bytes: int = MAX_UPLOAD_BYTES,
+               storage: Storage | None = None, max_upload_bytes: int | None = None,
                sky_images: SkyImageProvider | None = None,
                clock: Callable[[], datetime] | None = None) -> FastAPI:
     @asynccontextmanager
@@ -55,12 +65,17 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     app = FastAPI(title="AstroPlanner API", version="0.1.0", lifespan=lifespan)
     app.state.db = db or Database()
     app.state.weather = weather or OpenMeteoProvider()
-    app.state.storage = storage or LocalStorage(Path(os.environ.get("ASTROPLANNER_PREVIEWS_DIR") or DEFAULT_PREVIEWS_DIR))
+    app.state.storage = storage or storage_from_env(DEFAULT_PREVIEWS_DIR)
     app.state.sky_images = sky_images or SkyImageProvider.from_env()
-    app.state.max_upload_bytes = max_upload_bytes
+    app.state.max_upload_bytes = max_upload_bytes if max_upload_bytes is not None else max_upload_bytes_from_env()
     app.state.clock = clock or _utc_now
     app.state.login_throttle = Throttle(app.state.clock)
     app.state.signup_throttle = Throttle(app.state.clock)
+
+    @app.exception_handler(StorageError)
+    async def storage_unavailable(request: Request, exc: StorageError):
+        return JSONResponse({"detail": "Image storage is unavailable right now. Try again in a minute."},
+                            status_code=503)
 
     # Registered before CORS so CORS stays the outermost middleware.
     @app.middleware("http")

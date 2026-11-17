@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import math
+import os
+import uuid
 from datetime import date, datetime, timezone
 
 import httpx
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import create_engine, make_url, select, text
 
 from app.accounts.core import normalize_email
 from app.accounts.models import User
@@ -108,14 +110,41 @@ def _client_for_fixture():
     return client_for
 
 
+def _postgres_schema_db(base_url: str, request) -> Database:
+    """A Database on a fresh, uniquely named schema of TEST_DATABASE_URL, dropped when the test ends."""
+    schema = f"t_{uuid.uuid4().hex[:16]}"
+    admin = create_engine(base_url)
+    with admin.begin() as c:
+        c.execute(text(f'CREATE SCHEMA "{schema}"'))
+    url = make_url(base_url).update_query_dict({"options": f"-csearch_path={schema}"})
+    db = Database(url.render_as_string(hide_password=False))
+
+    def _drop():
+        db.engine.dispose()
+        with admin.begin() as c:
+            c.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+        admin.dispose()
+    request.addfinalizer(_drop)
+    return db
+
+
 @pytest.fixture
-def make_app(tmp_path):
+def make_app(tmp_path, request):
+    """App factory for tests. SQLite by default; with TEST_DATABASE_URL set (a throwaway Postgres), every app
+    that does not ask for a specific db_path gets its own Postgres schema instead, so the whole suite can run
+    against the database a hosted deploy uses."""
+    pg_url = os.environ.get("TEST_DATABASE_URL")
+
     def _make(provider, db_path=None, **kw) -> FastAPI:
         def no_network(ra, dec, field):
             raise RuntimeError("sky images are never fetched in tests")
         kw.setdefault("sky_images", SkyImageProvider(tmp_path / "sky-images", fetch=no_network))
-        db = Database(f"sqlite:///{db_path or tmp_path / 'test.db'}")
-        return create_app(db=db, weather=provider, storage=LocalStorage(tmp_path / "previews"), **kw)
+        kw.setdefault("storage", LocalStorage(tmp_path / "previews"))
+        if pg_url and db_path is None:
+            db = _postgres_schema_db(pg_url, request)
+        else:
+            db = Database(f"sqlite:///{db_path or tmp_path / 'test.db'}")
+        return create_app(db=db, weather=provider, **kw)
     return _make
 
 

@@ -106,6 +106,12 @@ def health(db: Session = Depends(get_db)) -> dict[str, Any]:
     }
 
 
+@router.get("/limits")
+def limits(request: Request) -> dict[str, Any]:
+    """Server limits the UI states to people before they pick a file (a hosted deploy may lower them)."""
+    return {"max_upload_mb": round(request.app.state.max_upload_bytes / (1024 * 1024), 1)}
+
+
 DSS_ACKNOWLEDGMENT = (
     "Investigators using these scans are requested to include these acknowledgments in any publications as appropriate.\n\n"
     "The Digitized Sky Surveys were produced at the Space Telescope Science Institute under U.S. Government grant NAG W-2166. "
