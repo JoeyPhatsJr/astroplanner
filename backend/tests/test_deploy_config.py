@@ -133,6 +133,13 @@ def test_limits_endpoint_reports_the_upload_limit(make_client, clear_provider):
         assert c.get("/api/limits").json() == {"max_upload_mb": 4.0}
 
 
+def test_api_responses_default_to_no_store_but_keep_their_own_cache_policy(client):
+    assert client.get("/api/auth/me").headers["cache-control"] == "no-store"
+    assert client.get("/api/limits").headers["cache-control"] == "no-store"
+    r = client.get("/api/health")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
+
+
 def test_storage_outage_is_a_503_with_a_plain_message(make_client, clear_provider, tmp_path):
     from app.astrolog.storage import LocalStorage
 

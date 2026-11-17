@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStatus } from "./auth";
-import { request } from "./client";
+import { assertUploadSize, request } from "./client";
 import { qk } from "./hooks";
 
 // ---- types ----------------------------------------------------------------------------
@@ -227,7 +227,8 @@ export const astrologApi = {
   history: () => request<History>("/api/astrolog/history"),
   linkVariable: (id: string, starId: string) =>
     request<TargetPage>(`/api/astrolog/targets/${enc(id)}/link-variable`, { method: "POST", body: json({ star_id: starId }) }),
-  uploadFinalImage: (targetId: string, file: File, stackId?: string | null) => {
+  uploadFinalImage: async (targetId: string, file: File, stackId?: string | null) => {
+    await assertUploadSize(file);
     const fd = new FormData();
     fd.append("file", file);
     if (stackId) fd.append("stack_id", stackId);

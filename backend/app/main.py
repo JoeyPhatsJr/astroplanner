@@ -77,6 +77,15 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
         return JSONResponse({"detail": "Image storage is unavailable right now. Try again in a minute."},
                             status_code=503)
 
+    # A hosted deploy proxies /api through a CDN that honours upstream Cache-Control. Responses that don't say
+    # otherwise (account data, plans, logs) must never be stored there or shown to another visitor.
+    @app.middleware("http")
+    async def api_responses_not_stored_by_default(request: Request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/api/") and "cache-control" not in response.headers:
+            response.headers["Cache-Control"] = "no-store"
+        return response
+
     # Registered before CORS so CORS stays the outermost middleware.
     @app.middleware("http")
     async def require_csrf_header(request: Request, call_next):

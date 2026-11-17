@@ -1,6 +1,7 @@
 import { ImagePlus } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { useLinkStack, useUploadFinalImage, type StackOut } from "../../api/astrolog";
+import { useLimits } from "../../api/hooks";
 import { suggestStackId } from "../../lib/stackSuggest";
 import { formatIntegration } from "../../lib/time";
 import { Notice } from "../ui/States";
@@ -23,6 +24,7 @@ export function FinalPicturePicker({
   const stackSel = useId();
   const upload = useUploadFinalImage(targetId);
   const link = useLinkStack(targetId);
+  const maxMb = useLimits().data?.max_upload_mb;
   const [file, setFile] = useState<File | null>(null);
   // Before upload the suggestion comes from the CHOSEN file's name; until one is chosen, the server's.
   const suggestion = file ? suggestStackId(file.name, stacks) : suggestionId;
@@ -51,7 +53,9 @@ export function FinalPicturePicker({
           className="field"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
         />
-        <p className="mt-1 text-xs text-muted">JPEG, PNG, TIFF or FITS, up to 150 MB. Only a preview is kept; your file stays where it is.</p>
+        <p className="mt-1 text-xs text-muted">
+          JPEG, PNG, TIFF or FITS{maxMb != null ? `, up to ${maxMb} MB` : ""}. Only a preview is kept; your file stays where it is.
+        </p>
       </div>
       {stacks.length > 0 && (
         <div>

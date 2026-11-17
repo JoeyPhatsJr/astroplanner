@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { defaultNightDate } from "../lib/time";
 import { usePrefs } from "../state/prefs";
 import { useAuthStatus } from "./auth";
-import { api, type ObserverParams } from "./client";
+import { api, fetchLimits, type ObserverParams } from "./client";
 import type { Category, EquipmentProfile, ObservingLocation, ObservingSession } from "./types";
 
 export const qk = {
@@ -11,6 +11,7 @@ export const qk = {
   equipment: ["equipment"] as const,
   sessions: ["sessions"] as const,
   about: ["about"] as const,
+  limits: ["limits"] as const,
   processingRun: (id: string) => ["processing-run", id] as const,
 };
 
@@ -30,6 +31,11 @@ export function useSessions() {
 
 export function useAbout() {
   return useQuery({ queryKey: qk.about, queryFn: api.about, staleTime: Infinity });
+}
+
+/** Server limits such as the upload size, which a hosted deploy may lower. */
+export function useLimits() {
+  return useQuery({ queryKey: qk.limits, queryFn: fetchLimits, staleTime: Infinity });
 }
 
 /** The selected location (falls back to the first saved one). */
