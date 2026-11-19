@@ -394,7 +394,7 @@ async def upload_stack(run_id: str, side: str, request: Request, file: UploadFil
         raise HTTPException(422, "Stacks must be FITS files")
     data = await _read_limited(file, limit)
     try:
-        m, preview, thumb = measure_stack(data, name)
+        m, preview, thumb = measure_stack(data, name, max_pixels=request.app.state.max_pixels)
     except previews.ImageTooLarge as exc:
         raise HTTPException(413, str(exc)) from exc
     except (previews.UnsupportedImage, UnmeasurableStack) as exc:
@@ -474,7 +474,7 @@ async def upload_seestar_picture(run_id: str, request: Request, file: UploadFile
         raise HTTPException(422, "The Seestar picture must be a JPEG, PNG or TIFF file.")
     data = await _read_limited(file, limit)
     try:
-        preview, thumb, w, h, _fmt = previews.make_previews(data, name)
+        preview, thumb, w, h, _fmt = previews.make_previews(data, name, max_pixels=request.app.state.max_pixels)
     except previews.ImageTooLarge as exc:
         raise HTTPException(413, str(exc)) from exc
     except previews.UnsupportedImage as exc:

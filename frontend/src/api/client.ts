@@ -35,8 +35,16 @@ export function detailMessage(body: unknown, status: number): string {
         .join("; ");
     }
   }
+  // No JSON detail usually means a proxy or the host answered, not the API itself.
+  if (status === 413) return "That file is too large for this server.";
+  if (status === 502 || status === 503 || status === 504) return "The server is starting up or busy. Try again in a minute.";
   return `Request failed (HTTP ${status})`;
 }
+
+/** Shown when fetch itself fails (no response at all). */
+export const UNREACHABLE = import.meta.env.DEV
+  ? "Cannot reach the AstroPlanner API. Is the backend running on port 8000?"
+  : "Cannot reach the AstroPlanner server. Check your connection and try again.";
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
@@ -54,7 +62,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch {
-    throw new ApiError(0, "Cannot reach the AstroPlanner API. Is the backend running on port 8000?");
+    throw new ApiError(0, UNREACHABLE);
   }
   if (res.status === 204) return undefined as T;
   let body: unknown = null;
@@ -65,6 +73,45 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) throw new ApiError(res.status, detailMessage(body, res.status));
   return body as T;
+}
+
+export interface LimitsResponse {
+  max_upload_mb: number;
+}
+
+let limitsPromise: Promise<LimitsResponse> | null = null;
+
+/** The server's upload limit (a hosted deploy may set it below the local 150 MB). Fetched once; a failure retries next call. */
+export function fetchLimits(): Promise<LimitsResponse> {
+  if (!limitsPromise) {
+    limitsPromise = request<LimitsResponse>("/api/limits").catch((e: unknown) => {
+      limitsPromise = null;
+      throw e;
+    });
+  }
+  return limitsPromise;
+}
+
+/** For tests: forget the cached limits. */
+export function resetLimitsCache(): void {
+  limitsPromise = null;
+}
+
+function megabytes(bytes: number): string {
+  return (bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "");
+}
+
+/** Refuse a file over the server's limit before sending it; the server still checks. An unknown limit lets it through. */
+export async function assertUploadSize(file: File): Promise<void> {
+  let limitMb: number;
+  try {
+    limitMb = (await fetchLimits()).max_upload_mb;
+  } catch {
+    return;
+  }
+  if (file.size > limitMb * 1024 * 1024) {
+    throw new ApiError(413, `${file.name} is ${megabytes(file.size)} MB; this server accepts files up to ${limitMb} MB.`);
+  }
 }
 
 function qs(params: Record<string, string | number | boolean | null | undefined>): string {

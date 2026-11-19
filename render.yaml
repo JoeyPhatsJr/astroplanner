@@ -1,0 +1,29 @@
+# Render Blueprint for the AstroPlanner API (free web service). Setup steps: docs/DEPLOY.md.
+# Secrets are `sync: false`: Render asks for them when the Blueprint is first applied and never stores them here.
+services:
+  - type: web
+    name: astroplanner-api
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeploy: true
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL          # Supabase > Connect > Session pooler (IPv4), port 5432
+        sync: false
+      - key: SUPABASE_URL          # https://<project-ref>.supabase.co
+        sync: false
+      - key: SUPABASE_SECRET_KEY   # Supabase > Project Settings > API Keys > secret key (sb_secret_...)
+        sync: false
+      - key: ASTROPLANNER_STORAGE_BUCKET
+        value: previews
+      - key: ASTROPLANNER_SKY_IMAGES  # one survey fetch peaks above the free tier's 512 MB
+        value: "off"
+      - key: ASTROPLANNER_MAX_UPLOAD_MB  # raise only after the large-upload check in docs/DEPLOY.md passes
+        value: "4"
+      - key: ASTROPLANNER_MAX_MEGAPIXELS  # memory follows pixels: a 4 MP FITS stack peaked near 600 MB.
+        value: "2.1"                      # 2.1 MP admits a full Seestar S30 frame (1080 x 1920)
+      - key: ASTROPLANNER_CORS     # the Vercel site's origin; the browser calls /api on that origin
+        sync: false

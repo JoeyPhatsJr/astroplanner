@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStatus } from "./auth";
-import { ApiError, BASE, detailMessage, request } from "./client";
+import { ApiError, assertUploadSize, BASE, detailMessage, request, UNREACHABLE } from "./client";
 import { qk } from "./hooks";
 
 // Mirrors backend/app/processing (routes.run_out, steps.StepView, rules.Advice).
@@ -198,12 +198,14 @@ export interface RunPatch {
 }
 
 export const processingApi = {
-  uploadStack: (id: string, side: StackSide, file: File) => {
+  uploadStack: async (id: string, side: StackSide, file: File) => {
+    await assertUploadSize(file);
     const fd = new FormData();
     fd.append("file", file);
     return request<RunOut>(`/api/processing/runs/${encodeURIComponent(id)}/stacks/${side}`, { method: "POST", body: fd });
   },
-  uploadPicture: (id: string, file: File) => {
+  uploadPicture: async (id: string, file: File) => {
+    await assertUploadSize(file);
     const fd = new FormData();
     fd.append("file", file);
     return request<RunOut>(`/api/processing/runs/${encodeURIComponent(id)}/pictures/seestar`, { method: "POST", body: fd });
@@ -274,7 +276,7 @@ export async function fetchScript(runId: string, which: ScriptKind): Promise<{ f
       credentials: "same-origin",
     });
   } catch {
-    throw new ApiError(0, "Cannot reach the AstroPlanner API. Is the backend running on port 8000?");
+    throw new ApiError(0, UNREACHABLE);
   }
   if (!res.ok) {
     let body: unknown = null;

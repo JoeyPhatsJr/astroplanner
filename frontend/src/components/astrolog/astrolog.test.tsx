@@ -33,6 +33,7 @@ vi.mock("../../api/hooks", async (orig) => {
     ...mod,
     useSessions: () => ({ data: mocks.sessions, isLoading: false, error: null, refetch: vi.fn() }),
     useLocations: () => ({ data: [] }),
+    useLimits: () => ({ data: { max_upload_mb: 4 } }),
     useSessionMutations: () => ({
       update: idle,
       reorder: idle,
@@ -138,6 +139,11 @@ const stackOut = (id: string, source_filename: string, stack_count: number | nul
 });
 
 describe("FinalPicturePicker", () => {
+  it("states the server's upload limit, not a fixed one", () => {
+    render(<FinalPicturePicker targetId="t1" stacks={[]} suggestionId={null} />);
+    expect(screen.getByText(/JPEG, PNG, TIFF or FITS, up to 4 MB\./)).toBeInTheDocument();
+  });
+
   it("suggests the stack from the chosen file's name and re-syncs when the choice changes", () => {
     const stacks = [stackOut("new", "Stacked_300.fit", 300), stackOut("b", "NGC_7635_654x10sec.fit", null)];
     render(<FinalPicturePicker targetId="t1" stacks={stacks} suggestionId={null} />);

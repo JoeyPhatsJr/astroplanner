@@ -84,7 +84,7 @@ def _array_to_rgb8(a: np.ndarray) -> np.ndarray:
 
 def _check_pixels(w: int, h: int, max_pixels: int) -> None:
     if w * h > max_pixels:
-        raise ImageTooLarge("Image has too many pixels to process.")
+        raise ImageTooLarge(f"Image has too many pixels to process; this server takes up to {max_pixels / 1e6:g} megapixels.")
 
 
 def _decode(data: bytes, ext: str, max_pixels: int) -> tuple[np.ndarray, str]:

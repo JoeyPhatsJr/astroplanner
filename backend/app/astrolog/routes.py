@@ -181,7 +181,7 @@ async def upload_final_image(library_target_id: str, request: Request, file: Upl
             raise HTTPException(422, "stack_id does not belong to this target")
     data = await _read_limited(file, limit)
     try:
-        preview, thumb, w, h, fmt = previews.make_previews(data, name)
+        preview, thumb, w, h, fmt = previews.make_previews(data, name, max_pixels=request.app.state.max_pixels)
     except previews.UnsupportedImage as exc:
         raise HTTPException(415, str(exc))
     except previews.ImageTooLarge as exc:
