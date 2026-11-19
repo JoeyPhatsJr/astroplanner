@@ -33,6 +33,21 @@ large-upload check passes. Final pictures (JPEG, usually under 4 MB) do.
    It stays on Render; never put it in the frontend.
 5. The project URL (`https://<ref>.supabase.co`) is `SUPABASE_URL`.
 
+6. **Close the Data API to the app's tables.** Supabase grants its public `anon`/`authenticated` roles access
+   to every new table in `public` through its auto-generated REST API, which this app never uses (it talks to
+   Postgres directly). Run this once in the SQL editor **before the first deploy**, so the users and sessions
+   tables are never reachable with the project's publishable key:
+
+   ```sql
+   revoke all on all tables in schema public from anon, authenticated;
+   revoke all on all sequences in schema public from anon, authenticated;
+   alter default privileges for role postgres in schema public revoke all on tables from anon, authenticated;
+   alter default privileges for role postgres in schema public revoke all on sequences from anon, authenticated;
+   alter default privileges for role postgres in schema public revoke all on functions from anon, authenticated;
+   ```
+
+   Turning off **Project Settings → Data API** as well does no harm.
+
 Tables are created by the app on its first start (migrations run on startup).
 
 ## 2. Render (API)
