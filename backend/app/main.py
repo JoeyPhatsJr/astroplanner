@@ -20,6 +20,7 @@ from .accounts.routes import router as auth_router
 from .accounts.throttle import Throttle
 from .api import router
 from .astrolog.routes import open_router as astrolog_open_router, router as astrolog_router
+from .astrolog.previews import MAX_PIXELS
 from .astrolog.storage import Storage, StorageError, storage_from_env
 from .processing.routes import router as processing_router
 from .variables.routes import router as variables_router
@@ -42,6 +43,17 @@ def max_upload_bytes_from_env(default: int = MAX_UPLOAD_BYTES) -> int:
     except ValueError:
         return default
     return int(mb * 1024 * 1024) if 0 < mb * 1024 * 1024 <= default else default
+
+
+def max_pixels_from_env(default: int = MAX_PIXELS) -> int:
+    """ASTROPLANNER_MAX_MEGAPIXELS lowers the decode limit. Memory follows pixels, not file size: decoding and
+    stretching costs roughly 36 bytes per pixel, so a small JPEG can still exhaust a 512 MB host."""
+    raw = os.environ.get("ASTROPLANNER_MAX_MEGAPIXELS", "").strip()
+    try:
+        mp = float(raw)
+    except ValueError:
+        return default
+    return int(mp * 1_000_000) if 0 < mp * 1_000_000 <= default else default
 
 # Every state-changing /api/ request must carry this header. A cross-site form cannot set it, and with
 # SameSite=Lax cookies that blocks cross-site requests made with the user's session.
@@ -68,6 +80,7 @@ def create_app(db: Database | None = None, weather: OpenMeteoProvider | None = N
     app.state.storage = storage or storage_from_env(DEFAULT_PREVIEWS_DIR)
     app.state.sky_images = sky_images or SkyImageProvider.from_env()
     app.state.max_upload_bytes = max_upload_bytes if max_upload_bytes is not None else max_upload_bytes_from_env()
+    app.state.max_pixels = max_pixels_from_env()
     app.state.clock = clock or _utc_now
     app.state.login_throttle = Throttle(app.state.clock)
     app.state.signup_throttle = Throttle(app.state.clock)

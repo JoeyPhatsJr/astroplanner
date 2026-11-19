@@ -167,6 +167,11 @@ references (US Naval Observatory sunrise/sunset/twilight/moonrise data across bo
 transitions, a southern-hemisphere case and a midnight-sun case; USNO Moon phases; Meeus
 Example 13.b). See [docs/ASTRONOMY.md](docs/ASTRONOMY.md) and [docs/SCORING.md](docs/SCORING.md).
 
+## Hosting
+
+Free deploy on Vercel (site) + Render (API container) + Supabase (Postgres + Storage): step-by-step setup,
+measured free-tier limits and known limitations in [docs/DEPLOY.md](docs/DEPLOY.md).
+
 ## Run locally
 
 Requirements: **Python 3.11+** (Astropy 8) and **Node 20+**.

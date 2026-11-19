@@ -163,8 +163,8 @@ def test_non_finite_measurement_is_422(api, run, monkeypatch):
     from app.processing import measure, routes
     real = measure.measure_stack
 
-    def bad(data, name):
-        m, p, t = real(data, name)
+    def bad(data, name, **kw):
+        m, p, t = real(data, name, **kw)
         from dataclasses import replace
         return replace(m, noise_frac=float("nan")), p, t
 

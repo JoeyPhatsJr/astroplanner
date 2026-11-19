@@ -8,7 +8,8 @@ import httpx
 import pytest
 
 from app.astrolog.storage import LocalStorage, StorageError, SupabaseStorage, storage_from_env
-from app.main import MAX_UPLOAD_BYTES, max_upload_bytes_from_env
+from app.astrolog.previews import MAX_PIXELS
+from app.main import MAX_UPLOAD_BYTES, max_pixels_from_env, max_upload_bytes_from_env
 
 URL = "https://proj.supabase.co"
 
@@ -126,6 +127,41 @@ def test_storage_from_env_picks_supabase_only_with_both_settings(monkeypatch, tm
 def test_upload_limit_from_env(monkeypatch, raw, expected):
     monkeypatch.setenv("ASTROPLANNER_MAX_UPLOAD_MB", raw)
     assert max_upload_bytes_from_env() == expected
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("", MAX_PIXELS), ("junk", MAX_PIXELS), ("0", MAX_PIXELS), ("1000", MAX_PIXELS),  # can only lower it
+    ("2.1", 2_100_000),
+])
+def test_pixel_limit_from_env(monkeypatch, raw, expected):
+    monkeypatch.setenv("ASTROPLANNER_MAX_MEGAPIXELS", raw)
+    assert max_pixels_from_env() == expected
+
+
+def test_a_lowered_pixel_limit_refuses_big_pictures_with_the_limit_in_the_message(
+        monkeypatch, make_client, clear_provider):
+    import io
+
+    from PIL import Image
+
+    monkeypatch.setenv("ASTROPLANNER_MAX_MEGAPIXELS", "0.5")
+    buf = io.BytesIO()
+    Image.new("RGB", (1000, 800), (20, 20, 30)).save(buf, "JPEG")  # 0.8 MP: a tiny file, too many pixels
+    from app.astrolog.models import LibraryTarget
+
+    with make_client(clear_provider) as c:
+        with c.app.state.db.session() as s:
+            lt = LibraryTarget(owner_id=c.user_id, custom_name="M 27", normalized_key="m27", kind="custom")
+            s.add(lt)
+            s.commit()
+            tid = lt.id
+        ok = io.BytesIO()
+        Image.new("RGB", (600, 400), (20, 20, 30)).save(ok, "JPEG")  # 0.24 MP: under the limit
+        assert c.post(f"/api/astrolog/targets/{tid}/final-image",
+                      files={"file": ("ok.jpg", ok.getvalue(), "image/jpeg")}).status_code == 200
+        r = c.post(f"/api/astrolog/targets/{tid}/final-image", files={"file": ("big.jpg", buf.getvalue(), "image/jpeg")})
+    assert r.status_code == 413
+    assert "up to 0.5 megapixels" in r.json()["detail"]
 
 
 def test_limits_endpoint_reports_the_upload_limit(make_client, clear_provider):

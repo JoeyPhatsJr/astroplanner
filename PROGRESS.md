@@ -1,8 +1,31 @@
 # PROGRESS
 
-_Last updated: 2026-11-12 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
+_Last updated: 2026-11-19 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
-## Current work: accounts and sign-in (branch `login-design`, awaiting developer review)
+## Current work: free hosting (branch `deploy-free`, not pushed)
+
+Vercel serves the site and proxies `/api` to a Render free container; Supabase holds Postgres and preview
+images. Built: `SupabaseStorage` (selected by env), env limits for upload size and megapixels, `/api/limits`
+and UI copy that uses it, `no-store` default on API responses, 503 on storage outages, `backend/Dockerfile`,
+`render.yaml`, `frontend/vercel.json`, a keep-alive workflow, and the full backend suite on Postgres (local
+and in CI). Guide: [docs/DEPLOY.md](docs/DEPLOY.md).
+
+Verified locally: backend 538 passed and 12 skipped on SQLite and on Postgres 16.2 before the last stub fix
+(one test stub needed `**kw`; that file and the deploy tests were rerun: 63 passed). Frontend 405 passed,
+and the build passes. Memory under free-tier settings was about 177 MB after the planner endpoints. Behind
+an https proxy the session cookie is Secure.
+
+Not verified: no Docker build (Docker isn't installed here), no real Render, Vercel or Supabase deploy, and
+the body limit on Vercel's proxy is unknown (DEPLOY.md has the check).
+
+Limitations: sky images are off, pictures are capped at 2.1 MP, uploads at 4 MB (so Processing Coach FITS
+stacks don't fit yet), and the sign-up probe throttle can be sidestepped by calling Render directly.
+
+### Exact next step (hosting)
+Developer pushes `deploy-free` and opens a PR (CI runs the new Postgres job), then follows docs/DEPLOY.md
+to create the Supabase, Render and Vercel projects and runs the checks in its section 4.
+
+## Previous work: accounts and sign-in (branch `login-design`, merged as PR #9)
 
 Spec: `docs/superpowers/specs/2026-11-11-accounts-design.md` (amended to match what shipped); plan:
 `docs/superpowers/plans/2026-11-11-accounts.md`; mockup: `docs/superpowers/mockups/2026-11-11-login/index.html`.

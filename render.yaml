@@ -23,5 +23,7 @@ services:
         value: "off"
       - key: ASTROPLANNER_MAX_UPLOAD_MB  # raise only after the large-upload check in docs/DEPLOY.md passes
         value: "4"
+      - key: ASTROPLANNER_MAX_MEGAPIXELS  # memory follows pixels: a 4 MP FITS stack peaked near 600 MB.
+        value: "2.1"                      # 2.1 MP admits a full Seestar S30 frame (1080 x 1920)
       - key: ASTROPLANNER_CORS     # the Vercel site's origin; the browser calls /api on that origin
         sync: false
