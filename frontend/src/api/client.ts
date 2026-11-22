@@ -15,6 +15,8 @@ import type {
   VisibilityResponse,
 } from "./types";
 
+import { forecastClientId, relayBrowserForecast, waitForRelay } from "./browserForecast";
+
 export const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
 
 export class ApiError extends Error {
@@ -138,20 +140,35 @@ function observerQuery(o: ObserverParams) {
 
 const json = (body: unknown) => JSON.stringify(body);
 
+/**
+ * Requests whose answer uses the night's forecast: first let this browser fetch the forecast from Open-Meteo
+ * and relay it (see browserForecast.ts), then ask the API with this browser's id so it uses that forecast.
+ * The wait is capped; a relay that lands later refreshes these queries (useLateForecastRefresh).
+ */
+async function withForecast<T>(o: ObserverParams, path: string): Promise<T> {
+  const headers = { "X-Forecast-Client": forecastClientId() };
+  await waitForRelay(
+    relayBrowserForecast(o, (body) =>
+      request(`/api/forecast/relay?${qs(observerQuery(o))}`, { method: "POST", body, headers }),
+    ),
+  );
+  return request<T>(path, { headers });
+}
+
 export const api = {
   tonight: (o: ObserverParams, darkness: Darkness) =>
-    request<TonightResponse>(`/api/tonight?${qs({ ...observerQuery(o), darkness })}`),
+    withForecast<TonightResponse>(o, `/api/tonight?${qs({ ...observerQuery(o), darkness })}`),
 
   recommendations: (
     o: ObserverParams,
     opts: { equipment_id?: string | null; min_altitude_deg: number; darkness: Darkness; category?: Category; query?: string },
-  ) => request<RecommendationsResponse>(`/api/recommendations?${qs({ ...observerQuery(o), ...opts })}`),
+  ) => withForecast<RecommendationsResponse>(o, `/api/recommendations?${qs({ ...observerQuery(o), ...opts })}`),
 
   visibility: (
     targetId: string,
     o: ObserverParams,
     opts: { equipment_id?: string | null; min_altitude_deg: number; darkness: Darkness },
-  ) => request<VisibilityResponse>(`/api/targets/${encodeURIComponent(targetId)}/visibility?${qs({ ...observerQuery(o), ...opts })}`),
+  ) => withForecast<VisibilityResponse>(o, `/api/targets/${encodeURIComponent(targetId)}/visibility?${qs({ ...observerQuery(o), ...opts })}`),
 
   target: (id: string) => request<Target>(`/api/targets/${encodeURIComponent(id)}`),
 

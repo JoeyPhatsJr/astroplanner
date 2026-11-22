@@ -2,6 +2,27 @@
 
 _Last updated: 2026-11-19 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
+## Fix: the forecast is fetched by the visitor's browser (branch `feat/browser-forecast`, 2026-11-22)
+
+- **Why:** Open-Meteo's free quota is per IP, and Render's free tier shares the API's outbound IP with other
+  services, so the live site kept getting "Daily API request limit exceeded" and showed no weather for anyone.
+  A paid key or a different host would cost money; this does not.
+- **How:** before Tonight, Explore's recommendations or a target's visibility, `src/api/browserForecast.ts` fetches
+  the night's hours from Open-Meteo in the browser (cookies off, 8 s timeout, once per place and night every
+  25 minutes) and posts the raw answer to `POST /api/forecast/relay`. A weather request waits for that at most
+  2.5 s, then asks the API anyway (so a slow Open-Meteo never holds the page up; CI caught a 6 s wait plus the
+  API's own 10 s fetch running past e2e's 15 s); a relay that lands later refetches Tonight, recommendations and
+  visibility (`useLateForecastRefresh` in `AppShell`). `weather.relayed_forecast` checks it (grid
+  point within 0.5°, every variable as numbers or nulls, whole UTC hours, covers the whole night), cuts it to the
+  night's UTC dates and keeps it 30 minutes for that browser only, keyed by a random per-tab `X-Forecast-Client`
+  id. Weather-using GETs send that id; `ClientWeather` looks up the browser's own relayed forecast first. Nothing
+  relayed, or nothing usable: the API fetches the forecast itself, exactly as before.
+- **Safety:** a relayed forecast is never shared, so one visitor cannot change what another sees; bodies over
+  256 KB are refused. The privacy page now says the browser asks Open-Meteo directly, so Open-Meteo sees its IP.
+- **Tests:** `test_weather.py` (relay kept per browser, refused inputs, nulls stay missing), `test_api.py`
+  (relayed forecast scores Tonight with the server's fetch failing; bad input refused),
+  `src/api/browserForecast.test.ts`.
+
 ## Fix: live-site review, 2026-11-22 (branch `fix/site-review-nov22`)
 
 - **Forecast labels:** with Open-Meteo refusing requests, Tonight said "No forecast this far ahead" and

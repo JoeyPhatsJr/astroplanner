@@ -49,7 +49,8 @@ export function PrivacyPage() {
         </Card>
         <Card icon={<ArrowUpRight size={16} />} title="Sent to other services">
           <li>
-            <b>Open-Meteo</b>: your saved place’s coordinates, for the forecast; a city name you search for
+            <b>Open-Meteo</b>: your saved place’s coordinates, for the forecast, asked by your browser directly, so Open-Meteo
+            also sees your IP address; a city name you search for
           </li>
           <li>
             <b>STScI Digitized Sky Survey</b>: a target’s position in the sky (not yours), once per target
