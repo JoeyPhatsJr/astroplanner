@@ -35,6 +35,22 @@ DAYS_AHEAD = 15  # Open-Meteo forecast horizon (today + 15 days, verified 2026-1
 DAYS_BEHIND = 92  # past model data available via start_date
 CACHE_TTL_S = 30 * 60
 ERROR_CACHE_TTL_S = 2 * 60
+# Open-Meteo's free API limits requests per IP (per minute, hour and day). Once it says a limit is reached,
+# every further request from this server fails the same way, so stop asking until that limit can have reset
+# instead of retrying each place every two minutes. A minute's limit pauses for a minute, not an hour, so a
+# short burst never hides the weather for long. On a host whose outbound IP is shared (Render's free tier),
+# other services spend the same quota.
+RATE_LIMIT_COOLDOWN_S = {"minutely": 60, "hourly": 10 * 60, "daily": 60 * 60}
+RATE_LIMIT_DEFAULT_COOLDOWN_S = 60
+
+
+def rate_limit_cooldown_s(message: str | None) -> int:
+    """How long to stop asking Open-Meteo after a rate-limit answer, by which limit it names."""
+    text = (message or "").lower()
+    for period, seconds in RATE_LIMIT_COOLDOWN_S.items():
+        if period in text:
+            return seconds
+    return RATE_LIMIT_DEFAULT_COOLDOWN_S
 USER_AGENT = "AstroPlanner/0.1 (local non-commercial prototype)"
 
 ATTRIBUTION = {
@@ -82,10 +98,12 @@ class OpenMeteoProvider:
         self._now = now or (lambda: datetime.now(timezone.utc))
         self._cache: dict[tuple, tuple[float, Forecast]] = {}
         self._lock = threading.Lock()
+        self._rate_limited: tuple[float, Forecast] | None = None
 
     def clear_cache(self) -> None:
         with self._lock:
             self._cache.clear()
+            self._rate_limited = None
 
     def forecast(self, lat: float, lon: float, start_utc: datetime, end_utc: datetime) -> Forecast:
         start_d, end_d = start_utc.date(), end_utc.date()
@@ -108,11 +126,16 @@ class OpenMeteoProvider:
             if hit and hit[0] > _time.monotonic():
                 fc = hit[1]
                 return Forecast(**{**fc.__dict__, "from_cache": True})
+            limited = self._rate_limited
+            if limited and limited[0] > _time.monotonic():
+                return Forecast(**{**limited[1].__dict__, "from_cache": True})
 
         fc = self._request(lat, lon, start_d, end_d)
         ttl = CACHE_TTL_S if fc.ok else ERROR_CACHE_TTL_S
         with self._lock:
             self._cache[key] = (_time.monotonic() + ttl, fc)
+            if fc.reason_code == "rate_limited":
+                self._rate_limited = (_time.monotonic() + rate_limit_cooldown_s(fc.message), fc)
         return fc
 
     def _request(self, lat: float, lon: float, start_d: date, end_d: date) -> Forecast:
@@ -137,7 +160,12 @@ class OpenMeteoProvider:
             body = {}
         if resp.status_code != 200 or body.get("error"):
             reason = body.get("reason") or f"HTTP {resp.status_code}"
-            code = "out_of_range" if "out of allowed range" in str(reason) else "provider_error"
+            if "out of allowed range" in str(reason):
+                code = "out_of_range"
+            elif resp.status_code == 429 or "limit exceeded" in str(reason).lower():
+                code = "rate_limited"
+            else:
+                code = "provider_error"
             return Forecast(status="unavailable" if code == "out_of_range" else "error",
                             reason_code=code, message=f"Open-Meteo: {reason}", retrieved_at_utc=retrieved)
 

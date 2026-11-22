@@ -27,8 +27,8 @@ def test_catalog_has_20plus_sourced_unique_targets(client):
 
 
 def test_catalog_search_and_filter(client):
-    # "orion" matches M42 (Orion Nebula) and IC 434 (OpenNGC common name "Orion B")
-    assert [t["id"] for t in client.get("/api/targets", params={"query": "orion"}).json()["targets"]] == ["m42", "ic434"]
+    # "orion" matches M42 (Orion Nebula), IC 434 (OpenNGC common name "Orion B") and M78 (constellation Orion)
+    assert [t["id"] for t in client.get("/api/targets", params={"query": "orion"}).json()["targets"]] == ["m42", "ic434", "m78"]
     assert [t["id"] for t in client.get("/api/targets", params={"query": "whirlpool"}).json()["targets"]] == ["m51"]
     assert client.get("/api/targets", params={"query": "NGC 224"}).json()["targets"][0]["id"] == "m31"
     gal = client.get("/api/targets", params={"category": "galaxy"}).json()["targets"]
@@ -195,3 +195,13 @@ def test_signed_in_account_can_still_change_shared_places_and_equipment(client):
     copy = client.post("/api/equipment/seestar-s30/duplicate")
     assert copy.status_code == 201
     assert client.delete(f"/api/equipment/{copy.json()['id']}").status_code == 204
+
+
+def test_search_by_constellation_name_and_serpens_code():
+    from app.catalog import CONSTELLATION_NAMES, all_targets, search
+
+    assert len(CONSTELLATION_NAMES) == 88
+    assert {t["constellation"] for t in all_targets()} <= set(CONSTELLATION_NAMES)
+    cygnus = {t["id"] for t in search("Cygnus")}
+    assert cygnus and cygnus == {t["id"] for t in search("Cyg")}
+    assert {t["id"] for t in search("serpens")} >= {"m16", "m5"}

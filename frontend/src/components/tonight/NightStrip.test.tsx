@@ -48,7 +48,7 @@ function row(t_ms: number, cloud: number | null): HourlyRow {
 
 function forecast(hourly: HourlyRow[]): ForecastPayload {
   return {
-    status: hourly.length ? "ok" : "unavailable", reason_code: null, message: null,
+    status: hourly.length ? "ok" : "unavailable", reason_code: hourly.length ? null : "beyond_forecast_horizon", message: null,
     source: { provider: "Open-Meteo", url: "", terms_url: "", license: "", note: "" },
     retrieved_at_utc: null, from_cache: false, lead_time_hours: 4,
     confidence: { label: "higher", kind: "x", explanation: "x" }, hourly, missing: {}, units: {},
@@ -116,6 +116,20 @@ describe("NightStrip", () => {
     );
     expect(screen.getByText("No forecast this far ahead")).toBeTruthy();
     expect(container.querySelector("[data-clearbar]")).toBeNull();
+  });
+
+  it("does not call a failed forecast request 'too far ahead'", () => {
+    render(
+      <NightStrip
+        night={night(() => -20)}
+        forecast={{ ...forecast([]), status: "error", reason_code: "rate_limited" }}
+        clear={null}
+        bestWindow={null}
+        tz={TZ}
+      />,
+    );
+    expect(screen.getByText("Forecast unavailable right now")).toBeTruthy();
+    expect(screen.queryByText("No forecast this far ahead")).toBeNull();
   });
 
   it("names the forecast-clear run for screen readers only and offers a tap hint", () => {

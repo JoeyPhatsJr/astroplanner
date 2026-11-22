@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import httpx
 import numpy as np
 
-from app.weather import Forecast, OpenMeteoProvider, align_to_grid, forecast_payload
+from app.weather import Forecast, OpenMeteoProvider, align_to_grid, forecast_payload, rate_limit_cooldown_s
 
 from .conftest import FIXED_NOW, RecordingFetch, synthetic_open_meteo
 
@@ -43,6 +43,36 @@ def test_out_of_range_error_is_unavailable_not_clear():
     p, _ = provider(lambda params: httpx.Response(400, json=body))
     fc = p.forecast(40.0, -75.0, START, END)
     assert fc.status == "unavailable" and fc.reason_code == "out_of_range" and not fc.values
+
+
+def test_rate_limit_pauses_all_requests_for_a_while():
+    body = {"error": True, "reason": "Daily API request limit exceeded. Please try again tomorrow."}
+    p, fetch = provider(lambda params: httpx.Response(429, json=body))
+    fc = p.forecast(40.0, -75.0, START, END)
+    assert fc.status == "error" and fc.reason_code == "rate_limited" and not fc.values
+    assert fc.message == "Open-Meteo: Daily API request limit exceeded. Please try again tomorrow."
+    # Another place, which has no cache entry of its own, does not spend another request.
+    other = p.forecast(51.5, -0.1, START, END)
+    assert len(fetch.calls) == 1
+    assert other.reason_code == "rate_limited" and other.from_cache
+
+
+def test_rate_limit_cooldown_ends():
+    body = {"error": True, "reason": "Minutely API request limit exceeded. Please try again in one minute."}
+    p, fetch = provider(lambda params: httpx.Response(429, json=body) if len(fetch.calls) == 1 else synthetic_open_meteo(params))
+    assert p.forecast(40.0, -75.0, START, END).reason_code == "rate_limited"
+    with p._lock:
+        p._rate_limited = (0.0, p._rate_limited[1])
+    assert p.forecast(51.5, -0.1, START, END).ok
+    assert len(fetch.calls) == 2
+
+
+def test_rate_limit_pause_matches_the_limit_hit():
+    # A minute's limit must not hide the weather for an hour.
+    assert rate_limit_cooldown_s("Open-Meteo: Minutely API request limit exceeded. Please try again in one minute.") == 60
+    assert rate_limit_cooldown_s("Open-Meteo: Hourly API request limit exceeded.") == 600
+    assert rate_limit_cooldown_s("Open-Meteo: Daily API request limit exceeded. Please try again tomorrow.") == 3600
+    assert rate_limit_cooldown_s("Open-Meteo: HTTP 429") == 60
 
 
 def test_network_error_is_reported():

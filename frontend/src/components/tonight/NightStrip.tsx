@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import type { ForecastPayload, HourlyRow, NightClear, NightSummary } from "../../api/types";
+import { forecastGap } from "../../lib/forecastGap";
 import { formatDuration, formatTime, localHour } from "../../lib/time";
 import { useElementWidth } from "../../lib/useElementWidth";
 
@@ -187,7 +188,7 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
 
         {!hasHourly && (
           <text x={W / 2} y={LABEL_H + barH / 2} textAnchor="middle" dominantBaseline="middle" style={{ fill: "var(--color-ink)", fontSize: 12.5 }}>
-            No forecast this far ahead
+            {forecastGap(forecast).title}
           </text>
         )}
 
