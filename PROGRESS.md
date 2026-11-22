@@ -2,6 +2,20 @@
 
 _Last updated: 2026-11-19 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
+## Fix: night endpoints 500 once the bundled IERS table ages (branch `fix/iers-stale-crash`, 2026-11-22)
+
+- **Symptom:** on the live site every `/api/night`, `/api/tonight`, recommendations and variable-window call returned
+  500 while `/api/health` stayed green. Reproduced locally; `tests/test_api.py::test_tonight_with_forecast` failed too.
+- **Cause:** `astropy-iers-data` 0.2026.11.2.0.34.55 has its last measured UT1-UTC value on 2026-10-22. With
+  `auto_download = False`, astropy still enforces `auto_max_age` (30 days): for any instant after the last measured
+  value it raises `ValueError` once the wall clock is 30 days past it, i.e. from 2026-11-21 on.
+- **Fix:** `iers.conf.auto_max_age = None` in `app/astronomy.py`; the predictions stay arcsecond-level for months.
+  `tests/test_iers_staleness.py` fakes a clock 400 days past the table so it guards this whatever today's date is.
+- **Monitoring:** `.github/workflows/live-smoke.yml` calls the live `/api/night` daily and on demand (needs `SITE_URL`).
+- **Frontend:** a bare 5xx now reads "Something went wrong on the AstroPlanner server…" instead of
+  "Request failed (HTTP 500)".
+- **Next step:** merge, let Render redeploy, then run "Live smoke test" from the Actions tab.
+
 ## Current work: free hosting (branch `deploy-free`, not pushed)
 
 Vercel serves the site and proxies `/api` to a Render free container; Supabase holds Postgres and preview
