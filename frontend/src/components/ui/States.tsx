@@ -1,8 +1,26 @@
 import { AlertTriangle, RotateCw } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 export function Skeleton({ className = "", label = "Loading" }: { className?: string; label?: string }) {
   return <div className={`skeleton ${className}`} role="status" aria-label={label} />;
+}
+
+/**
+ * Shown under a skeleton that has been up a while. The API's free host sleeps after a quiet spell and
+ * takes up to a minute to wake, which otherwise looks like a page that is stuck.
+ */
+export function SlowLoadHint({ afterMs = 5000 }: { afterMs?: number }) {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setShow(true), afterMs);
+    return () => clearTimeout(t);
+  }, [afterMs]);
+  if (!show) return null;
+  return (
+    <p className="text-sm text-muted" role="status">
+      Still loading. After a quiet spell the server needs up to a minute to wake up.
+    </p>
+  );
 }
 
 export function ErrorState({ error, onRetry, title = "Couldn't load this" }: { error: unknown; onRetry?: () => void; title?: string }) {

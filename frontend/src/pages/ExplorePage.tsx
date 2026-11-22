@@ -8,7 +8,8 @@ import { HistoryBadge } from "../components/astrolog/HistoryBadge";
 import { ScoreChip } from "../components/targets/TargetCard";
 import { TargetDetail } from "../components/targets/TargetDetail";
 import { TargetFilters } from "../components/targets/TargetFilters";
-import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
+import { EmptyState, ErrorState, Notice, Skeleton, SlowLoadHint } from "../components/ui/States";
+import { weatherReason } from "../lib/forecastGap";
 import { formatDeg, formatSize } from "../lib/format";
 import { formatTime } from "../lib/time";
 import { usePrefs } from "../state/prefs";
@@ -89,12 +90,13 @@ export function ExplorePage() {
         <TargetFilters idPrefix="ex" category={category} onCategory={setCategory} />
       </div>
 
-      {recs.data && recs.data.weather_status !== "ok" && <Notice tone="warn">Scores exclude weather: {recs.data.weather_message ?? "forecast unavailable"}</Notice>}
+      {recs.data && recs.data.weather_status !== "ok" && <Notice tone="warn">Scores leave the weather out: {weatherReason(recs.data.weather_message)}</Notice>}
       {recs.isLoading && (
         <div className="flex flex-col gap-2">
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-16" />
           ))}
+          <SlowLoadHint />
         </div>
       )}
       {recs.error && <ErrorState error={recs.error} onRetry={() => recs.refetch()} />}

@@ -95,7 +95,26 @@ def test_seed_data_and_preset_immutability(client):
     assert not copy["is_preset"] and not copy["is_verified"]
     assert client.patch(f"/api/equipment/{copy['id']}", json={"fov_deg": 2.5}).json()["fov_deg"] == 2.5
     locs = client.get("/api/locations").json()
-    assert len(locs) == 1 and locs[0]["is_sample"] and "Sample" in locs[0]["label"]
+    assert len(locs) == 1 and locs[0]["is_sample"] and locs[0]["label"] == "Philadelphia, PA (sample)"
+
+
+def test_seed_renames_the_old_sample_label_only_if_untouched(tmp_path):
+    from app.db import Database, ObservingLocation
+
+    db = Database(f"sqlite:///{tmp_path / 'seed.db'}")
+    db.init()
+    with db.SessionLocal() as s:
+        s.get(ObservingLocation, "sample-location").label = "Sample location: Philadelphia, PA (edit me)"
+        s.commit()
+    db.seed()
+    with db.SessionLocal() as s:
+        sample = s.get(ObservingLocation, "sample-location")
+        assert sample.label == "Philadelphia, PA (sample)"
+        sample.label = "Back yard"
+        s.commit()
+    db.seed()
+    with db.SessionLocal() as s:
+        assert s.get(ObservingLocation, "sample-location").label == "Back yard"
 
 
 def test_location_validation_and_edit(client):
