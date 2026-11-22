@@ -164,3 +164,34 @@ def test_app_starts_when_frontend_dist_exists_without_assets(tmp_path, monkeypat
     with make_client(clear_provider) as c:
         assert c.get("/api/health").status_code == 200
         assert "AstroPlanner" in c.get("/tonight").text
+
+
+def test_shared_places_and_equipment_need_an_account_to_change(make_client, clear_provider):
+    """Signed out: reading and adding a place work (the homescreen search adds one); every other write is a 401."""
+    with make_client(clear_provider, account=None) as anon:
+        assert anon.get("/api/locations").status_code == 200
+        equipment_before = anon.get("/api/equipment").json()
+        added = anon.post("/api/locations", json={"label": "Denver", "latitude_deg": 39.74, "longitude_deg": -104.99,
+                                                  "timezone": "America/Denver"})
+        assert added.status_code == 201
+        blocked = [
+            anon.patch("/api/locations/sample-location", json={"label": "Mine now"}),
+            anon.delete("/api/locations/sample-location"),
+            anon.patch(f"/api/locations/{added.json()['id']}", json={"label": "Moved"}),
+            anon.delete(f"/api/locations/{added.json()['id']}"),
+            anon.post("/api/equipment", json={"name": "Scope", "aperture_mm": 80, "focal_length_mm": 480}),
+            anon.post("/api/equipment/seestar-s30/duplicate"),
+            anon.patch("/api/equipment/seestar-s30", json={"fov_deg": 3}),
+            anon.delete("/api/equipment/seestar-s30"),
+        ]
+        assert [r.status_code for r in blocked] == [401] * len(blocked)
+        locs = {loc["id"]: loc for loc in anon.get("/api/locations").json()}
+        assert locs["sample-location"]["is_sample"] and locs[added.json()["id"]]["label"] == "Denver"
+        assert anon.get("/api/equipment").json() == equipment_before
+
+
+def test_signed_in_account_can_still_change_shared_places_and_equipment(client):
+    assert client.patch("/api/locations/sample-location", json={"label": "Home"}).status_code == 200
+    copy = client.post("/api/equipment/seestar-s30/duplicate")
+    assert copy.status_code == 201
+    assert client.delete(f"/api/equipment/{copy.json()['id']}").status_code == 204

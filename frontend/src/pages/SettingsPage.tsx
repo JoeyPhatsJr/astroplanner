@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, Copy, Crosshair, ExternalLink, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuthStatus } from "../api/auth";
 import { api } from "../api/client";
 import { qk, useAbout, useCurrentLocation, useEquipmentList, useLocations } from "../api/hooks";
 import type { EquipmentInput, EquipmentProfile, FovDefinition, GeocodeResult, LocationInput, ObservingLocation } from "../api/types";
@@ -9,6 +10,7 @@ import { MIN_ALT_OPTIONS } from "../components/targets/TargetFilters";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatLatLon } from "../lib/format";
+import { loginHref } from "../lib/returnTo";
 import { usePrefs } from "../state/prefs";
 import { PageHeader } from "../components/ui/PageHeader";
 
@@ -16,11 +18,32 @@ export function SettingsPage() {
   return (
     <div className="page-reading flex flex-col gap-8">
       <PageHeader title="Settings" subtitle="Locations, equipment and observing preferences are saved on this AstroPlanner server." />
+      <SharedEditsNotice />
       <LocationsSection />
       <EquipmentSection />
       <PreferencesSection />
       <AboutSection />
     </div>
+  );
+}
+
+/** Saved places and equipment are shared by everyone on the server, so changing them needs an account. */
+function useCanEditShared(): boolean {
+  return useAuthStatus() === "signedIn";
+}
+
+function SharedEditsNotice() {
+  const loc = useLocation();
+  const status = useAuthStatus();
+  if (status !== "signedOut") return null;
+  return (
+    <Notice>
+      Places and equipment here are shared by everyone using this server.{" "}
+      <Link to={loginHref(loc.pathname + loc.search)} className="text-ice underline underline-offset-2">
+        Sign in
+      </Link>{" "}
+      to edit or delete them, or to add equipment.
+    </Notice>
   );
 }
 
@@ -44,6 +67,7 @@ function LocationsSection() {
   const { prefs, update } = usePrefs();
   const currentId = useCurrentLocation().location?.id ?? null;
   const confirm = useConfirm();
+  const canEdit = useCanEditShared();
   const [editing, setEditing] = useState<ObservingLocation | "new" | null>(prefill ? "new" : null);
   const del = useMutation({
     mutationFn: (id: string) => api.deleteLocation(id),
@@ -65,7 +89,7 @@ function LocationsSection() {
           </button>
         )}
       </div>
-      {editing !== null && (
+      {editing !== null && (editing === "new" || canEdit) && (
         <LocationForm
           initial={editing === "new" ? null : editing}
           prefill={editing === "new" ? prefill : null}
@@ -105,26 +129,30 @@ function LocationsSection() {
               ) : (
                 <span className="badge badge-accent">In use</span>
               )}
-              <button type="button" className="btn btn-ghost btn-icon" aria-label={`Edit ${l.label}`} onClick={() => setEditing(l)}>
-                <Pencil className="size-4" aria-hidden />
-              </button>
-              <button
-                type="button"
-                className="btn btn-ghost btn-icon text-warn"
-                aria-label={`Delete ${l.label}`}
-                disabled={del.isPending}
-                onClick={async () => {
-                  const ok = await confirm({
-                    title: `Delete location “${l.label}”?`,
-                    body: "Locations used by a saved session can’t be deleted until those sessions are removed.",
-                    confirmLabel: "Delete location",
-                    destructive: true,
-                  });
-                  if (ok) del.mutate(l.id);
-                }}
-              >
-                <Trash2 className="size-4" aria-hidden />
-              </button>
+              {canEdit && (
+                <>
+                  <button type="button" className="btn btn-ghost btn-icon" aria-label={`Edit ${l.label}`} onClick={() => setEditing(l)}>
+                    <Pencil className="size-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-icon text-warn"
+                    aria-label={`Delete ${l.label}`}
+                    disabled={del.isPending}
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `Delete location “${l.label}”?`,
+                        body: "Locations used by a saved session can’t be deleted until those sessions are removed.",
+                        confirmLabel: "Delete location",
+                        destructive: true,
+                      });
+                      if (ok) del.mutate(l.id);
+                    }}
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ul>
@@ -368,6 +396,7 @@ function EquipmentSection() {
   const qc = useQueryClient();
   const { prefs, update } = usePrefs();
   const confirm = useConfirm();
+  const canEdit = useCanEditShared();
   const [editing, setEditing] = useState<EquipmentProfile | "new" | null>(null);
   const dup = useMutation({
     mutationFn: (id: string) => api.duplicateEquipment(id),
@@ -390,13 +419,13 @@ function EquipmentSection() {
         <h2 id="set-eq" className="font-semibold text-2xl">
           Equipment
         </h2>
-        {editing === null && (
+        {editing === null && canEdit && (
           <button type="button" className="btn" onClick={() => setEditing("new")}>
             <Plus className="size-4" aria-hidden /> Custom profile
           </button>
         )}
       </div>
-      {editing !== null && <EquipmentForm initial={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
+      {editing !== null && canEdit && <EquipmentForm initial={editing === "new" ? null : editing} onDone={() => setEditing(null)} />}
       {(dup.error || del.error) && <Notice tone="warn">{errMsg(dup.error ?? del.error)}</Notice>}
       {q.isLoading && <Skeleton className="h-40" />}
       {q.error && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
@@ -436,16 +465,18 @@ function EquipmentSection() {
               )}
               {eq.is_preset ? (
                 <>
-                  <button type="button" className="btn" onClick={() => dup.mutate(eq.id)} disabled={dup.isPending}>
-                    <Copy className="size-4" aria-hidden /> Duplicate as custom
-                  </button>
+                  {canEdit && (
+                    <button type="button" className="btn" onClick={() => dup.mutate(eq.id)} disabled={dup.isPending}>
+                      <Copy className="size-4" aria-hidden /> Duplicate as custom
+                    </button>
+                  )}
                   {eq.source_url && (
                     <a className="btn btn-ghost text-ice" href={eq.source_url} target="_blank" rel="noreferrer">
                       Source <ExternalLink className="size-3.5" aria-hidden />
                     </a>
                   )}
                 </>
-              ) : (
+              ) : canEdit ? (
                 <>
                   <button type="button" className="btn" onClick={() => setEditing(eq)}>
                     <Pencil className="size-4" aria-hidden /> Edit
@@ -467,7 +498,7 @@ function EquipmentSection() {
                     <Trash2 className="size-4" aria-hidden /> Delete
                   </button>
                 </>
-              )}
+              ) : null}
             </div>
           </article>
         ))}
