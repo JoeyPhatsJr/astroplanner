@@ -54,8 +54,10 @@ Account and Sign out) is in the top right of every page except the sign-in pages
   signed out; this one stays signed in), sign out, and **delete account**. Deleting asks for your password and a typed
   `DELETE`, then removes the account, its sign-in sessions, its session plans and nights, its AstroLog library, its
   processing notes and their preview files. Your original files on your computer are never touched.
-- **Saved places and equipment are shared**, not per account, in this build: anyone using the app can edit them, and
-  editing a place changes the times computed for nights planned there (see PROGRESS, known limitations).
+- **Saved places and equipment are shared**, not per account, in this build. Anyone can add a place (the homescreen
+  city search does), but editing or deleting a place, and adding, editing or deleting equipment, needs an account.
+  Any signed-in account can still change them, and editing a place changes the times computed for nights planned
+  there (see PROGRESS, known limitations).
 - **Same origin only.** The session cookie needs the app and the API on one origin: the Vite dev proxy, the e2e
   servers and single-process mode all are. Cross-origin `VITE_API_BASE` mode is not supported with accounts in this
   build.

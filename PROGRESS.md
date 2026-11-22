@@ -33,6 +33,18 @@ _Last updated: 2026-11-19 · Phase plan and process: see [ROADMAP.md](ROADMAP.md
   "Request failed (HTTP 500)".
 - **Next step:** merge, let Render redeploy, then run "Live smoke test" from the Actions tab.
 
+## Fix: shared places and equipment needed no account to change (branch `fix/auth-shared-writes`, 2026-11-22)
+
+- **Before:** `PATCH`/`DELETE /api/locations/{id}` and every equipment write (`POST`, `PATCH`, `DELETE`,
+  `/duplicate`) had no `current_user` dependency, and Settings showed Edit/Delete to signed-out visitors.
+- **Now:** those routes return 401 when signed out. `POST /api/locations` stays open on purpose: the homescreen
+  city search saves a place for signed-out visitors. Settings hides Edit, Delete, Duplicate and Custom profile when
+  signed out and links to sign in.
+- **Known limitation:** the rows are still shared, so any signed-in account (sign-up is open) can change them.
+  Per-account places and equipment would need an `owner_id` migration like the one for plans.
+- **Tests:** `test_api.py::test_shared_places_and_equipment_need_an_account_to_change`,
+  `src/pages/SettingsPage.test.tsx`.
+
 ## Current work: free hosting (branch `deploy-free`, not pushed)
 
 Vercel serves the site and proxies `/api` to a Render free container; Supabase holds Postgres and preview
