@@ -17,8 +17,15 @@ export const TEST_PASSWORD = "correct horse battery staple";
 const EXPECTED_401 = ["/api/auth/me", "/api/auth/login"];
 
 /**
- * Record uncaught page errors and console errors, except the console error for an expected 401 above
- * (matched on the resource URL Chrome attaches to the message). Read the array at the end of the test.
+ * The browser asks Open-Meteo for the forecast itself (src/api/browserForecast.ts). When Open-Meteo refuses
+ * this IP (its free quota is per IP, and CI runners share theirs), Chrome logs "Failed to load resource … 429"
+ * and the API fetches the forecast instead: an expected fallback, not an app error.
+ */
+const OPEN_METEO = "https://api.open-meteo.com/";
+
+/**
+ * Record uncaught page errors and console errors, except the console error for an expected 401 or an Open-Meteo
+ * refusal above (matched on the resource URL Chrome attaches to the message). Read the array at the end of the test.
  */
 export function collectErrors(page: Page): string[] {
   const errors: string[] = [];
@@ -27,6 +34,7 @@ export function collectErrors(page: Page): string[] {
     if (m.type() !== "error") return;
     const url = m.location().url.split("?")[0];
     if (m.text().includes("401") && EXPECTED_401.some((p) => url.endsWith(p))) return;
+    if (m.text().startsWith("Failed to load resource") && url.startsWith(OPEN_METEO)) return;
     errors.push(m.text());
   });
   return errors;

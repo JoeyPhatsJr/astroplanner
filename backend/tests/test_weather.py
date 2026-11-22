@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import httpx
 import numpy as np
+import pytest
 
 from app.weather import Forecast, OpenMeteoProvider, align_to_grid, forecast_payload, rate_limit_cooldown_s
 
@@ -112,3 +113,61 @@ def test_payload_labels_lead_time_confidence():
     far = forecast_payload(fc, START.timestamp(), END.timestamp(), FIXED_NOW, lead_ref_ts=FIXED_NOW.timestamp() + 5 * 86400)
     assert near["confidence"]["label"] == "higher" and far["confidence"]["label"] == "low"
     assert near["source"]["provider"] == "Open-Meteo"
+
+
+# ---- forecasts the visitor's browser fetched ("relay") ----------------------------------------------------
+
+RELAY_START = datetime(2026, 11, 2, 17, 0, tzinfo=timezone.utc)
+RELAY_END = datetime(2026, 11, 3, 17, 0, tzinfo=timezone.utc)
+
+
+def _browser_body(lat=40.0, lon=-75.0, start="2026-11-01", end="2026-11-04"):
+    return synthetic_open_meteo({"start_date": start, "end_date": end, "latitude": lat, "longitude": lon}).json()
+
+
+def test_relayed_forecast_is_used_for_that_browser_only():
+    p, fetch = provider(lambda params: httpx.Response(429, json={"error": True, "reason": "Daily API request limit exceeded."}))
+    kept = p.relay("browser-aaaaaaaaaaaa", 40.0, -75.0, RELAY_START, RELAY_END, _browser_body())
+    assert kept.ok
+    # cut to this night's UTC dates, like the server's own request
+    assert min(kept.times) >= datetime(2026, 11, 2, tzinfo=timezone.utc).timestamp()
+    assert max(kept.times) < datetime(2026, 11, 4, tzinfo=timezone.utc).timestamp()
+    mine = p.forecast(40.0, -75.0, RELAY_START, RELAY_END, client="browser-aaaaaaaaaaaa")
+    assert mine.ok and fetch.calls == []
+    other = p.forecast(40.0, -75.0, RELAY_START, RELAY_END, client="browser-bbbbbbbbbbbb")
+    assert other.reason_code == "rate_limited" and len(fetch.calls) == 1
+
+
+@pytest.mark.parametrize("body, why", [
+    (None, "no hourly data"),
+    ({"error": True, "reason": "x", "hourly": {}}, "error"),
+    ("place", "another place"),
+    ("short", "whole night"),
+    ("string", "malformed"),
+    ("bool", "malformed"),
+])
+def test_relayed_forecast_that_does_not_check_out_is_not_kept(body, why):
+    if body == "place":
+        body = _browser_body(lat=41.0)
+    elif body == "short":
+        body = _browser_body(start="2026-11-03", end="2026-11-04")
+    elif body == "string":
+        body = _browser_body()
+        body["hourly"]["cloud_cover"][5] = "10"
+    elif body == "bool":
+        body = _browser_body()
+        body["hourly"]["cloud_cover"][5] = True
+    p, fetch = provider(synthetic_open_meteo)
+    fc = p.relay("browser-aaaaaaaaaaaa", 40.0, -75.0, RELAY_START, RELAY_END, body)
+    assert not fc.ok and fc.reason_code == "relay_rejected" and why in fc.message
+    # nothing kept: the server fetches for itself
+    assert p.forecast(40.0, -75.0, RELAY_START, RELAY_END, client="browser-aaaaaaaaaaaa").ok
+    assert len(fetch.calls) == 1
+
+
+def test_relayed_null_values_stay_missing():
+    body = _browser_body()
+    body["hourly"]["cloud_cover"] = [None] * len(body["hourly"]["time"])
+    p, _ = provider(synthetic_open_meteo)
+    fc = p.relay("browser-aaaaaaaaaaaa", 40.0, -75.0, RELAY_START, RELAY_END, body)
+    assert fc.ok and all(v is None for v in fc.values["cloud_cover"])
