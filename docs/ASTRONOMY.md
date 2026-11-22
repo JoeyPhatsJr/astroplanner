@@ -16,7 +16,7 @@ All positions are computed on the backend with **Astropy 8** (`get_body`,
 | Boundaries | Linear interpolation between the two samples straddling a threshold. |
 | Moon illumination | Meeus ch. 48 phase-angle formula from Astropy geocentric Sun/Moon positions. |
 | Moon–target separation | Topocentric, computed from both objects' alt/az at each sample. |
-| Earth orientation | IERS tables bundled with `astropy-iers-data` (no downloads at request time). Outside the table range Astropy uses degraded values (arcsecond-level, irrelevant for planning). |
+| Earth orientation | IERS tables bundled with `astropy-iers-data` (no downloads at request time). Their UT1-UTC predictions are used however old the table is (`auto_max_age = None`; astropy's 30-day default turned every night into a 500 in Nov 2026). Outside the table range Astropy uses degraded values (arcsecond-level, irrelevant for planning). |
 | Target coordinates | OpenNGC J2000 (ICRS) catalog positions. For very large nebulae the catalog position may not be the visual centre. |
 
 ## Target visibility rules
