@@ -10,8 +10,9 @@ import { TargetFilters } from "../components/targets/TargetFilters";
 import { FactsRow, ForecastMeta } from "../components/tonight/Conditions";
 import { NightStrip } from "../components/tonight/NightStrip";
 import { ScoreHero } from "../components/tonight/ScoreHero";
-import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
+import { EmptyState, ErrorState, Notice, Skeleton, SlowLoadHint } from "../components/ui/States";
 import { formatLatLon } from "../lib/format";
+import { forecastReason } from "../lib/forecastGap";
 import { darkForecastGaps, nightHeadline } from "../lib/nightHeadline";
 import { nightPageTitle, tzAbbrev } from "../lib/time";
 import { useActiveSession } from "../state/activeSession";
@@ -129,7 +130,7 @@ export function TonightPage() {
           )}
           {recs.error && <ErrorState error={recs.error} onRetry={() => recs.refetch()} />}
           {recs.data && recs.data.weather_status !== "ok" && (
-            <Notice tone="warn">Scores below exclude weather: {recs.data.weather_message ?? "forecast unavailable"}</Notice>
+            <Notice tone="warn">Scores below leave the weather out until a forecast is available.</Notice>
           )}
           {recs.data && shown.length === 0 && (
             <EmptyState icon={<MoonStar className="size-6" />} title={recs.data.has_darkness ? "No targets meet your limits" : "No darkness, so no targets"}>
@@ -195,7 +196,7 @@ export function TonightPanels({ data, tz, fetching }: { data: TonightResponse; t
     scoreStatus: score.status,
     missingDarkMinutes: gaps.missingDarkMinutes,
     clearEndsAtMissing: gaps.clearEndsAtMissing,
-    forecastMessage: forecast.status === "ok" ? null : forecast.message,
+    forecastMessage: forecastReason(forecast),
     tz,
   });
   const stripTip = `${hasForecast ? "Each block is one forecast hour. Solid means overcast. " : ""}Thin band is the Moon above the horizon. Hours are ${tzAbbrev(night.display_start_utc, tz)}.`;
@@ -217,5 +218,10 @@ export function TonightPanels({ data, tz, fetching }: { data: TonightResponse; t
 }
 
 function PageSkeleton() {
-  return <Skeleton className="h-[420px]" label="Loading tonight" />;
+  return (
+    <div className="flex flex-col gap-3">
+      <Skeleton className="h-[420px]" label="Loading tonight" />
+      <SlowLoadHint />
+    </div>
+  );
 }

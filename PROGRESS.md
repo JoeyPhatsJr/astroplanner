@@ -2,6 +2,23 @@
 
 _Last updated: 2026-11-19 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
+## Polish: calmer weather, loading and sample states (branch `polish/app-states`, 2026-11-22)
+
+- **One weather notice, in plain words:** with no forecast, Tonight repeated Open-Meteo's raw "Daily API request
+  limit exceeded. Please try again tomorrow." three times (score panel, under the strip, above the targets).
+  `lib/forecastGap.forecastReason` / `weatherReason` now say it once, in the score panel, as "The weather service has
+  reached its request limit for now, so there's no forecast yet." (or "can't be reached"); other reasons pass
+  through. Under the strip: "Weather unavailable. The Sun, Moon and target times are still calculated." Above the
+  targets: "Scores below leave the weather out until a forecast is available." Explore uses the plain reason.
+- **Slow first load:** the API's free host sleeps after a quiet spell, and Tonight and Explore sat on grey
+  skeletons for up to a minute with no word. `SlowLoadHint` adds "Still loading. After a quiet spell the server
+  needs up to a minute to wake up." after 5 s.
+- **Sample place name:** the header read "Sample location: Philadelphia, PA (edit me)". It is now "Philadelphia, PA
+  (sample)"; the page already says it is the sample and links to Settings. `Database.seed` renames the old label
+  only if nobody changed it.
+- **Tests:** `forecastGap.test.ts` (plain reasons), `ui/States.test.tsx` (hint waits 5 s), `test_api.py` (seed
+  rename, edited label kept).
+
 ## Fix: the forecast is fetched by the visitor's browser (branch `feat/browser-forecast`, 2026-11-22)
 
 - **Why:** Open-Meteo's free quota is per IP, and Render's free tier shares the API's outbound IP with other

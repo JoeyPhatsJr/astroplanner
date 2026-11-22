@@ -81,8 +81,8 @@ export function ForecastMeta({ forecast, tz }: { forecast: ForecastPayload; tz: 
   if (forecast.status !== "ok") {
     return (
       <p className="text-sm text-ink-2">
-        <span className="font-semibold text-warn">Weather unavailable.</span> {forecast.message}{" "}
-        <span className="text-muted">Astronomy below is still calculated.</span>
+        <span className="font-semibold text-warn">Weather unavailable.</span>{" "}
+        <span className="text-muted">The Sun, Moon and target times are still calculated.</span>
       </p>
     );
   }

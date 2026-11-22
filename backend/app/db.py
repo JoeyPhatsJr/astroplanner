@@ -250,9 +250,13 @@ CANON_T3 = {
     "is_preset": False,
 }
 
+# The sample's first label read like a placeholder in the header ("…(edit me)"). Pages already say it is the
+# sample and link to Settings, so the label only names the place. A label someone changed is left alone.
+OLD_SAMPLE_LABELS = ("Sample location: Philadelphia, PA (edit me)",)
+
 SAMPLE_LOCATION = {
     "id": "sample-location",
-    "label": "Sample location: Philadelphia, PA (edit me)",
+    "label": "Philadelphia, PA (sample)",
     "latitude_deg": 39.9526,
     "longitude_deg": -75.1652,
     "elevation_m": 12.0,
@@ -297,6 +301,10 @@ class Database:
                 s.add(AppMeta(key="canon_seeded", value="1"))
             if s.scalar(select(ObservingLocation).limit(1)) is None:
                 s.add(ObservingLocation(**SAMPLE_LOCATION))
+            else:
+                sample = s.get(ObservingLocation, SAMPLE_LOCATION["id"])
+                if sample is not None and sample.label in OLD_SAMPLE_LABELS:
+                    sample.label = SAMPLE_LOCATION["label"]
             s.commit()
 
     def session(self) -> Session:
