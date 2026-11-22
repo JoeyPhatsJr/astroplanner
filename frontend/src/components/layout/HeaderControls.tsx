@@ -160,7 +160,9 @@ function Controls({ stacked = false }: { stacked?: boolean }) {
               <ChevronLeft className="size-4" aria-hidden />
             </button>
             {!stacked && (
-              <span className="hidden items-center gap-2 lg:flex">
+              // The long "Night of … → morning of …" label only fits beside the other controls on wide screens;
+              // below 2xl it pushed Night vision and Sign in onto a second, misaligned row at common laptop widths.
+              <span className="hidden items-center gap-2 2xl:flex">
                 <span className="text-sm tabular-nums text-ink-2" title={`Times shown in ${location.timezone}`}>
                   {nightLabel(nightDate)}
                 </span>

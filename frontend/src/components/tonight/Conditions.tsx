@@ -1,4 +1,5 @@
 import type { ForecastPayload, NightSummary } from "../../api/types";
+import { forecastGap } from "../../lib/forecastGap";
 import { formatAge, formatDateTime, formatDuration, formatTime, tzAbbrev } from "../../lib/time";
 
 function darkHourly(forecast: ForecastPayload, night: NightSummary) {
@@ -30,7 +31,7 @@ export function FactsRow({ night, forecast }: { night: NightSummary; forecast: F
   const rows = forecast.status === "ok" ? (night.has_darkness ? darkHourly(forecast, night) : forecast.hourly) : [];
   const cloud = stats(rows.map((r) => r.cloud_cover));
   const rain = stats(rows.map((r) => r.precipitation_probability));
-  const noData = "beyond forecast range";
+  const noData = forecastGap(forecast).note;
   const first = night.dark_intervals[0];
   const last = night.dark_intervals[night.dark_intervals.length - 1];
   return (
