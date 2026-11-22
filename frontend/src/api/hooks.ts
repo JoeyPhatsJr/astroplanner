@@ -1,8 +1,9 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { defaultNightDate } from "../lib/time";
 import { usePrefs } from "../state/prefs";
 import { useAuthStatus } from "./auth";
+import { onLateForecast } from "./browserForecast";
 import { api, fetchLimits, type ObserverParams } from "./client";
 import type { Category, EquipmentProfile, ObservingLocation, ObservingSession } from "./types";
 
@@ -14,6 +15,18 @@ export const qk = {
   limits: ["limits"] as const,
   processingRun: (id: string) => ["processing-run", id] as const,
 };
+
+/** Answers given before this browser's forecast arrived refetch once it does (see browserForecast.ts). */
+export function useLateForecastRefresh(): void {
+  const qc = useQueryClient();
+  useEffect(
+    () =>
+      onLateForecast(() => {
+        for (const root of ["tonight", "recommendations", "visibility"]) void qc.invalidateQueries({ queryKey: [root] });
+      }),
+    [qc],
+  );
+}
 
 export function useLocations() {
   return useQuery({ queryKey: qk.locations, queryFn: api.locations, staleTime: 60_000 });

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timezone
 from typing import Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -27,7 +28,7 @@ from .db import EquipmentProfile, ObservingLocation, ObservingSession, SessionTa
 from .sky_images import BUSY_RETRY_AFTER_S, SkyImageBusy, SkyImageProvider
 from .scoring import TARGET_WEIGHTS, TONIGHT_WEIGHTS, night_clear, target_score, tonight_score
 from .visibility import DEFAULT_MIN_ALT_DEG, analyse_target, visibility_payload
-from .weather import OpenMeteoProvider, align_to_grid, forecast_payload
+from .weather import CLIENT_ID_RE, Forecast, OpenMeteoProvider, align_to_grid, forecast_payload
 
 router = APIRouter(prefix="/api")
 
@@ -37,8 +38,28 @@ MIN_DATE, MAX_DATE = date(1950, 1, 1), date(2099, 12, 31)
 
 # ---- dependencies ------------------------------------------------------------
 
-def get_weather(request: Request) -> OpenMeteoProvider:
-    return request.app.state.weather
+FORECAST_CLIENT_HEADER = "X-Forecast-Client"
+RELAY_MAX_BYTES = 256 * 1024
+
+
+def forecast_client(request: Request) -> str | None:
+    """The browser's own random id, sent with weather requests, so a forecast it relayed is used for it alone."""
+    cid = request.headers.get(FORECAST_CLIENT_HEADER)
+    return cid if cid and CLIENT_ID_RE.match(cid) else None
+
+
+class ClientWeather:
+    """The shared Open-Meteo provider, seen by one browser: its relayed forecasts come first."""
+
+    def __init__(self, provider: OpenMeteoProvider, client: str | None):
+        self.provider, self.client = provider, client
+
+    def forecast(self, lat: float, lon: float, start_utc: datetime, end_utc: datetime) -> Forecast:
+        return self.provider.forecast(lat, lon, start_utc, end_utc, client=self.client)
+
+
+def get_weather(request: Request) -> ClientWeather:
+    return ClientWeather(request.app.state.weather, forecast_client(request))
 
 
 class Observer(BaseModel):
@@ -69,7 +90,7 @@ def _ctx(o: Observer):
     return sky_context(o.lat, o.lon, float(o.elevation_m), o.night, o.tz)
 
 
-def _weather_for(o: Observer, ctx, provider: OpenMeteoProvider):
+def _weather_for(o: Observer, ctx, provider: ClientWeather):
     start, end = night_bounds_utc(o.night, o.tz)
     fc = provider.forecast(o.lat, o.lon, start, end)
     return fc, align_to_grid(fc, ctx.t)
@@ -222,17 +243,39 @@ def night(o: Observer = Depends(observer_params), darkness: Darkness = "astronom
 
 
 @router.get("/forecast")
-def forecast(o: Observer = Depends(observer_params), provider: OpenMeteoProvider = Depends(get_weather)) -> dict[str, Any]:
+def forecast(o: Observer = Depends(observer_params), provider: ClientWeather = Depends(get_weather)) -> dict[str, Any]:
     start, end = night_bounds_utc(o.night, o.tz)
     fc = provider.forecast(o.lat, o.lon, start, end)
     return forecast_payload(fc, start.timestamp(), end.timestamp(), _now(), _lead_ref(_ctx(o)))
+
+
+@router.post("/forecast/relay")
+async def forecast_relay(request: Request, o: Observer = Depends(observer_params)) -> dict[str, Any]:
+    """Take the Open-Meteo answer the visitor's browser fetched for this night and use it for that browser.
+
+    The browser asks Open-Meteo itself so the request counts against its own IP, not this server's shared one.
+    Answers that do not check out are not kept; the server then fetches the forecast itself, as before.
+    """
+    client = forecast_client(request)
+    if client is None:
+        raise HTTPException(422, f"Missing or malformed {FORECAST_CLIENT_HEADER} header.")
+    raw = await request.body()
+    if len(raw) > RELAY_MAX_BYTES:
+        raise HTTPException(413, "Forecast too large.")
+    try:
+        body = json.loads(raw)
+    except ValueError:
+        raise HTTPException(422, "Body must be the Open-Meteo JSON answer.")
+    start, end = night_bounds_utc(o.night, o.tz)
+    fc = request.app.state.weather.relay(client, o.lat, o.lon, start, end, body)
+    return {"used": fc.ok, "reason": None if fc.ok else fc.message}
 
 
 @router.get("/tonight")
 def tonight(
     o: Observer = Depends(observer_params),
     darkness: Darkness = "astronomical",
-    provider: OpenMeteoProvider = Depends(get_weather),
+    provider: ClientWeather = Depends(get_weather),
 ) -> dict[str, Any]:
     ctx = _ctx(o)
     fc, grid = _weather_for(o, ctx, provider)
@@ -267,7 +310,7 @@ def recommendations(
     darkness: Darkness = "astronomical",
     category: Literal["all", "galaxy", "nebula", "cluster"] = "all",
     query: str | None = Query(None, max_length=60),
-    provider: OpenMeteoProvider = Depends(get_weather),
+    provider: ClientWeather = Depends(get_weather),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     ctx = _ctx(o)
@@ -315,7 +358,7 @@ def target_visibility(
     min_altitude_deg: float = Query(DEFAULT_MIN_ALT_DEG, ge=0, le=80),
     darkness: Darkness = "astronomical",
     equipment_id: str | None = None,
-    provider: OpenMeteoProvider = Depends(get_weather),
+    provider: ClientWeather = Depends(get_weather),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     t = catalog.get_target(target_id)

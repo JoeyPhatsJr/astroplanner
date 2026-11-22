@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from .conftest import PHILLY_PARAMS
+from .conftest import PHILLY_PARAMS, synthetic_open_meteo
 
 
 def _ts(iso):
@@ -55,6 +55,41 @@ def test_tonight_when_provider_fails(make_client, failing_provider):
         recs = c.get("/api/recommendations", params=PHILLY_PARAMS).json()
         scored = [r for r in recs["results"] if r["score"]["total"] is not None]
         assert scored and all(r["score"]["max_total"] == 75 for r in scored)
+
+
+def _browser_answer(lat=39.95, lon=-75.17):
+    return synthetic_open_meteo({"start_date": "2026-11-01", "end_date": "2026-11-04", "latitude": lat,
+                                 "longitude": lon}).json()
+
+
+def test_forecast_relayed_by_the_browser_scores_tonight(make_client, failing_provider):
+    """The visitor's browser fetched the forecast; the server never calls Open-Meteo for that browser."""
+    mine = {"X-Forecast-Client": "browser-aaaaaaaaaaaa"}
+    with make_client(failing_provider) as c:
+        r = c.post("/api/forecast/relay", params=PHILLY_PARAMS, json=_browser_answer(), headers=mine)
+        assert r.status_code == 200 and r.json() == {"used": True, "reason": None}
+        j = c.get("/api/tonight", params=PHILLY_PARAMS, headers=mine).json()
+        assert j["forecast"]["status"] == "ok" and j["score"]["total"] is not None
+        assert failing_provider._fetch.calls == []
+        recs = c.get("/api/recommendations", params=PHILLY_PARAMS, headers=mine).json()
+        assert any(r["score"]["max_total"] == 100 for r in recs["results"] if r["score"]["total"] is not None)
+        # another browser (or none) is not affected
+        other = c.get("/api/tonight", params=PHILLY_PARAMS, headers={"X-Forecast-Client": "browser-bbbbbbbbbbbb"})
+        assert other.json()["forecast"]["status"] == "error"
+        assert c.get("/api/tonight", params=PHILLY_PARAMS).json()["forecast"]["status"] == "error"
+
+
+def test_forecast_relay_refuses_bad_input(make_client, failing_provider):
+    mine = {"X-Forecast-Client": "browser-aaaaaaaaaaaa"}
+    with make_client(failing_provider) as c:
+        assert c.post("/api/forecast/relay", params=PHILLY_PARAMS, json=_browser_answer()).status_code == 422
+        assert c.post("/api/forecast/relay", params=PHILLY_PARAMS, json=_browser_answer(),
+                      headers={"X-Forecast-Client": "x"}).status_code == 422
+        assert c.post("/api/forecast/relay", params=PHILLY_PARAMS, content=b"not json", headers=mine).status_code == 422
+        assert c.post("/api/forecast/relay", params=PHILLY_PARAMS, content=b" " * 300_000, headers=mine).status_code == 413
+        far = c.post("/api/forecast/relay", params=PHILLY_PARAMS, json=_browser_answer(lat=45.0), headers=mine).json()
+        assert far["used"] is False and "another place" in far["reason"]
+        assert c.get("/api/tonight", params=PHILLY_PARAMS, headers=mine).json()["forecast"]["status"] == "error"
 
 
 def test_recommendations_only_recommend_dark_hours(client):

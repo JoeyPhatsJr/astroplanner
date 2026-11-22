@@ -8,8 +8,10 @@ the adapter returns an explicit non-"ok" status; it never substitutes values.
 
 from __future__ import annotations
 
+import re
 import threading
 import time as _time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable
@@ -52,6 +54,13 @@ def rate_limit_cooldown_s(message: str | None) -> int:
             return seconds
     return RATE_LIMIT_DEFAULT_COOLDOWN_S
 USER_AGENT = "AstroPlanner/0.1 (local non-commercial prototype)"
+# The visitor's browser can fetch the forecast from Open-Meteo itself and hand the answer over ("relay"), so the
+# request counts against the visitor's own IP, not this server's shared one. A relayed forecast is kept for that
+# browser only: one visitor can never change what another sees.
+RELAY_TTL_S = CACHE_TTL_S
+RELAY_MAX_ENTRIES = 2000
+RELAY_MAX_GRID_OFFSET_DEG = 0.5  # Open-Meteo snaps to its model grid; anything farther is another place
+CLIENT_ID_RE = re.compile(r"^[A-Za-z0-9-]{16,64}$")
 
 ATTRIBUTION = {
     "provider": "Open-Meteo",
@@ -92,6 +101,93 @@ def _default_fetch(params: dict[str, Any]) -> httpx.Response:
         return client.get(FORECAST_URL, params=params)
 
 
+def parse_response(status_code: int, body: Any, retrieved: str) -> Forecast:
+    """Turn an Open-Meteo answer, fetched here or by the visitor's browser, into a Forecast."""
+    if not isinstance(body, dict):
+        body = {}
+    if status_code != 200 or body.get("error"):
+        reason = body.get("reason") or f"HTTP {status_code}"
+        if "out of allowed range" in str(reason):
+            code = "out_of_range"
+        elif status_code == 429 or "limit exceeded" in str(reason).lower():
+            code = "rate_limited"
+        else:
+            code = "provider_error"
+        return Forecast(status="unavailable" if code == "out_of_range" else "error",
+                        reason_code=code, message=f"Open-Meteo: {reason}", retrieved_at_utc=retrieved)
+
+    hourly = body.get("hourly") or {}
+    times = hourly.get("time") or []
+    if not times:
+        return Forecast(status="error", reason_code="empty_response",
+                        message="Open-Meteo returned no hourly data.", retrieved_at_utc=retrieved)
+    values = {v: list(hourly.get(v) or [None] * len(times)) for v in HOURLY_VARS}
+    return Forecast(
+        status="ok",
+        retrieved_at_utc=retrieved,
+        grid_latitude=body.get("latitude"),
+        grid_longitude=body.get("longitude"),
+        grid_elevation_m=body.get("elevation"),
+        times=[int(t) for t in times],
+        values=values,
+        units={k: v for k, v in (body.get("hourly_units") or {}).items() if k != "time"},
+    )
+
+
+def _is_number(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and np.isfinite(v)
+
+
+def relayed_forecast(body: Any, lat: float, lon: float, start_utc: datetime, end_utc: datetime,
+                     retrieved: str) -> Forecast:
+    """Check an Open-Meteo answer that the visitor's browser fetched and cut it to this night's UTC dates.
+
+    The answer must be for this place (Open-Meteo's grid point within RELAY_MAX_GRID_OFFSET_DEG), carry every
+    variable this app uses as numbers or nulls on whole UTC hours, and cover the whole night.
+    """
+    def refuse(why: str) -> Forecast:
+        return Forecast(status="error", reason_code="relay_rejected", message=f"Browser forecast not used: {why}.",
+                        retrieved_at_utc=retrieved)
+
+    if not isinstance(body, dict) or not isinstance(body.get("hourly"), dict):
+        return refuse("no hourly data")
+    if body.get("error"):
+        return refuse("Open-Meteo answered with an error")
+    if not (_is_number(body.get("latitude")) and _is_number(body.get("longitude"))):
+        return refuse("no grid position")
+    if (abs(body["latitude"] - lat) > RELAY_MAX_GRID_OFFSET_DEG
+            or abs((body["longitude"] - lon + 180) % 360 - 180) > RELAY_MAX_GRID_OFFSET_DEG):
+        return refuse("forecast is for another place")
+    hourly = body["hourly"]
+    times = hourly.get("time")
+    if not isinstance(times, list) or not times or len(times) > 24 * 40:
+        return refuse("no usable hours")
+    if not all(isinstance(t, int) and not isinstance(t, bool) and t % 3600 == 0 for t in times):
+        return refuse("hours are not UNIX seconds on the hour")
+    if any(b <= a for a, b in zip(times, times[1:])):
+        return refuse("hours out of order")
+    for v in HOURLY_VARS:
+        col = hourly.get(v)
+        if not isinstance(col, list) or len(col) != len(times) or not all(x is None or _is_number(x) for x in col):
+            return refuse(f"{v} missing or malformed")
+    lo = datetime.combine(start_utc.date(), datetime.min.time(), tzinfo=timezone.utc).timestamp()
+    hi = datetime.combine(end_utc.date() + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc).timestamp()
+    keep = [i for i, t in enumerate(times) if lo <= t < hi]
+    if not keep or times[keep[0]] > start_utc.timestamp() or times[keep[-1]] < end_utc.timestamp() - 3600:
+        return refuse("does not cover the whole night")
+    units = body.get("hourly_units") if isinstance(body.get("hourly_units"), dict) else {}
+    return Forecast(
+        status="ok",
+        retrieved_at_utc=retrieved,
+        grid_latitude=float(body["latitude"]),
+        grid_longitude=float(body["longitude"]),
+        grid_elevation_m=float(body["elevation"]) if _is_number(body.get("elevation")) else None,
+        times=[times[i] for i in keep],
+        values={v: [hourly[v][i] for i in keep] for v in HOURLY_VARS},
+        units={k: str(u) for k, u in units.items() if k in HOURLY_VARS},
+    )
+
+
 class OpenMeteoProvider:
     def __init__(self, fetch: Fetcher | None = None, now: Callable[[], datetime] | None = None):
         self._fetch = fetch or _default_fetch
@@ -99,13 +195,35 @@ class OpenMeteoProvider:
         self._cache: dict[tuple, tuple[float, Forecast]] = {}
         self._lock = threading.Lock()
         self._rate_limited: tuple[float, Forecast] | None = None
+        self._relayed: OrderedDict[tuple, tuple[float, Forecast]] = OrderedDict()
 
     def clear_cache(self) -> None:
         with self._lock:
             self._cache.clear()
             self._rate_limited = None
+            self._relayed.clear()
 
-    def forecast(self, lat: float, lon: float, start_utc: datetime, end_utc: datetime) -> Forecast:
+    @staticmethod
+    def _key(lat: float, lon: float, start_utc: datetime, end_utc: datetime) -> tuple:
+        return (round(lat, 2), round(lon, 2), start_utc.date().isoformat(), end_utc.date().isoformat())
+
+    def relay(self, client: str, lat: float, lon: float, start_utc: datetime, end_utc: datetime, body: Any) -> Forecast:
+        """Keep a forecast the visitor's browser fetched from Open-Meteo, for that browser only.
+
+        Returns the Forecast that was kept, or a non-ok one saying why the answer was not usable (then nothing is
+        kept and this server fetches the forecast itself as before).
+        """
+        retrieved = self._now().isoformat(timespec="seconds").replace("+00:00", "Z")
+        fc = relayed_forecast(body, lat, lon, start_utc, end_utc, retrieved)
+        if fc.ok:
+            with self._lock:
+                self._relayed[(client, self._key(lat, lon, start_utc, end_utc))] = (_time.monotonic() + RELAY_TTL_S, fc)
+                while len(self._relayed) > RELAY_MAX_ENTRIES:
+                    self._relayed.popitem(last=False)
+        return fc
+
+    def forecast(self, lat: float, lon: float, start_utc: datetime, end_utc: datetime,
+                 client: str | None = None) -> Forecast:
         start_d, end_d = start_utc.date(), end_utc.date()
         today = self._now().date()
         if start_d > today + timedelta(days=DAYS_AHEAD) or end_d > today + timedelta(days=DAYS_AHEAD):
@@ -120,8 +238,11 @@ class OpenMeteoProvider:
                 message="This night is older than the forecast API's ~3-month window; historical weather is not loaded.",
             )
 
-        key = (round(lat, 2), round(lon, 2), start_d.isoformat(), end_d.isoformat())
+        key = self._key(lat, lon, start_utc, end_utc)
         with self._lock:
+            mine = self._relayed.get((client, key)) if client else None
+            if mine and mine[0] > _time.monotonic():
+                return mine[1]
             hit = self._cache.get(key)
             if hit and hit[0] > _time.monotonic():
                 fc = hit[1]
@@ -158,34 +279,7 @@ class OpenMeteoProvider:
             body = resp.json()
         except ValueError:
             body = {}
-        if resp.status_code != 200 or body.get("error"):
-            reason = body.get("reason") or f"HTTP {resp.status_code}"
-            if "out of allowed range" in str(reason):
-                code = "out_of_range"
-            elif resp.status_code == 429 or "limit exceeded" in str(reason).lower():
-                code = "rate_limited"
-            else:
-                code = "provider_error"
-            return Forecast(status="unavailable" if code == "out_of_range" else "error",
-                            reason_code=code, message=f"Open-Meteo: {reason}", retrieved_at_utc=retrieved)
-
-        hourly = body.get("hourly") or {}
-        times = hourly.get("time") or []
-        if not times:
-            return Forecast(status="error", reason_code="empty_response",
-                            message="Open-Meteo returned no hourly data.", retrieved_at_utc=retrieved)
-        values = {v: list(hourly.get(v) or [None] * len(times)) for v in HOURLY_VARS}
-        return Forecast(
-            status="ok",
-            retrieved_at_utc=retrieved,
-            grid_latitude=body.get("latitude"),
-            grid_longitude=body.get("longitude"),
-            grid_elevation_m=body.get("elevation"),
-            times=[int(t) for t in times],
-            values=values,
-            units={k: v for k, v in (body.get("hourly_units") or {}).items() if k != "time"},
-        )
-
+        return parse_response(resp.status_code, body, retrieved)
 
 def align_to_grid(fc: Forecast, grid_t: np.ndarray, max_gap_s: float = 1800.0) -> dict[str, np.ndarray] | None:
     """Map hourly values to each grid sample using the nearest hour (≤30 min away); NaN otherwise."""
