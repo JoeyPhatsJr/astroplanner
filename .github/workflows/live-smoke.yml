@@ -1,0 +1,30 @@
+name: Live smoke test
+
+# Calls the live API's night endpoint for tonight, so a crash like the November 2026 IERS one (every
+# /api/night, /api/tonight and recommendations call returned 500 while /api/health stayed green) shows up
+# as a failed run instead of going unnoticed. Uses the same repository variable SITE_URL as keepalive.yml;
+# with it unset this does nothing. Run it by hand from the Actions tab after a deploy, and it runs daily.
+on:
+  schedule:
+    - cron: "41 14 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  night:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health and tonight's /api/night
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          if [ -z "$SITE_URL" ]; then echo "SITE_URL is not set; skipping."; exit 0; fi
+          # Render's free service may be asleep; the first request can take about a minute.
+          curl --fail --silent --show-error --retry 3 --retry-delay 20 --max-time 120 "$SITE_URL/api/health" > /dev/null
+          night=$(TZ=America/New_York date +%F)
+          # A public reference site (Philadelphia city hall), not anyone's saved location.
+          url="$SITE_URL/api/night?lat=39.9526&lon=-75.1652&date=$night&timezone=America/New_York"
+          body=$(curl --fail --silent --show-error --retry 2 --retry-delay 10 --max-time 120 "$url")
+          echo "$body" | jq -e '.events.sunset_utc != null and (.series | length) > 0' > /dev/null
+          echo "OK: /api/night for $night"

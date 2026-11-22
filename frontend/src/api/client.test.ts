@@ -14,8 +14,12 @@ describe("detailMessage", () => {
     expect(detailMessage(null, status)).toMatch(/starting up or busy/);
   });
 
+  it.each([500, 501])("turns a bare %i into a plain-language server error", (status) => {
+    expect(detailMessage(null, status)).toBe("Something went wrong on the AstroPlanner server. Try again in a few minutes.");
+  });
+
   it("falls back to the status for anything else", () => {
-    expect(detailMessage(null, 500)).toBe("Request failed (HTTP 500)");
+    expect(detailMessage(null, 418)).toBe("Request failed (HTTP 418)");
   });
 });
 

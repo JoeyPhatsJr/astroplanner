@@ -35,6 +35,12 @@ from .intervals import Condition, crossings, first_crossing, intervals, total_se
 # arcsecond-level for our purposes) Earth-orientation values with a warning.
 iers.conf.auto_download = False
 iers.conf.iers_degraded_accuracy = "warn"
+# Without this, astropy refuses (ValueError) to use the bundled table's UT1-UTC
+# predictions once its last measured value is more than 30 days older than the
+# wall clock, which made every night after that date a 500. The predictions are
+# good to milliseconds of UT1 (arcseconds on the sky) for months, far below
+# what planning needs, so accept them however old the bundled table is.
+iers.conf.auto_max_age = None
 
 STEP_SECONDS = 300
 RISE_SET_ALT_DEG = -0.833
