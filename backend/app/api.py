@@ -379,6 +379,8 @@ def list_locations(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
     return [_location_out(x) for x in db.scalars(select(ObservingLocation).order_by(ObservingLocation.created_at))]
 
 
+# Adding a place stays open: the homescreen's city search saves one for signed-out visitors. Changing or deleting
+# one, and every equipment write, needs an account, since these rows are shared by everyone on the server.
 @router.post("/locations", status_code=201)
 def create_location(body: LocationIn, db: Session = Depends(get_db)) -> dict[str, Any]:
     loc = ObservingLocation(**body.model_dump(), is_sample=False)
@@ -388,7 +390,8 @@ def create_location(body: LocationIn, db: Session = Depends(get_db)) -> dict[str
 
 
 @router.patch("/locations/{location_id}")
-def update_location(location_id: str, body: LocationPatch, db: Session = Depends(get_db)) -> dict[str, Any]:
+def update_location(location_id: str, body: LocationPatch, db: Session = Depends(get_db),
+                    _user: User = Depends(current_user)) -> dict[str, Any]:
     loc = db.get(ObservingLocation, location_id)
     if loc is None:
         raise HTTPException(404, "Location not found")
@@ -402,7 +405,7 @@ def update_location(location_id: str, body: LocationPatch, db: Session = Depends
 
 
 @router.delete("/locations/{location_id}", status_code=204)
-def delete_location(location_id: str, db: Session = Depends(get_db)) -> Response:
+def delete_location(location_id: str, db: Session = Depends(get_db), _user: User = Depends(current_user)) -> Response:
     loc = db.get(ObservingLocation, location_id)
     if loc is None:
         raise HTTPException(404, "Location not found")
@@ -460,7 +463,7 @@ def list_equipment(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
 
 
 @router.post("/equipment", status_code=201)
-def create_equipment(body: EquipmentIn, db: Session = Depends(get_db)) -> dict[str, Any]:
+def create_equipment(body: EquipmentIn, db: Session = Depends(get_db), _user: User = Depends(current_user)) -> dict[str, Any]:
     eq = EquipmentProfile(**body.model_dump(), is_verified=False, is_preset=False)
     db.add(eq)
     db.commit()
@@ -477,7 +480,8 @@ def _custom_or_403(db: Session, equipment_id: str) -> EquipmentProfile:
 
 
 @router.patch("/equipment/{equipment_id}")
-def update_equipment(equipment_id: str, body: EquipmentPatch, db: Session = Depends(get_db)) -> dict[str, Any]:
+def update_equipment(equipment_id: str, body: EquipmentPatch, db: Session = Depends(get_db),
+                     _user: User = Depends(current_user)) -> dict[str, Any]:
     eq = _custom_or_403(db, equipment_id)
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(eq, k, v)
@@ -486,7 +490,7 @@ def update_equipment(equipment_id: str, body: EquipmentPatch, db: Session = Depe
 
 
 @router.post("/equipment/{equipment_id}/duplicate", status_code=201)
-def duplicate_equipment(equipment_id: str, db: Session = Depends(get_db)) -> dict[str, Any]:
+def duplicate_equipment(equipment_id: str, db: Session = Depends(get_db), _user: User = Depends(current_user)) -> dict[str, Any]:
     src = db.get(EquipmentProfile, equipment_id)
     if src is None:
         raise HTTPException(404, "Equipment profile not found")
@@ -503,7 +507,7 @@ def duplicate_equipment(equipment_id: str, db: Session = Depends(get_db)) -> dic
 
 
 @router.delete("/equipment/{equipment_id}", status_code=204)
-def delete_equipment(equipment_id: str, db: Session = Depends(get_db)) -> Response:
+def delete_equipment(equipment_id: str, db: Session = Depends(get_db), _user: User = Depends(current_user)) -> Response:
     eq = _custom_or_403(db, equipment_id)
     in_use = db.scalar(select(func.count()).select_from(ObservingSession).where(ObservingSession.equipment_id == equipment_id))
     if in_use:
