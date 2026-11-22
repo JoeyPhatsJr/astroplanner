@@ -8,15 +8,17 @@ _Last updated: 2026-11-19 · Phase plan and process: see [ROADMAP.md](ROADMAP.md
   "beyond forecast range" for tonight. `lib/forecastGap.ts` now picks the words from `reason_code`: only a night past
   the horizon is "too far ahead"; a failed or rate-limited request reads "Forecast unavailable right now".
 - **Open-Meteo rate limit:** the live API got "Daily API request limit exceeded" (HTTP 429). The adapter now files
-  that as `rate_limited` and stops calling Open-Meteo for any place for an hour, instead of retrying every place
-  every two minutes. **Known limitation:** the quota is per outbound IP, and Render's free tier shares its IPs, so
+  that as `rate_limited` and stops calling Open-Meteo for any place until the named limit can have reset (a minute
+  for the per-minute limit, ten minutes for hourly, an hour for daily), instead of retrying every place every two
+  minutes. A one-hour pause on any 429 made CI's e2e flaky: one per-minute refusal hid the weather for the rest of
+  the run. **Known limitation:** the quota is per outbound IP, and Render's free tier shares its IPs, so
   other services can use it up; this change only stops AstroPlanner from adding to it.
 - **Constellation search:** Explore's own example "Cygnus" found nothing, because only the abbreviation was
   searched. `catalog.CONSTELLATION_NAMES` (the 88 IAU names) is now searched too, and OpenNGC's `Se1`/`Se2` show
   as `Ser`.
 - **Header:** at laptop widths (about 1280 to 1500 px) the long "Night of … → morning of …" label wrapped Night
   vision and Sign in onto a second, misaligned row. The label now shows from the `2xl` breakpoint.
-- **Tests:** `test_weather.py` (two rate-limit tests), `test_api.py::test_search_by_constellation_name_and_serpens_code`,
+- **Tests:** `test_weather.py` (three rate-limit tests), `test_api.py::test_search_by_constellation_name_and_serpens_code`,
   `src/lib/forecastGap.test.ts`, one more `NightStrip.test.tsx` case.
 
 ## Fix: night endpoints 500 once the bundled IERS table ages (branch `fix/iers-stale-crash`, 2026-11-22)

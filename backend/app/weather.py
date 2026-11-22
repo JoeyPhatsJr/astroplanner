@@ -35,11 +35,22 @@ DAYS_AHEAD = 15  # Open-Meteo forecast horizon (today + 15 days, verified 2026-1
 DAYS_BEHIND = 92  # past model data available via start_date
 CACHE_TTL_S = 30 * 60
 ERROR_CACHE_TTL_S = 2 * 60
-# Open-Meteo's free API limits requests per IP (per minute, hour and day). Once it says the limit is reached,
-# every further request from this server fails the same way, so stop asking for a while instead of retrying
-# each place every two minutes. On a host whose outbound IP is shared (Render's free tier), other services
-# spend the same quota.
-RATE_LIMIT_COOLDOWN_S = 60 * 60
+# Open-Meteo's free API limits requests per IP (per minute, hour and day). Once it says a limit is reached,
+# every further request from this server fails the same way, so stop asking until that limit can have reset
+# instead of retrying each place every two minutes. A minute's limit pauses for a minute, not an hour, so a
+# short burst never hides the weather for long. On a host whose outbound IP is shared (Render's free tier),
+# other services spend the same quota.
+RATE_LIMIT_COOLDOWN_S = {"minutely": 60, "hourly": 10 * 60, "daily": 60 * 60}
+RATE_LIMIT_DEFAULT_COOLDOWN_S = 60
+
+
+def rate_limit_cooldown_s(message: str | None) -> int:
+    """How long to stop asking Open-Meteo after a rate-limit answer, by which limit it names."""
+    text = (message or "").lower()
+    for period, seconds in RATE_LIMIT_COOLDOWN_S.items():
+        if period in text:
+            return seconds
+    return RATE_LIMIT_DEFAULT_COOLDOWN_S
 USER_AGENT = "AstroPlanner/0.1 (local non-commercial prototype)"
 
 ATTRIBUTION = {
@@ -124,7 +135,7 @@ class OpenMeteoProvider:
         with self._lock:
             self._cache[key] = (_time.monotonic() + ttl, fc)
             if fc.reason_code == "rate_limited":
-                self._rate_limited = (_time.monotonic() + RATE_LIMIT_COOLDOWN_S, fc)
+                self._rate_limited = (_time.monotonic() + rate_limit_cooldown_s(fc.message), fc)
         return fc
 
     def _request(self, lat: float, lon: float, start_d: date, end_d: date) -> Forecast:

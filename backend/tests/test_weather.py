@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import httpx
 import numpy as np
 
-from app.weather import Forecast, OpenMeteoProvider, align_to_grid, forecast_payload
+from app.weather import Forecast, OpenMeteoProvider, align_to_grid, forecast_payload, rate_limit_cooldown_s
 
 from .conftest import FIXED_NOW, RecordingFetch, synthetic_open_meteo
 
@@ -65,6 +65,14 @@ def test_rate_limit_cooldown_ends():
         p._rate_limited = (0.0, p._rate_limited[1])
     assert p.forecast(51.5, -0.1, START, END).ok
     assert len(fetch.calls) == 2
+
+
+def test_rate_limit_pause_matches_the_limit_hit():
+    # A minute's limit must not hide the weather for an hour.
+    assert rate_limit_cooldown_s("Open-Meteo: Minutely API request limit exceeded. Please try again in one minute.") == 60
+    assert rate_limit_cooldown_s("Open-Meteo: Hourly API request limit exceeded.") == 600
+    assert rate_limit_cooldown_s("Open-Meteo: Daily API request limit exceeded. Please try again tomorrow.") == 3600
+    assert rate_limit_cooldown_s("Open-Meteo: HTTP 429") == 60
 
 
 def test_network_error_is_reported():
