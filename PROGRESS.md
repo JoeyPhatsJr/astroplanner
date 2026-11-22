@@ -8,8 +8,11 @@ _Last updated: 2026-11-19 · Phase plan and process: see [ROADMAP.md](ROADMAP.md
   services, so the live site kept getting "Daily API request limit exceeded" and showed no weather for anyone.
   A paid key or a different host would cost money; this does not.
 - **How:** before Tonight, Explore's recommendations or a target's visibility, `src/api/browserForecast.ts` fetches
-  the night's hours from Open-Meteo in the browser (cookies off, 6 s timeout, once per place and night every
-  25 minutes) and posts the raw answer to `POST /api/forecast/relay`. `weather.relayed_forecast` checks it (grid
+  the night's hours from Open-Meteo in the browser (cookies off, 8 s timeout, once per place and night every
+  25 minutes) and posts the raw answer to `POST /api/forecast/relay`. A weather request waits for that at most
+  2.5 s, then asks the API anyway (so a slow Open-Meteo never holds the page up; CI caught a 6 s wait plus the
+  API's own 10 s fetch running past e2e's 15 s); a relay that lands later refetches Tonight, recommendations and
+  visibility (`useLateForecastRefresh` in `AppShell`). `weather.relayed_forecast` checks it (grid
   point within 0.5°, every variable as numbers or nulls, whole UTC hours, covers the whole night), cuts it to the
   night's UTC dates and keeps it 30 minutes for that browser only, keyed by a random per-tab `X-Forecast-Client`
   id. Weather-using GETs send that id; `ClientWeather` looks up the browser's own relayed forecast first. Nothing

@@ -2,6 +2,7 @@ import { BookOpen, ChevronsLeft, ChevronsRight, Moon, Settings, Sparkles, Telesc
 import { useState, type ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useAuthStatus } from "../../api/auth";
+import { useLateForecastRefresh } from "../../api/hooks";
 import { AccountSlot } from "../account/AccountSlot";
 import { HeaderControls } from "./HeaderControls";
 import { Logo } from "./Logo";
@@ -25,6 +26,7 @@ function readCollapsed() {
 export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(readCollapsed);
   const signedOut = useAuthStatus() === "signedOut";
+  useLateForecastRefresh();
   const toggle = () => {
     setCollapsed((c) => {
       try {

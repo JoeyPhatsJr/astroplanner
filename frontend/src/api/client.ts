@@ -15,7 +15,7 @@ import type {
   VisibilityResponse,
 } from "./types";
 
-import { forecastClientId, relayBrowserForecast } from "./browserForecast";
+import { forecastClientId, relayBrowserForecast, waitForRelay } from "./browserForecast";
 
 export const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
 
@@ -143,11 +143,14 @@ const json = (body: unknown) => JSON.stringify(body);
 /**
  * Requests whose answer uses the night's forecast: first let this browser fetch the forecast from Open-Meteo
  * and relay it (see browserForecast.ts), then ask the API with this browser's id so it uses that forecast.
+ * The wait is capped; a relay that lands later refreshes these queries (useLateForecastRefresh).
  */
 async function withForecast<T>(o: ObserverParams, path: string): Promise<T> {
   const headers = { "X-Forecast-Client": forecastClientId() };
-  await relayBrowserForecast(o, (body) =>
-    request(`/api/forecast/relay?${qs(observerQuery(o))}`, { method: "POST", body, headers }),
+  await waitForRelay(
+    relayBrowserForecast(o, (body) =>
+      request(`/api/forecast/relay?${qs(observerQuery(o))}`, { method: "POST", body, headers }),
+    ),
   );
   return request<T>(path, { headers });
 }

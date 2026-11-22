@@ -3,10 +3,13 @@ import {
   HOURLY_VARS,
   OPEN_METEO_URL,
   RELAY_REFRESH_MS,
+  RELAY_WAIT_MS,
   browserForecastQuery,
   forecastClientId,
+  onLateForecast,
   relayBrowserForecast,
   resetBrowserForecasts,
+  waitForRelay,
 } from "./browserForecast";
 
 const NOW = Date.UTC(2026, 10, 22, 20, 0); // 2026-11-22T20:00Z
@@ -88,5 +91,53 @@ describe("forecastClientId", () => {
     const id = forecastClientId();
     expect(id).toMatch(/^[A-Za-z0-9-]{16,64}$/);
     expect(forecastClientId()).toBe(id);
+  });
+});
+
+describe("slow relays", () => {
+  beforeEach(() => resetBrowserForecasts());
+
+  it("never holds a request up longer than RELAY_WAIT_MS", async () => {
+    vi.useFakeTimers();
+    try {
+      let settled = false;
+      const p = waitForRelay(new Promise<void>(() => {})).then(() => (settled = true));
+      await vi.advanceTimersByTimeAsync(RELAY_WAIT_MS - 1);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await p;
+      expect(settled).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("asks for a refresh when a used forecast lands after the wait, not when it is on time", async () => {
+    const late = vi.fn();
+    const off = onLateForecast(late);
+    let t = 0;
+    const clock = () => t;
+    const fetchFn = vi.fn().mockImplementation(async () => {
+      t += RELAY_WAIT_MS + 1;
+      return new Response("{}");
+    });
+    await relayBrowserForecast(place, vi.fn().mockResolvedValue({ used: true }), { fetchFn, now: NOW, clock });
+    expect(late).toHaveBeenCalledOnce();
+
+    resetBrowserForecasts();
+    late.mockClear();
+    t = 0;
+    await relayBrowserForecast(place, vi.fn().mockResolvedValue({ used: true }), {
+      fetchFn: vi.fn().mockResolvedValue(new Response("{}")),
+      now: NOW,
+      clock,
+    });
+    expect(late).not.toHaveBeenCalled();
+
+    resetBrowserForecasts();
+    t = 0;
+    await relayBrowserForecast(place, vi.fn().mockResolvedValue({ used: false }), { fetchFn, now: NOW, clock });
+    expect(late).not.toHaveBeenCalled();
+    off();
   });
 });

@@ -26,7 +26,13 @@ const DAYS_AHEAD = 15; // Open-Meteo: today + 15 days (UTC)
 const DAYS_BEHIND = 92;
 /** Re-ask a little before the API forgets a relayed forecast (30 minutes). */
 export const RELAY_REFRESH_MS = 25 * 60 * 1000;
-const TIMEOUT_MS = 6000;
+const TIMEOUT_MS = 8000;
+/**
+ * How long a weather request waits for the relay before asking the API anyway. A slow or unreachable
+ * Open-Meteo must never hold the page up: the API then answers on its own, and a relay that lands later
+ * refreshes the weather (see onLateForecast).
+ */
+export const RELAY_WAIT_MS = 2500;
 const CLIENT_KEY = "astroplanner.forecastClient";
 
 export interface ForecastPlace {
@@ -90,10 +96,30 @@ const minDate = (a: string, b: string) => (a < b ? a : b);
 type Post = (body: string) => Promise<unknown>;
 
 const relays = new Map<string, { at: number; done: Promise<void> }>();
+const lateListeners = new Set<() => void>();
 
 export function resetBrowserForecasts(): void {
   relays.clear();
 }
+
+/** Called when a relayed forecast was taken after RELAY_WAIT_MS, so answers given without it should refetch. */
+export function onLateForecast(listener: () => void): () => void {
+  lateListeners.add(listener);
+  return () => {
+    lateListeners.delete(listener);
+  };
+}
+
+/** Wait for a relay, but no longer than RELAY_WAIT_MS. */
+export function waitForRelay(done: Promise<void>, waitMs = RELAY_WAIT_MS): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, waitMs);
+  });
+  return Promise.race([done, timeout]).finally(() => clearTimeout(timer));
+}
+
+const used = (answer: unknown) => !!answer && typeof answer === "object" && (answer as { used?: unknown }).used === true;
 
 /**
  * Fetch the night's forecast from Open-Meteo in this browser and hand it to the API with `post`, once per
@@ -102,7 +128,11 @@ export function resetBrowserForecasts(): void {
 export function relayBrowserForecast(
   place: ForecastPlace,
   post: Post,
-  { fetchFn = globalThis.fetch, now = Date.now() }: { fetchFn?: typeof fetch; now?: number } = {},
+  {
+    fetchFn = globalThis.fetch,
+    now = Date.now(),
+    clock = () => Date.now(),
+  }: { fetchFn?: typeof fetch; now?: number; clock?: () => number } = {},
 ): Promise<void> {
   const key = `${place.lat.toFixed(2)},${place.lon.toFixed(2)},${place.date},${place.timezone}`;
   const kept = relays.get(key);
@@ -110,12 +140,14 @@ export function relayBrowserForecast(
   const done = (async () => {
     const query = browserForecastQuery(place, now);
     if (!query || typeof fetchFn !== "function") return;
+    const started = clock();
     const ctrl = typeof AbortController === "function" ? new AbortController() : null;
     const timer = ctrl ? setTimeout(() => ctrl.abort(), TIMEOUT_MS) : null;
     try {
       const res = await fetchFn(`${OPEN_METEO_URL}?${query}`, { signal: ctrl?.signal, credentials: "omit" });
       if (!res.ok) return; // e.g. this browser's own quota: the API tries itself
-      await post(await res.text());
+      const answer = await post(await res.text());
+      if (used(answer) && clock() - started > RELAY_WAIT_MS) lateListeners.forEach((l) => l());
     } catch {
       // offline, blocked or slow: the API tries itself
     } finally {
