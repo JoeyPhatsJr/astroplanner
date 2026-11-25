@@ -10,6 +10,10 @@ describe("detailMessage", () => {
     expect(detailMessage(null, 413)).toBe("That file is too large for this server.");
   });
 
+  it("explains a bare 429 from the hosting layer", () => {
+    expect(detailMessage(null, 429)).toMatch(/too many requests/);
+  });
+
   it.each([502, 503, 504])("explains a bare %i as a waking or busy server", (status) => {
     expect(detailMessage(null, status)).toMatch(/starting up or busy/);
   });
