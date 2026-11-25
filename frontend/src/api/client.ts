@@ -39,6 +39,7 @@ export function detailMessage(body: unknown, status: number): string {
   }
   // No JSON detail usually means a proxy or the host answered, not the API itself.
   if (status === 413) return "That file is too large for this server.";
+  if (status === 429) return "The server is getting too many requests right now. Try again in a minute.";
   if (status === 502 || status === 503 || status === 504) return "The server is starting up or busy. Try again in a minute.";
   if (status >= 500) return "Something went wrong on the AstroPlanner server. Try again in a few minutes.";
   return `Request failed (HTTP ${status})`;
