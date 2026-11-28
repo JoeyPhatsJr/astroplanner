@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.accounts.deps import current_user, optional_user
 from app.accounts.models import User
-from app.accounts.owned import get_owned
+from app.accounts.owned import get_owned, get_visible_location, visible_locations
 from app.api import get_db
 from app.deps import validate_body
 from app.db import ObservingLocation
@@ -63,13 +63,11 @@ class SuggestIn(BaseModel):
     items: list[ImportItem] = Field(..., max_length=MAX_ITEMS)
 
 
-def _location(db: Session, location_id: str | None) -> ObservingLocation | None:
+def _location(db: Session, location_id: str | None, user: User) -> ObservingLocation | None:
+    """A sample or the user's own place; a missing one and someone else's answer the same 404."""
     if location_id is None:
         return None
-    loc = db.get(ObservingLocation, location_id)
-    if loc is None:
-        raise HTTPException(422, "location_id does not exist")
-    return loc
+    return get_visible_location(db, location_id, user, "location_id does not exist")
 
 
 @router.post("/import/preview")
@@ -77,10 +75,11 @@ def import_preview(body: Any = Body(...), db: Session = Depends(get_db),
                    user: User = Depends(current_user)) -> dict[str, Any]:
     req = validate_body(PreviewIn, body)
     parsed, skipped = importer.parse_items(req.items)
-    loc = _location(db, req.location_id)
+    loc = _location(db, req.location_id, user)
     candidates: list[dict[str, Any]] = []
-    if loc is None:
-        loc, candidates = importer.resolve_batch_location(parsed, list(db.scalars(select(ObservingLocation))))
+    if loc is None:  # matched only against places this user can see
+        mine = db.scalars(select(ObservingLocation).where(visible_locations(user)))
+        loc, candidates = importer.resolve_batch_location(parsed, list(mine))
     groups = importer.group_items(parsed, loc, req.clock_offset_minutes)
     stacks = importer.stack_infos(parsed, loc)
     known = importer.existing_keys(db, CaptureFrame, (f.dedup_key for g in groups for f in g.frames), user.id)
@@ -108,7 +107,7 @@ def import_commit(body: Any = Body(...), db: Session = Depends(get_db),
     req = validate_body(CommitIn, body)
     if not req.location_id:
         raise HTTPException(422, "location_id is required: choose the saved location these files were taken at.")
-    loc = _location(db, req.location_id)
+    loc = _location(db, req.location_id, user)
     names = req.canon_set_names  # {group_key: name}
     if any(len(v) > 160 for v in names.values()):
         raise HTTPException(422, "Canon set names must be at most 160 characters")

@@ -4,7 +4,9 @@ import { useMemo, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStatus } from "../api/auth";
 import { api } from "../api/client";
-import { qk, useAbout, useCurrentLocation, useEquipmentList, useLocations } from "../api/hooks";
+import { qk, useAbout, useCurrentEquipment, useCurrentLocation, useEquipmentList, useLocations, useSaveGuestPlace } from "../api/hooks";
+import { GeoNamesCredit } from "../components/ui/GeoNamesCredit";
+import { guestLocation, isGuestId, serverLocationId } from "../lib/guestPlace";
 import type { EquipmentInput, EquipmentProfile, FovDefinition, GeocodeResult, LocationInput, ObservingLocation } from "../api/types";
 import { MIN_ALT_OPTIONS } from "../components/targets/TargetFilters";
 import { useConfirm } from "../components/ui/ConfirmDialog";
@@ -17,8 +19,11 @@ import { PageHeader } from "../components/ui/PageHeader";
 export function SettingsPage() {
   return (
     <div className="page-reading flex flex-col gap-8">
-      <PageHeader title="Settings" subtitle="Locations, equipment and observing preferences are saved on this AstroPlanner server." />
-      <SharedEditsNotice />
+      <PageHeader
+        title="Settings"
+        subtitle="Your places and equipment are private to your account. Samples and presets are shared and read-only. Observing preferences are kept in this browser."
+      />
+      <SignedOutNotice />
       <LocationsSection />
       <EquipmentSection />
       <PreferencesSection />
@@ -27,22 +32,22 @@ export function SettingsPage() {
   );
 }
 
-/** Saved places and equipment are shared by everyone on the server, so changing them needs an account. */
-function useCanEditShared(): boolean {
+/** Places and equipment saved on the server belong to an account, so saving, changing or deleting them needs one. */
+function useSignedIn(): boolean {
   return useAuthStatus() === "signedIn";
 }
 
-function SharedEditsNotice() {
+function SignedOutNotice() {
   const loc = useLocation();
   const status = useAuthStatus();
   if (status !== "signedOut") return null;
   return (
     <Notice>
-      Places and equipment here are shared by everyone using this server.{" "}
+      Without an account, the place you add is kept in this browser only.{" "}
       <Link to={loginHref(loc.pathname + loc.search)} className="text-ice underline underline-offset-2">
         Sign in
       </Link>{" "}
-      to edit or delete them, or to add equipment.
+      to save places and equipment to your account.
     </Notice>
   );
 }
@@ -67,7 +72,8 @@ function LocationsSection() {
   const { prefs, update } = usePrefs();
   const currentId = useCurrentLocation().location?.id ?? null;
   const confirm = useConfirm();
-  const canEdit = useCanEditShared();
+  const signedIn = useSignedIn();
+  const saveGuest = useSaveGuestPlace();
   const [editing, setEditing] = useState<ObservingLocation | "new" | null>(prefill ? "new" : null);
   const del = useMutation({
     mutationFn: (id: string) => api.deleteLocation(id),
@@ -76,6 +82,9 @@ function LocationsSection() {
       if (prefs.locationId === id) update({ locationId: null });
     },
   });
+  const guest = prefs.guestPlace ? guestLocation(prefs.guestPlace) : null;
+  // Signed out, a new place becomes the browser's one place (replacing any earlier one); it can always be edited.
+  const canEditPlace = (l: ObservingLocation) => (isGuestId(l.id) ? true : signedIn && !l.is_sample);
 
   return (
     <section className="flex flex-col gap-3" aria-labelledby="set-loc">
@@ -89,38 +98,43 @@ function LocationsSection() {
           </button>
         )}
       </div>
-      {editing !== null && (editing === "new" || canEdit) && (
+      {editing !== null && (editing === "new" || canEditPlace(editing)) && (
         <LocationForm
           initial={editing === "new" ? null : editing}
           prefill={editing === "new" ? prefill : null}
+          toBrowser={editing === "new" ? !signedIn : isGuestId(editing.id)}
           onDone={(saved) => {
             setEditing(null);
             if (saved) update({ locationId: saved.id, nightDate: null });
-            if (prefill?.returnTo) navigate(prefill.returnTo, { replace: true, state: { locationId: saved?.id ?? null } });
+            // Only a saved place's id goes back (the AstroLog import needs a server row).
+            if (prefill?.returnTo) navigate(prefill.returnTo, { replace: true, state: { locationId: serverLocationId(saved) } });
           }}
         />
       )}
       {del.error && <Notice tone="warn">{errMsg(del.error)}</Notice>}
+      {saveGuest.error && <Notice tone="warn">Couldn’t save the place to your account: {errMsg(saveGuest.error)}</Notice>}
       {q.isLoading && <Skeleton className="h-20" />}
       {q.error && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
-      {q.data && q.data.length === 0 && editing === null && (
+      {q.data && q.data.length === 0 && !guest && editing === null && (
         <EmptyState icon={<MapPin className="size-6" />} title="No locations yet">
           Add the place you observe from. AstroPlanner never guesses your location.
         </EmptyState>
       )}
-      {q.data && q.data.length > 0 && (
+      {(guest || (q.data && q.data.length > 0)) && (
         <ul className="flex flex-col gap-2">
-          {q.data.map((l) => (
+          {[...(q.data ?? []), ...(guest ? [guest] : [])].map((l) => (
             <li key={l.id} className={`panel flex flex-wrap items-center gap-3 px-4 py-3 ${currentId === l.id ? "border-ice/50" : ""}`}>
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
                   {l.label}
                   {l.is_sample && <span className="badge badge-accent">Sample</span>}
+                  {isGuestId(l.id) && <span className="badge">This browser</span>}
                 </p>
                 <p className="text-xs text-muted">
                   {formatLatLon(l.latitude_deg, l.longitude_deg)}
                   {l.elevation_m !== null ? ` · ${Math.round(l.elevation_m)} m` : ""} · {l.timezone}
                 </p>
+                {isGuestId(l.id) && <p className="text-xs text-muted">Saved in this browser only</p>}
               </div>
               {currentId !== l.id ? (
                 <button type="button" className="btn" onClick={() => update({ locationId: l.id, nightDate: null })}>
@@ -129,7 +143,12 @@ function LocationsSection() {
               ) : (
                 <span className="badge badge-accent">In use</span>
               )}
-              {canEdit && (
+              {isGuestId(l.id) && signedIn && (
+                <button type="button" className="btn" disabled={saveGuest.isPending} onClick={() => saveGuest.mutate()}>
+                  {saveGuest.isPending ? "Saving…" : "Save to my account"}
+                </button>
+              )}
+              {canEditPlace(l) && (
                 <>
                   <button type="button" className="btn btn-ghost btn-icon" aria-label={`Edit ${l.label}`} onClick={() => setEditing(l)}>
                     <Pencil className="size-4" aria-hidden />
@@ -137,9 +156,19 @@ function LocationsSection() {
                   <button
                     type="button"
                     className="btn btn-ghost btn-icon text-warn"
-                    aria-label={`Delete ${l.label}`}
+                    aria-label={isGuestId(l.id) ? `Remove ${l.label} from this browser` : `Delete ${l.label}`}
                     disabled={del.isPending}
                     onClick={async () => {
+                      if (isGuestId(l.id)) {
+                        const ok = await confirm({
+                          title: `Remove “${l.label}” from this browser?`,
+                          body: "It isn’t saved anywhere else. You can add it again any time.",
+                          confirmLabel: "Remove place",
+                          destructive: true,
+                        });
+                        if (ok) update({ guestPlace: null, ...(isGuestId(prefs.locationId) ? { locationId: null } : {}) });
+                        return;
+                      }
                       const ok = await confirm({
                         title: `Delete location “${l.label}”?`,
                         body: "Locations used by a saved session can’t be deleted until those sessions are removed.",
@@ -174,13 +203,17 @@ function allTimezones(): string[] {
 function LocationForm({
   initial,
   prefill = null,
+  toBrowser,
   onDone,
 }: {
   initial: ObservingLocation | null;
   prefill?: PrefillLocationState["prefillLocation"] | null;
+  /** Keep the place in this browser only (the guest place) instead of saving it to the account. */
+  toBrowser: boolean;
   onDone: (saved: ObservingLocation | null) => void;
 }) {
   const qc = useQueryClient();
+  const { update } = usePrefs();
   const zones = useMemo(allTimezones, []);
   const [label, setLabel] = useState(initial?.label ?? "");
   const [lat, setLat] = useState(initial ? String(initial.latitude_deg) : prefill ? String(prefill.latitude_deg) : "");
@@ -189,15 +222,22 @@ function LocationForm({
   const [tz, setTz] = useState(initial?.timezone ?? prefill?.timezone ?? "");
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<GeocodeResult[] | null>(null);
-  const [status, setStatus] = useState<{ tone: "info" | "warn"; text: string } | null>(null);
+  /** `geonames`: the values came from a place search, whose data needs the GeoNames credit. */
+  const [status, setStatus] = useState<{ tone: "info" | "warn"; text: string; geonames?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const zoneOptions = tz && !zones.includes(tz) ? [tz, ...zones] : zones;
 
   const save = useMutation({
-    mutationFn: (body: LocationInput) => (initial ? api.updateLocation(initial.id, body) : api.createLocation(body)),
+    mutationFn: async (body: LocationInput): Promise<ObservingLocation> => {
+      if (toBrowser) {
+        update({ guestPlace: body }); // nothing is sent to the server
+        return guestLocation(body);
+      }
+      return initial ? api.updateLocation(initial.id, body) : api.createLocation(body);
+    },
     onSuccess: (loc) => {
-      qc.invalidateQueries({ queryKey: qk.locations });
+      if (!toBrowser) qc.invalidateQueries({ queryKey: qk.locations });
       onDone(loc);
     },
   });
@@ -230,6 +270,7 @@ function LocationForm({
     setStatus({
       tone: "info",
       text: `Filled from Open-Meteo geocoding${elevOk ? "" : " (no elevation available, left blank)"}. Check the values, then save.`,
+      geonames: true,
     });
   }
 
@@ -295,6 +336,12 @@ function LocationForm({
   return (
     <div className="panel flex flex-col gap-4 p-5">
       <h3 className="font-semibold text-lg">{initial ? `Edit ${initial.label}` : "New location"}</h3>
+      {toBrowser && (
+        <Notice>
+          Without an account this place is kept in this browser only{initial ? "" : ", in place of any place kept here before"}. Sign in to
+          save places to your account.
+        </Notice>
+      )}
       <form onSubmit={runSearch} className="flex flex-wrap items-end gap-2" role="search">
         <div className="min-w-[200px] flex-1">
           <label htmlFor="loc-search" className="label">
@@ -323,10 +370,25 @@ function LocationForm({
           ))}
         </ul>
       )}
+      {results && results.length > 0 && (
+        <p className="text-xs text-muted">
+          Place search by Open-Meteo Geocoding. <GeoNamesCredit />.
+        </p>
+      )}
       {prefill && !initial && (
         <Notice>Latitude and longitude were filled from your imported files, rounded to ~1 km. Give the place a name, check the values, then save.</Notice>
       )}
-      {status && <Notice tone={status.tone}>{status.text}</Notice>}
+      {status && (
+        <Notice tone={status.tone}>
+          {status.text}
+          {status.geonames && (
+            <>
+              {" "}
+              <GeoNamesCredit />.
+            </>
+          )}
+        </Notice>
+      )}
 
       <form onSubmit={submit} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="sm:col-span-2">
@@ -378,7 +440,7 @@ function LocationForm({
         )}
         <div className="flex gap-2 sm:col-span-2">
           <button type="submit" className="btn btn-primary" disabled={!valid || save.isPending}>
-            {save.isPending ? "Saving…" : initial ? "Save changes" : "Save location"}
+            {save.isPending ? "Saving…" : initial ? "Save changes" : toBrowser ? "Keep in this browser" : "Save location"}
           </button>
           <button type="button" className="btn btn-ghost" onClick={() => onDone(null)}>
             Cancel
@@ -396,7 +458,8 @@ function EquipmentSection() {
   const qc = useQueryClient();
   const { prefs, update } = usePrefs();
   const confirm = useConfirm();
-  const canEdit = useCanEditShared();
+  const canEdit = useSignedIn(); // every profile listed that is not a preset is the user's own
+  const currentId = useCurrentEquipment()?.id ?? null;
   const [editing, setEditing] = useState<EquipmentProfile | "new" | null>(null);
   const dup = useMutation({
     mutationFn: (id: string) => api.duplicateEquipment(id),
@@ -431,7 +494,7 @@ function EquipmentSection() {
       {q.error && <ErrorState error={q.error} onRetry={() => q.refetch()} />}
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {q.data?.map((eq) => (
-          <article key={eq.id} className={`panel flex flex-col gap-3 p-4 ${prefs.equipmentId === eq.id ? "border-ice/50" : ""}`}>
+          <article key={eq.id} className={`panel flex flex-col gap-3 p-4 ${currentId === eq.id ? "border-ice/50" : ""}`}>
             <div className="flex items-start gap-2">
               <div className="flex-1">
                 <h3 className="font-medium text-ink">{eq.name}</h3>
@@ -456,7 +519,7 @@ function EquipmentSection() {
             </dl>
             {eq.notes && <p className="text-xs leading-relaxed text-muted">{eq.notes}</p>}
             <div className="mt-auto flex flex-wrap gap-2">
-              {prefs.equipmentId !== eq.id ? (
+              {currentId !== eq.id ? (
                 <button type="button" className="btn" onClick={() => update({ equipmentId: eq.id })}>
                   Use
                 </button>
@@ -478,12 +541,13 @@ function EquipmentSection() {
                 </>
               ) : canEdit ? (
                 <>
-                  <button type="button" className="btn" onClick={() => setEditing(eq)}>
+                  <button type="button" className="btn" aria-label={`Edit ${eq.name}`} onClick={() => setEditing(eq)}>
                     <Pencil className="size-4" aria-hidden /> Edit
                   </button>
                   <button
                     type="button"
                     className="btn text-warn"
+                    aria-label={`Delete ${eq.name}`}
                     disabled={del.isPending}
                     onClick={async () => {
                       const ok = await confirm({

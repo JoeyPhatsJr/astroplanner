@@ -2,7 +2,9 @@ import { ChevronLeft, ChevronRight, ChevronDown, Eye, MapPin, Telescope, X } fro
 import { useState } from "react";
 import { usePhone } from "../../lib/usePhone";
 import { Link } from "react-router-dom";
-import { useCurrentEquipment, useCurrentLocation, useEquipmentList, useLocations, useNightDate } from "../../api/hooks";
+import { useAuthStatus } from "../../api/auth";
+import { useCurrentEquipment, useCurrentLocation, useEquipmentList, useLocations, useNightDate, useSaveGuestPlace } from "../../api/hooks";
+import { GUEST_ID, isGuestId } from "../../lib/guestPlace";
 import { addDays, defaultNightDate, nightLabel, NIGHT_ROLLOVER_HOUR } from "../../lib/time";
 import { usePrefs } from "../../state/prefs";
 import { Overlay, SheetTop } from "../ui/Overlay";
@@ -31,7 +33,7 @@ export function HeaderControls() {
     </button>
   );
 
-  const addLocation = !locations.isLoading && !locations.data?.length && (
+  const addLocation = !locations.isLoading && !locations.data?.length && !prefs.guestPlace && (
     <Link to="/settings" className="btn btn-primary">
       Add a location
     </Link>
@@ -99,12 +101,19 @@ export function HeaderControls() {
 
 /** Location, equipment and night controls; inline in the header, or stacked with visible labels in the phone sheet. */
 function Controls({ stacked = false }: { stacked?: boolean }) {
-  const { update } = usePrefs();
+  const { prefs, update } = usePrefs();
   const locations = useLocations();
   const equipment = useEquipmentList();
   const { location } = useCurrentLocation();
   const eq = useCurrentEquipment();
   const { nightDate, isAuto } = useNightDate();
+  const signedIn = useAuthStatus() === "signedIn";
+  const saveGuest = useSaveGuestPlace();
+  const guestInUse = isGuestId(location?.id);
+  const locationOptions = [
+    ...(locations.data ?? []).map((l) => ({ value: l.id, label: l.label })),
+    ...(prefs.guestPlace ? [{ value: GUEST_ID, label: `${prefs.guestPlace.label} (this browser)` }] : []),
+  ];
 
   const setNight = (d: string) => {
     const auto = location ? defaultNightDate(Date.now(), location.timezone) : null;
@@ -126,11 +135,33 @@ function Controls({ stacked = false }: { stacked?: boolean }) {
           id="hdr-location"
           className={`${fieldClass} ${stacked ? "" : "max-w-[14rem]"}`}
           value={location?.id ?? ""}
-          options={(locations.data ?? []).map((l) => ({ value: l.id, label: l.label }))}
+          options={locationOptions}
           placeholder={locations.isLoading ? "Loading…" : "No locations"}
-          disabled={!locations.data?.length}
+          disabled={!locationOptions.length}
+          describedBy={guestInUse ? "hdr-guest-note" : undefined}
           onChange={(id) => update({ locationId: id, nightDate: null })}
         />
+        {guestInUse && (
+          <span id="hdr-guest-note" className={stacked ? "mt-1.5 text-xs text-muted" : "sr-only"}>
+            Saved in this browser only
+          </span>
+        )}
+        {guestInUse && signedIn && (
+          <button
+            type="button"
+            // Inline it fits only on wide screens (like the night label below); Settings always offers it too.
+            className={`btn btn-ghost text-ice ${stacked ? "mt-2 self-start" : "hidden shrink-0 whitespace-nowrap 2xl:inline-flex"}`}
+            disabled={saveGuest.isPending}
+            onClick={() => saveGuest.mutate()}
+          >
+            {saveGuest.isPending ? "Saving…" : "Save to my account"}
+          </button>
+        )}
+        {saveGuest.error && (
+          <span role="alert" className={stacked ? "mt-1.5 text-xs text-warn" : "text-xs text-warn"}>
+            Couldn’t save the place. Try again in Settings.
+          </span>
+        )}
       </div>
 
       <div className={fieldWrap}>

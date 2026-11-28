@@ -63,7 +63,7 @@ export function TonightPage() {
         notice={
           location.is_sample ? (
             <>
-              This is the editable sample location.{" "}
+              This is a sample location.{" "}
               <Link to="/settings" className="text-ice hover:underline">
                 Set your own location
               </Link>

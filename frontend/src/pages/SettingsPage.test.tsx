@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { qk } from "../api/hooks";
@@ -67,8 +67,116 @@ describe("Settings: shared places and equipment", () => {
     expect(screen.getByRole("button", { name: "Delete Backyard" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Duplicate as custom/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Custom profile/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^Edit$/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^Delete$/ })).toBeTruthy();
+    // The profile buttons carry the profile's name, as the place buttons do.
+    expect(screen.getByRole("button", { name: "Edit My refractor" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Delete My refractor" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Edit Seestar S30" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Sign in" })).toBeNull();
+  });
+});
+
+const sample: ObservingLocation = { ...place, id: "sample-location", label: "Philadelphia, PA (sample)", is_sample: true };
+const guestPlace = { label: "Tucson, Arizona, US", latitude_deg: 32.22, longitude_deg: -110.97, elevation_m: 728, timezone: "America/Phoenix" };
+
+function renderWith(opts: { signedIn: boolean; locations: ObservingLocation[]; guest?: typeof guestPlace | null }) {
+  const qc = createQueryClient();
+  if (opts.signedIn) seedSignedIn(qc);
+  else seedSignedOut(qc);
+  qc.setQueryData(qk.locations, opts.locations);
+  qc.setQueryData(qk.equipment, [preset]);
+  const prefs = { ...DEFAULT_PREFS, guestPlace: opts.guest ?? null, locationId: opts.guest ? "guest" : null };
+  render(
+    <QueryClientProvider client={qc}>
+      <PrefsProvider initial={prefs}>
+        <ConfirmProvider>
+          <MemoryRouter initialEntries={["/settings"]}>
+            <SettingsPage />
+          </MemoryRouter>
+        </ConfirmProvider>
+      </PrefsProvider>
+    </QueryClientProvider>,
+  );
+  return qc;
+}
+
+const fetchCalls = () => (fetch as unknown as { mock: { calls: [string, RequestInit?][] } }).mock.calls;
+
+describe("Settings: private places, shared samples", () => {
+  it("never offers to edit or delete a sample, even signed in", () => {
+    renderWith({ signedIn: true, locations: [sample, place] });
+    expect(screen.queryByRole("button", { name: `Edit ${sample.label}` })).toBeNull();
+    expect(screen.queryByRole("button", { name: `Delete ${sample.label}` })).toBeNull();
+    expect(screen.getByRole("button", { name: "Edit Backyard" })).toBeTruthy();
+  });
+
+  it("says the copy is current: private to the account, samples and presets shared and read-only", () => {
+    renderWith({ signedIn: false, locations: [sample] });
+    expect(screen.getByText(/Your places and equipment are private to your account/)).toBeTruthy();
+    expect(screen.getByText(/Samples and presets are shared and read-only/)).toBeTruthy();
+    expect(screen.getByText(/the place you add is kept in this browser only/)).toBeTruthy();
+    expect(screen.queryByText(/shared by everyone/)).toBeNull();
+  });
+
+  it("shows the browser-only place with its note; signed out, there is nothing to save it to", () => {
+    renderWith({ signedIn: false, locations: [sample], guest: guestPlace });
+    expect(screen.getByText("Tucson, Arizona, US")).toBeTruthy();
+    expect(screen.getByText("Saved in this browser only")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Save to my account" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Remove Tucson, Arizona, US from this browser" })).toBeTruthy();
+  });
+
+  it("signed in: 'Save to my account' saves the browser-only place and makes it the current one", async () => {
+    const saved: ObservingLocation = { ...place, ...guestPlace, id: "new-place" };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url === "/api/locations" && init?.method === "POST") return new Response(JSON.stringify(saved), { status: 201 });
+        if (url === "/api/locations") return new Response(JSON.stringify([sample]), { status: 200 });
+        return new Response(JSON.stringify({ detail: "Not found." }), { status: 404 });
+      }),
+    );
+    renderWith({ signedIn: true, locations: [sample], guest: guestPlace });
+    fireEvent.click(screen.getByRole("button", { name: "Save to my account" }));
+    await waitFor(() => expect(fetchCalls().some(([u, i]) => u === "/api/locations" && i?.method === "POST")).toBe(true));
+    const [, init] = fetchCalls().find(([u, i]) => u === "/api/locations" && i?.method === "POST")!;
+    expect(JSON.parse(String(init!.body))).toEqual(guestPlace);
+    await waitFor(() => expect(screen.queryByText("Saved in this browser only")).toBeNull());
+  });
+
+  it("signed out: a new place is kept in this browser, and nothing is sent to the server", async () => {
+    renderWith({ signedIn: false, locations: [sample] });
+    fireEvent.click(screen.getByRole("button", { name: /Add location/ }));
+    expect(screen.getByText(/this place is kept in this browser only/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Back field" } });
+    fireEvent.change(screen.getByLabelText(/Latitude/), { target: { value: "41.5" } });
+    fireEvent.change(screen.getByLabelText(/Longitude/), { target: { value: "-73.25" } });
+    fireEvent.change(screen.getByLabelText("Timezone (IANA)"), { target: { value: "America/New_York" } });
+    fireEvent.click(screen.getByRole("button", { name: "Keep in this browser" }));
+    expect(await screen.findByText("Back field")).toBeTruthy();
+    expect(screen.getByText("Saved in this browser only")).toBeTruthy();
+    expect(screen.getByText(/41\.5/)).toBeTruthy(); // the coordinates line of the browser-only place
+    expect(fetchCalls().some(([u, i]) => u.startsWith("/api/locations") && i?.method && i.method !== "GET")).toBe(false);
+  });
+
+  it("credits GeoNames when it fills a place from the search", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url.startsWith("/api/geocode")
+          ? new Response(JSON.stringify({ results: [{ label: "Tucson, Arizona, US", latitude: 32.22, longitude: -110.97, elevation_m: 728, timezone: "America/Phoenix", country_code: "US", population: 1 }], source: "Open-Meteo Geocoding API" }), { status: 200 })
+          : new Response(JSON.stringify({ detail: "Not found." }), { status: 404 }),
+      ),
+    );
+    renderWith({ signedIn: true, locations: [sample] });
+    fireEvent.click(screen.getByRole("button", { name: /Add location/ }));
+    fireEvent.change(screen.getByLabelText("Find a city or place"), { target: { value: "Tucson" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Search$/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Tucson, Arizona, US/ }));
+    expect(screen.getByText(/Filled from Open-Meteo geocoding/)).toBeTruthy();
+    const link = screen.getByRole("link", { name: "GeoNames" });
+    expect(link.getAttribute("href")).toBe("https://www.geonames.org/");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noreferrer");
+    expect(link.parentElement?.textContent).toMatch(/Location data based on GeoNames/);
   });
 });
