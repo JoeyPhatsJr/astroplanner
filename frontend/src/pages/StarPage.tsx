@@ -97,9 +97,16 @@ function AddToPlan({ starId, slug }: { starId: string; slug: string }) {
   );
 }
 
+/** VSX's period exactly as published, in days; under a day, also in hours (the same number, converted). */
+function vsxPeriod(days: number): string {
+  const hours = days < 1 ? `, about ${(days * 24).toFixed(1)} hours` : "";
+  return `${days} ${days === 1 ? "day" : "days"}${hours} (VSX)`;
+}
+
 function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
   const eq = useCurrentEquipment();
   const { star } = data;
+  const period = typeof data.vsx.period_days === "number" ? data.vsx.period_days : null;
   return (
     <div className="page-wide flex flex-col gap-5">
       <PageHeader
@@ -110,7 +117,6 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
             <p>
               {data.type_label} · {star.constellation} · {vsxRange(data.vsx)}
             </p>
-            {data.period_note && <p className="mt-0.5 text-xs text-muted">{data.period_note}</p>}
           </>
         }
         actions={<AddToPlan starId={star.id} slug={slug} />}
@@ -131,6 +137,16 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
           <>
             <dt className="text-sm font-semibold text-ink-2">Seestar fit{eq ? ` · ${eq.name}` : ""}</dt>
             <dd className="m-0 max-w-[62ch] text-sm text-ink-2">{data.seestar_fit.text}</dd>
+          </>
+        )}
+        {period !== null && (
+          <>
+            <dt className="text-sm font-semibold text-ink-2">Period</dt>
+            <dd className="m-0 max-w-[62ch] text-sm text-ink">
+              {vsxPeriod(period)}
+              {/* The note explains which period VSX lists, so it shows only beside that number. */}
+              {data.period_note && <p className="mt-0.5 text-xs text-muted">{data.period_note}</p>}
+            </dd>
           </>
         )}
         <dt className="text-sm font-semibold text-ink-2">Light curve</dt>

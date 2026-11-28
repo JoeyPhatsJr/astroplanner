@@ -241,6 +241,32 @@ describe("Star page", () => {
     expect(heading.closest("section")?.querySelector("ul")?.className).toContain("max-w-[68ch]");
   });
 
+  it("shows the VSX period beside the note that explains it", async () => {
+    const NOTE = "The VSX period is the binary orbital period, not an outburst or eruption interval.";
+    routes["GET /api/variables/ss-cyg"] = () => starBody({ vsx: { ...vsx, period_days: 0.27513 }, period_note: NOTE });
+    open();
+    const term = await screen.findByText("Period");
+    const value = term.nextElementSibling as HTMLElement;
+    expect(term.tagName).toBe("DT");
+    expect(value).toHaveTextContent("0.27513 days, about 6.6 hours (VSX)");
+    expect(within(value).getByText(NOTE)).toBeInTheDocument();
+  });
+
+  it("with no period in the data, shows neither a period nor the note about it", async () => {
+    routes["GET /api/variables/ss-cyg"] = () =>
+      starBody({ vsx: { ...vsx, period_days: null }, period_note: "The VSX period is the binary orbital period." });
+    open();
+    await screen.findByText("Light curve");
+    expect(screen.queryByText("Period")).toBeNull();
+    expect(screen.queryByText(/VSX period/)).toBeNull();
+  });
+
+  it("shows a period of a day or more in days only", async () => {
+    routes["GET /api/variables/ss-cyg"] = () => starBody({ vsx: { ...vsx, period_days: 312.2 } });
+    open();
+    expect(await screen.findByText("312.2 days (VSX)")).toBeInTheDocument();
+  });
+
   it("shows the star's missions and requests no AAVSO observations", async () => {
     open();
     expect(await screen.findByRole("article", { name: "Mission: Weekly watch" })).toBeInTheDocument();

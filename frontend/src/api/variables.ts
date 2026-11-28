@@ -21,6 +21,8 @@ export interface VsxFacts {
   min_mag: number | null;
   band: string | null;
   raw_range: string[];
+  /** VSX's period in days, as published; the star page's detail answer has it, the list does not. */
+  period_days?: number | null;
   [key: string]: unknown;
 }
 
