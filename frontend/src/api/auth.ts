@@ -52,8 +52,11 @@ const notAuth = (q: Query) => q.queryKey[0] !== "auth";
  * Coach). Everything else is open: places, equipment, Tonight, Explore and Variable Hunter keep working signed out.
  */
 export const OWNED_QUERY_ROOTS: ReadonlySet<unknown> = new Set(["sessions", "astrolog", "processing-run"]);
-/** Open routes that add the signed-in user's own progress to their answer (Variable Hunter). */
-export const PERSONAL_OPEN_QUERY_ROOTS: ReadonlySet<unknown> = new Set(["variables"]);
+/**
+ * Open routes whose answer adds the signed-in user's own rows: their places and equipment next to the shared
+ * samples and presets, and their progress in Variable Hunter. Refetched when the account changes.
+ */
+export const PERSONAL_OPEN_QUERY_ROOTS: ReadonlySet<unknown> = new Set(["variables", "locations", "equipment"]);
 const isOwned = (q: Query) => OWNED_QUERY_ROOTS.has(q.queryKey[0]);
 
 /**
@@ -63,8 +66,9 @@ const isOwned = (q: Query) => OWNED_QUERY_ROOTS.has(q.queryKey[0]);
  * - Signed in: every other query resets, and the ones on screen refetch with the new account's cookie.
  * - Signed out: nothing owned is requested again. Owned queries on screen are emptied in place (their
  *   observers keep the same query object, so a re-render does not refetch); owned queries off screen are
- *   dropped. Variable Hunter resets and refetches without the personal progress. Shared data (places,
- *   equipment, Tonight, Explore) is the same for everyone, so it stays on screen untouched.
+ *   dropped. Places, equipment and Variable Hunter reset and refetch without the user's own rows (only the
+ *   samples and presets, and no personal progress). Tonight and Explore are the same for everyone, so they stay
+ *   on screen untouched.
  *
  * Resolves once the cache has switched; the auth mutations return it, so they stay pending until then.
  */

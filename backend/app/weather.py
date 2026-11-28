@@ -53,7 +53,7 @@ def rate_limit_cooldown_s(message: str | None) -> int:
         if period in text:
             return seconds
     return RATE_LIMIT_DEFAULT_COOLDOWN_S
-USER_AGENT = "AstroPlanner/0.1 (local non-commercial prototype)"
+USER_AGENT = "AstroPlanner/0.1 (non-commercial; +https://github.com/JoeyPhatsJr/astroplanner)"
 # The visitor's browser can fetch the forecast from Open-Meteo itself and hand the answer over ("relay"), so the
 # request counts against the visitor's own IP, not this server's shared one. A relayed forecast is kept for that
 # browser only: one visitor can never change what another sees.

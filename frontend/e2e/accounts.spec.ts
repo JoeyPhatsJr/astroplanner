@@ -6,7 +6,6 @@ import { API_HEADERS, collectErrors, signUp, TEST_PASSWORD, uniqueEmail } from "
 
 const SIGN_IN_FAILED = "That email and password don’t match. Check them, or reset your password.";
 const GATE = "Your nights live in your account.";
-const RESET_COMMAND = "cd backend && .venv/bin/python -m app.accounts reset-password you@example.com";
 
 async function signInThroughForm(page: Page, email: string, password = TEST_PASSWORD) {
   const form = page.getByRole("form", { name: "Sign in" });
@@ -184,12 +183,16 @@ test("signed out, open pages request nothing owned", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test("forgot password shows the terminal command", async ({ page }) => {
+test("forgot password points to the developer, not a terminal", async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto("/login");
   await page.getByRole("link", { name: "Forgot password?" }).click();
   await expect(page).toHaveURL(/\/login\/reset-help$/);
-  await expect(page.getByText(RESET_COMMAND)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open an issue on GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/JoeyPhatsJr/astroplanner/issues",
+  );
+  await expect(page.getByText("reset-password")).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

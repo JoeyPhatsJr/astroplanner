@@ -315,7 +315,8 @@ def test_csrf_header_required(make_client, clear_provider):
         r = c.post("/api/locations", json=place, headers={"X-Requested-With": "XMLHttpRequest"})
         assert r.status_code == 403 and r.json() == missing
         assert c.get("/api/locations").status_code == 200
-        assert c.post("/api/locations", json=place, headers=CSRF_HEADERS).status_code == 201
+        # With the header the request reaches the route, which needs an account: saving a place is owned now.
+        assert c.post("/api/locations", json=place, headers=CSRF_HEADERS).status_code == 401
 
 
 def test_secrets_never_logged_or_echoed(make_client, clear_provider, caplog):

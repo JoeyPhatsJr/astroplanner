@@ -125,10 +125,11 @@ class Base(DeclarativeBase):
 
 
 def owner_column(table: str) -> MappedColumn[Any]:
-    """``owner_id`` for an owned table (migration 0007_ownership).
+    """``owner_id`` for an owned table (migrations 0007_ownership and 0008_private_places).
 
     Nullable only for rows from before accounts, which keep NULL until the first account claims them
     (``app.accounts.owned``); code always sets it from then on. RESTRICT: a user is deleted only after their rows.
+    Places and equipment also keep NULL on their shared, read-only rows: sample places and preset equipment.
     """
     return mapped_column(ForeignKey("users.id", ondelete="RESTRICT", name=f"fk_{table}_owner"),
                          nullable=True, index=True)
@@ -144,6 +145,7 @@ class ObservingLocation(Base):
     timezone: Mapped[str] = mapped_column(String(64))
     is_sample: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[str] = mapped_column(String, default=_utcnow)
+    owner_id: Mapped[str | None] = owner_column("observing_locations")  # NULL on samples (shared, read-only)
 
 
 class EquipmentProfile(Base):
@@ -163,6 +165,7 @@ class EquipmentProfile(Base):
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     is_preset: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[str] = mapped_column(String, default=_utcnow)
+    owner_id: Mapped[str | None] = owner_column("equipment_profiles")  # NULL on presets (shared, read-only)
 
 
 class ObservingSession(Base):
@@ -263,6 +266,8 @@ SAMPLE_LOCATION = {
     "timezone": "America/New_York",
     "is_sample": True,
 }
+# The sample's id when ``sample-location`` is already someone's own place (a sample edited before the change).
+SAMPLE_FALLBACK_ID = "sample-philadelphia"
 
 
 class Database:
@@ -299,11 +304,15 @@ class Database:
                 if s.get(EquipmentProfile, CANON_T3["id"]) is None:
                     s.add(EquipmentProfile(**CANON_T3))
                 s.add(AppMeta(key="canon_seeded", value="1"))
-            if s.scalar(select(ObservingLocation).limit(1)) is None:
-                s.add(ObservingLocation(**SAMPLE_LOCATION))
+            # Signed-out visitors plan from the sample, so one always exists. A sample edited before samples
+            # became read-only turned into that person's own place (``is_sample`` False; migration 0008 gave it an
+            # owner) and may still hold the sample's id, so the sample then comes back under another id.
+            if s.scalar(select(ObservingLocation.id).where(ObservingLocation.is_sample.is_(True)).limit(1)) is None:
+                taken = s.get(ObservingLocation, SAMPLE_LOCATION["id"]) is not None
+                s.add(ObservingLocation(**(SAMPLE_LOCATION | ({"id": SAMPLE_FALLBACK_ID} if taken else {}))))
             else:
                 sample = s.get(ObservingLocation, SAMPLE_LOCATION["id"])
-                if sample is not None and sample.label in OLD_SAMPLE_LABELS:
+                if sample is not None and sample.is_sample and sample.label in OLD_SAMPLE_LABELS:
                     sample.label = SAMPLE_LOCATION["label"]
             s.commit()
 

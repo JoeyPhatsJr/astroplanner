@@ -497,12 +497,16 @@ vi.mock("../api/hooks", async (orig) => ({
 }));
 
 function renderHeader() {
+  const qc = new QueryClient();
+  seedSignedOut(qc); // the header asks whether "Save to my account" applies
   return render(
-    <MemoryRouter>
-      <PrefsProvider>
-        <HeaderControls />
-      </PrefsProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>
+        <PrefsProvider>
+          <HeaderControls />
+        </PrefsProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

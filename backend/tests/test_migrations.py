@@ -279,7 +279,10 @@ def _at_0006_with_seed(url: str, extra: tuple[str, ...] = ()) -> None:
 
 
 def _counts(conn) -> dict[str, int]:
-    return {t: conn.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar() for t in SEEDED_TABLES}
+    """Rows per seeded table. Sample places are left out: ``seed()`` adds the sample whenever none exists (the
+    seed's only place, ``loc1``, is a user's own), which is not a row the migration kept or lost."""
+    where = {"observing_locations": " WHERE NOT is_sample"}
+    return {t: conn.execute(text(f"SELECT COUNT(*) FROM {t}{where.get(t, '')}")).scalar() for t in SEEDED_TABLES}
 
 
 def _schema(url: str) -> dict[str, dict]:
@@ -485,4 +488,132 @@ def test_0007_downgrade_restores_global_uniques(tmp_path):
     command.upgrade(cfg, "head")  # the restored uniques are found again on the way back up
     assert "owner_id" in {col["name"] for col in sqlalchemy.inspect(eng).get_columns("library_targets")}
     eng.dispose()
+
+
+# --- 0008_private_places --------------------------------------------------------------------------
+
+PLACE_TABLES = ("observing_locations", "equipment_profiles")
+
+# At 0007: a sample and a user's own place, a preset and a custom profile, all ownerless (as before 0008).
+SEED_0007_PLACES = [
+    ("INSERT INTO observing_locations (id,label,latitude_deg,longitude_deg,timezone,is_sample,created_at) "
+     "VALUES ('sample-location','Philadelphia, PA (sample)',39.95,-75.17,'America/New_York',:t,'x')"),
+    ("INSERT INTO observing_locations (id,label,latitude_deg,longitude_deg,timezone,is_sample,created_at) "
+     "VALUES ('home','Home',40,-75,'America/New_York',:f,'x')"),
+    ("INSERT INTO equipment_profiles (id,name,fov_definition,is_verified,is_preset,created_at) "
+     "VALUES ('seestar-s30','Seestar S30 (original)','unknown',:t,:t,'x')"),
+    ("INSERT INTO equipment_profiles (id,name,fov_definition,is_verified,is_preset,created_at) "
+     "VALUES ('canon-t3-18-55','Canon EOS Rebel T3','diagonal',:f,:f,'x')"),
+    ("INSERT INTO sessions (id,title,location_id,equipment_id,local_night_date,status,created_at,updated_at) "
+     "VALUES ('s1','Plan','home','canon-t3-18-55','2026-11-02','planned','x','x')"),
+]
+
+
+def _at_0007_with_places(url: str, *, claim: str | None, user: str | None) -> None:
+    from alembic import command
+    command.upgrade(_alembic_cfg(url), "0007_ownership")
+    eng = create_engine(url)
+    with eng.begin() as c:
+        if user is not None:
+            c.execute(text(_users_sql(user)[0]))
+        if claim is not None:
+            c.execute(text("INSERT INTO app_meta (key, value) VALUES ('accounts_claimed', :v)"), {"v": claim})
+        for sql in SEED_0007_PLACES:
+            c.execute(text(sql), {"t": True, "f": False})
+    eng.dispose()
+
+
+def _owners(url: str) -> dict[str, str | None]:
+    eng = create_engine(url)
+    with eng.connect() as c:
+        out = {r[0]: r[1] for t in PLACE_TABLES for r in c.execute(text(f"SELECT id, owner_id FROM {t}"))}
+        assert tuple(c.execute(text("SELECT location_id, equipment_id FROM sessions WHERE id='s1'")).one()) == (
+            "home", "canon-t3-18-55")
+    eng.dispose()
+    return out
+
+
+def _reset(url: str) -> None:
+    """Empty the database at ``url``: delete the SQLite file, or drop and recreate Postgres's public schema."""
+    eng = create_engine(url)
+    if eng.dialect.name == "sqlite":
+        path = eng.url.database
+        eng.dispose()
+        if path and os.path.exists(path):
+            os.remove(path)
+        return
+    with eng.begin() as c:
+        c.execute(text("DROP SCHEMA public CASCADE"))
+        c.execute(text("CREATE SCHEMA public"))
+    eng.dispose()
+
+
+def _check_0008_data_step(url: str) -> None:
+    """The three cases of the data step; each one rebuilds the database at ``url`` from empty."""
+    shared = {"sample-location": None, "seestar-s30": None}
+    cases = [
+        # the claim ran and its user exists: they get every ownerless place and profile that is not shared
+        (dict(claim="u1", user="u1"), shared | {"home": "u1", "canon-t3-18-55": "u1"}),
+        # the claiming user is gone: the rows stay ownerless
+        (dict(claim="ghost", user=None), shared | {"home": None, "canon-t3-18-55": None}),
+        # no claim yet: they stay ownerless, for the first sign-up's claim
+        (dict(claim=None, user="u1"), shared | {"home": None, "canon-t3-18-55": None}),
+    ]
+    for kw, expected in cases:
+        _reset(url)
+        _at_0007_with_places(url, **kw)
+        run_migrations(url)
+        assert _owners(url) == expected, kw
+
+
+def test_0008_data_step_gives_legacy_places_to_the_claiming_account(tmp_path):
+    _check_0008_data_step(f"sqlite:///{tmp_path / 'places.db'}")
+
+
+def test_0008_adds_owner_fk_and_index_and_downgrades(tmp_path):
+    from alembic import command
+    url = f"sqlite:///{tmp_path / 'places-down.db'}"
+    _at_0007_with_places(url, claim="u1", user="u1")
+    eng = create_engine(url)
+    insp = sqlalchemy.inspect(eng)
+    before = {t: {(fk["name"], tuple(fk["constrained_columns"]), fk["referred_table"])
+                  for fk in insp.get_foreign_keys(t)} for t in ("sessions", "capture_sets")}
+    eng.dispose()
+    run_migrations(url)
+    eng = create_engine(url)
+    insp = sqlalchemy.inspect(eng)
+    for t in PLACE_TABLES:
+        fks = {(fk["name"], tuple(fk["constrained_columns"]), fk["referred_table"], tuple(fk["referred_columns"]),
+                fk["options"].get("ondelete")) for fk in insp.get_foreign_keys(t)}
+        assert fks == {(f"fk_{t}_owner", ("owner_id",), "users", ("id",), "RESTRICT")}, t
+        assert (f"ix_{t}_owner_id", ("owner_id",), False) in {
+            (i["name"], tuple(i["column_names"]), bool(i["unique"])) for i in insp.get_indexes(t)}, t
+    for t, fks in before.items():  # the tables that reference places and equipment keep their links
+        assert {(fk["name"], tuple(fk["constrained_columns"]), fk["referred_table"])
+                for fk in insp.get_foreign_keys(t)} == fks, t
+    with eng.connect() as c:
+        assert c.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0008_private_places"
+
+    cfg = _alembic_cfg(url)
+    command.downgrade(cfg, "0007_ownership")
+    insp = sqlalchemy.inspect(eng)
+    for t in PLACE_TABLES:
+        assert "owner_id" not in {col["name"] for col in insp.get_columns(t)}, t
+    with eng.connect() as c:
+        assert c.execute(text("SELECT COUNT(*) FROM observing_locations")).scalar() == 2
+        assert c.execute(text("SELECT COUNT(*) FROM equipment_profiles")).scalar() == 2
+        assert c.execute(text("SELECT location_id FROM sessions WHERE id='s1'")).scalar() == "home"
+    command.upgrade(cfg, "head")
+    assert "owner_id" in {col["name"] for col in sqlalchemy.inspect(eng).get_columns("observing_locations")}
+    eng.dispose()
+
+
+# GUARD: like test_migrations_on_postgres, this DROPS the `public` schema of TEST_POSTGRES_URL (several times).
+@pytest.mark.skipif(not os.environ.get("TEST_POSTGRES_URL"), reason="TEST_POSTGRES_URL not set")
+def test_0008_data_step_on_postgres():
+    url = os.environ["TEST_POSTGRES_URL"]
+    if not _is_disposable_postgres(url):
+        pytest.fail("Refusing to drop the schema: TEST_POSTGRES_URL must name a *test* database or localhost.")
+    _check_0008_data_step(url)
+    _reset(url)
 

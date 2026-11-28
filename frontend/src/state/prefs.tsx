@@ -1,9 +1,13 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type { Darkness } from "../api/types";
+import { parseGuestPlace, type GuestPlace } from "../lib/guestPlace";
 import { applyVision } from "../lib/vision";
 
 export interface Prefs {
+  /** A saved place's id, `"guest"` for the browser-only place, or null for the default. */
   locationId: string | null;
+  /** The place kept in this browser only (see lib/guestPlace.ts); one is enough. */
+  guestPlace: GuestPlace | null;
   equipmentId: string | null;
   /** Explicitly chosen night (YYYY-MM-DD); null means "use the default night for the location". */
   nightDate: string | null;
@@ -16,6 +20,7 @@ export interface Prefs {
 
 export const DEFAULT_PREFS: Prefs = {
   locationId: null,
+  guestPlace: null,
   equipmentId: "seestar-s30",
   nightDate: null,
   minAltitudeDeg: 30,
@@ -31,7 +36,7 @@ export function loadPrefs(): Prefs {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_PREFS;
     const parsed = JSON.parse(raw) as Partial<Prefs>;
-    return { ...DEFAULT_PREFS, ...parsed };
+    return { ...DEFAULT_PREFS, ...parsed, guestPlace: parseGuestPlace(parsed.guestPlace) };
   } catch {
     return DEFAULT_PREFS;
   }

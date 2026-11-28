@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useAuthStatus } from "../api/auth";
 import { ApiError } from "../api/client";
-import { useCurrentEquipment, useCurrentLocation, useNightDate, useSessionMutations, useSessions } from "../api/hooks";
+import { useCurrentEquipment, useCurrentLocation, useNightDate, useSaveGuestPlace, useSessionMutations, useSessions } from "../api/hooks";
 import type { ObservingSession } from "../api/types";
+import { isGuestId, serverLocationId } from "../lib/guestPlace";
 import { formatCalendarDate } from "../lib/time";
 import { usePrefs } from "./prefs";
 
@@ -31,6 +32,7 @@ export function useActiveSession() {
   const { location } = useCurrentLocation();
   const equipment = useCurrentEquipment();
   const m = useSessionMutations();
+  const saveGuest = useSaveGuestPlace();
   const [error, setError] = useState<string | null>(null);
 
   // A session that ends mid-use leaves the last list in the cache; it is not shown once signed out.
@@ -46,10 +48,13 @@ export function useActiveSession() {
     try {
       let s = session;
       if (!s) {
+        // A plan names a saved place, so the browser-only place is saved to the account first (it would otherwise
+        // be a plan with no place). The guest id itself never goes to the server.
+        const place = isGuestId(location?.id) ? await saveGuest.mutateAsync() : location;
         s = await m.create.mutateAsync({
           title: sessionTitleForNight(nightDate),
           local_night_date: nightDate,
-          location_id: location?.id ?? null,
+          location_id: serverLocationId(place),
           equipment_id: equipment?.id ?? null,
         });
       }

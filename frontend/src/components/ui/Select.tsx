@@ -16,6 +16,7 @@ export function Select({
   disabled,
   placeholder,
   ariaLabel,
+  describedBy,
   className = "",
 }: {
   id: string;
@@ -25,6 +26,8 @@ export function Select({
   disabled?: boolean;
   placeholder?: string;
   ariaLabel?: string;
+  /** Id of a note about the current choice, read after the select's name. */
+  describedBy?: string;
   className?: string;
 }) {
   const [container, triggerRef] = usePopupContainer();
@@ -35,7 +38,7 @@ export function Select({
       onValueChange={(v) => v !== null && onChange(v)}
       disabled={disabled}
     >
-      <BaseSelect.Trigger id={id} ref={triggerRef} aria-label={ariaLabel} className={`field select-trigger ${className}`}>
+      <BaseSelect.Trigger id={id} ref={triggerRef} aria-label={ariaLabel} aria-describedby={describedBy} className={`field select-trigger ${className}`}>
         <BaseSelect.Value className="min-w-0 flex-1 truncate text-left" placeholder={placeholder} />
         <BaseSelect.Icon className="shrink-0 text-muted">
           <ChevronDown className="size-4" aria-hidden />
