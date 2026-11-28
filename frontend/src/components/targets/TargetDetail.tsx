@@ -106,7 +106,7 @@ export function TargetDetail({ targetId, onClose, onReopen }: DetailProps) {
                 </p>
                 {t.aliases.length > 0 && <p className="mt-1 text-xs leading-relaxed text-muted">Also: {t.aliases.join(", ")}</p>}
               </div>
-              <ScoreChip total={data.score.total} max={data.score.max_total} />
+              <ScoreChip total={data.score.total} max={data.score.max_total} capped={!!data.score.cap} />
             </div>
             <div className="flex flex-wrap gap-3">
               <SkyThumb key={t.id} target={t} fovDeg={eq?.fov_deg ?? null} size={168} fallback={false} />

@@ -33,6 +33,11 @@ Honesty rules:
   suggestion to switch to nautical darkness where it applies.
 - A 0% precipitation probability is labelled as not a guarantee of dry skies.
 - Meteorological visibility is fetched but not scored; it is not seeing or transparency.
+- **Clouded out → capped at 20.** If no darkness sample meets the forecast-clear
+  rule (cloud ≤ 40% and precipitation probability ≤ 30%), the total is capped at
+  20 and labelled "Clouded out". The components keep their own points and sum to
+  `uncapped_total`; `cap` says why. Without this, the additive weights let rain,
+  Moon and darkness carry a fully overcast night to 55/100. (`CLOUDED_OUT_CAP`)
 
 ## Target recommendation score (0–100)
 
@@ -51,6 +56,13 @@ excluded and the score is shown **out of 75**, not rescaled to look like 100.
 
 **Forecast-favorable window:** the longest part of the observable window where
 cloud ≤ 40% and precipitation probability ≤ 30%.
+
+**Clouded out:** when the forecast covers the window but no part of it is
+favorable, the target's score is capped at 20% of its maximum and labelled
+"clouded out". Ranking puts every target with a favorable window first, then the
+clouded-out ones ordered by their uncapped score (`rank_normalized`), so an
+overcast night still lists the geometrically best target first. A missing
+forecast is never treated as clouded out (the score stays out of 75).
 
 **Equipment fit** (e.g. "exceeds the ~148′ field") is an advisory note only and
 never changes the score, because the Seestar S30's published 2.46° FOV does not

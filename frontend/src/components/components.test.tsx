@@ -55,6 +55,26 @@ describe("ScoreHero", () => {
     expect(screen.getByText("21.8")).toBeInTheDocument();
   });
 
+  it("labels a clouded-out night and explains the cap", () => {
+    const score: TonightScore = {
+      ...base,
+      status: "ok",
+      total: 20,
+      uncapped_total: 54.5,
+      cap: { value: 20, reason: "No forecast-clear dark time (cloud ≤ 40% and rain chance ≤ 30%)" },
+      components: [
+        { key: "cloud", label: "Cloud cover", points: 0, max: 45, basis: "forecast", detail: "" },
+        { key: "precipitation", label: "Rain risk", points: 24.5, max: 25, basis: "forecast", detail: "" },
+        { key: "moon", label: "Moonlight", points: 20, max: 20, basis: "calculated", detail: "" },
+        { key: "darkness", label: "Darkness available", points: 10, max: 10, basis: "calculated", detail: "" },
+      ],
+    };
+    render(<ScoreHero score={score} tz="America/New_York" />);
+    expect(screen.getByTestId("score-total")).toHaveTextContent("20");
+    expect(screen.getByTestId("score-capped")).toHaveTextContent("Clouded out");
+    expect(screen.getByText(/Components sum to 54.5\. No forecast-clear dark time .*, so the score is capped at 20\./)).toBeInTheDocument();
+  });
+
   it("renders the total and the window in the observer's zone", () => {
     const score: TonightScore = {
       ...base,

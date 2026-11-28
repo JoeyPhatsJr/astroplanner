@@ -95,10 +95,26 @@ def test_tonight_total_equals_component_sum_and_is_bounded(ctx):
     for cloud, precip in [(0, 0), (50, 20), (100, 100)]:
         s = tonight_score(ctx, flat_weather(ctx, cloud, precip))
         assert s["status"] == "ok"
-        assert s["total"] == pytest.approx(_sum(s["components"]), abs=0.051)
+        uncapped = s.get("uncapped_total", s["total"])
+        assert uncapped == pytest.approx(_sum(s["components"]), abs=0.051)  # the parts always sum to the uncapped total
+        assert s["total"] == (min(uncapped, s["cap"]["value"]) if "cap" in s else uncapped)
         assert 0 <= s["total"] <= 100
         for c in s["components"]:
             assert 0 <= c["points"] <= c["max"]
+
+
+def test_an_overcast_night_is_capped_and_says_why(ctx):
+    s = tonight_score(ctx, flat_weather(ctx, 100, 0))  # dry, but fully overcast all night
+    assert s["uncapped_total"] > 50  # rain, Moon and darkness alone would have carried it past 50
+    assert s["total"] == 20
+    assert s["cap"]["value"] == 20 and "No forecast-clear dark time" in s["cap"]["reason"]
+    assert s["summary"].startswith("Clouded out")
+
+
+def test_a_night_with_any_clear_dark_time_is_not_capped(ctx):
+    for cloud, precip in [(0, 0), (40, 30)]:  # exactly at the favorable rule's limits still counts as clear
+        s = tonight_score(ctx, flat_weather(ctx, cloud, precip))
+        assert "cap" not in s and "uncapped_total" not in s
 
 
 def test_tonight_score_orders_weather_sensibly(ctx):
@@ -158,6 +174,34 @@ def test_target_score_sums_and_bounds(ctx):
         assert s["max_total"] == 100
         assert s["total"] == pytest.approx(_sum(s["components"]), abs=0.051)
         assert 0 <= s["total"] <= 100 and 2 <= len(s["why"]) <= 4
+
+
+def test_a_clouded_out_target_is_capped_but_keeps_its_rank_score(ctx):
+    t, v = _target(ctx, "m31")
+    clear = target_score(ctx, v, t, flat_weather(ctx, 10, 0), None, 30.0)
+    overcast = target_score(ctx, v, t, flat_weather(ctx, 100, 0), None, 30.0)
+    assert "cap" not in clear and clear["rank_normalized"] == clear["normalized"]
+    assert overcast["total"] == 20 and overcast["normalized"] == 20
+    assert overcast["uncapped_total"] == pytest.approx(_sum(overcast["components"]), abs=0.051)
+    assert overcast["rank_normalized"] > 20  # geometry and Moon still rank targets on an overcast night
+    no_forecast = target_score(ctx, v, t, None, None, 30.0)
+    assert "cap" not in no_forecast  # an unknown forecast is shown out of 75, never treated as clouded out
+
+
+def test_clouded_out_targets_sort_after_clear_ones():
+    """Ranking: a clear-window target beats a capped one even when the capped one's geometry scores higher."""
+    from app.api import recommendation_order
+
+    def item(name, status="observable", capped=False, rank=50.0, culm=60.0):
+        score = {"normalized": 20.0 if capped else rank, "rank_normalized": rank}
+        if capped:
+            score["cap"] = {"value": 20.0, "reason": "x"}
+        return {"name": name, "visibility": {"status": status, "culmination_alt_deg": culm}, "score": score}
+
+    items = [item("capped-great", capped=True, rank=90), item("clear-ok", rank=40), item("capped-poor", capped=True, rank=30),
+             item("clear-best", rank=70), item("never", status="never_rises", rank=0, culm=-10)]
+    assert [i["name"] for i in sorted(items, key=recommendation_order)] == [
+        "clear-best", "clear-ok", "capped-great", "capped-poor", "never"]
 
 
 def test_target_score_without_weather_is_out_of_75(ctx):

@@ -297,6 +297,18 @@ def _equipment_dict(db: Session, equipment_id: str | None, user: User | None) ->
     return _equipment_out(get_visible_equipment(db, equipment_id, user, "Unknown equipment profile"))
 
 
+def recommendation_order(r: dict[str, Any]) -> tuple:
+    """Sort key: visibility status, then targets with a forecast-clear window before clouded-out (capped) ones,
+    then the uncapped score, so an overcast night still lists the geometrically best target first."""
+    score = r["score"]
+    return (
+        STATUS_ORDER.index(r["visibility"]["status"]),
+        1 if "cap" in score else 0,
+        -(score.get("rank_normalized") or score.get("normalized") or 0),
+        -(r["visibility"]["culmination_alt_deg"]),
+    )
+
+
 STATUS_ORDER = ["observable", "too_brief", "daylight_only", "below_threshold", "never_rises", "no_darkness"]
 
 
@@ -332,11 +344,7 @@ def recommendations(
             "score": target_score(ctx, vis, t, grid, eq, min_altitude_deg),
             "sparkline_alt_deg": np.round(ctx.target_alt[idx][spark_sel], 1).tolist(),
         })
-    items.sort(key=lambda r: (
-        STATUS_ORDER.index(r["visibility"]["status"]),
-        -(r["score"]["normalized"] or 0),
-        -(r["visibility"]["culmination_alt_deg"]),
-    ))
+    items.sort(key=recommendation_order)
     return {
         "computed_at_utc": iso_utc(_now().timestamp()),
         "params": {"min_altitude_deg": min_altitude_deg, "darkness": darkness, "equipment_id": equipment_id,
