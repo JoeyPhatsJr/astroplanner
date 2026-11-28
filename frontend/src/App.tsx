@@ -13,6 +13,7 @@ import { AccountPage } from "./pages/account/AccountPage";
 import { ResetHelpPage } from "./pages/account/ResetHelpPage";
 import { SignInPage } from "./pages/account/SignInPage";
 import { SignUpPage } from "./pages/account/SignUpPage";
+import { CookiesPage } from "./pages/site/CookiesPage";
 import { CreditsPage } from "./pages/site/CreditsPage";
 import { HowItWorksPage } from "./pages/site/HowItWorksPage";
 import { PrivacyPage } from "./pages/site/PrivacyPage";
@@ -67,6 +68,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/cookies" element={<CookiesPage />} />
         <Route path="/credits" element={<CreditsPage />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/login" element={<SignInPage />} />

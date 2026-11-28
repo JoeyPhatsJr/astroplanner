@@ -123,6 +123,28 @@ describe("Terms", () => {
   });
 });
 
+describe("Cookies", () => {
+  it("lists every cookie and storage key the app uses, with no trackers", () => {
+    const { container } = renderAt("/cookies");
+    expect(screen.getByRole("heading", { level: 1, name: "One cookie, no trackers." })).toBeInTheDocument();
+    // These names must match the code (accounts/deps.py, state/prefs.tsx, AppShell.tsx, api/browserForecast.ts).
+    for (const name of ["astroplanner_session", "astroplanner.prefs.v1", "astroplanner.sidebar", "astroplanner.forecastClient"]) {
+      expect(screen.getByRole("heading", { level: 3, name })).toBeInTheDocument();
+    }
+    expect(container.textContent).toMatch(/no advertising, analytics or tracking cookies/);
+    // The page links Privacy inline, as well as the footer.
+    expect(screen.getAllByRole("link", { name: "Privacy" }).filter((a) => a.getAttribute("href") === "/privacy").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("link", { name: "open an issue on GitHub" })).toHaveAttribute("rel", "noreferrer");
+    expect(document.title).toBe("Cookies · AstroPlanner");
+    noDashes(container);
+  });
+
+  it("is linked from the footer and from Privacy", () => {
+    renderAt("/privacy");
+    expect(screen.getAllByRole("link", { name: "Cookies" }).map((a) => a.getAttribute("href"))).toEqual(["/cookies", "/cookies"]);
+  });
+});
+
 describe("Credits & data", () => {
   it("lists every source with its license", () => {
     const { container } = renderAt("/credits");
