@@ -168,7 +168,7 @@ def about() -> dict[str, Any]:
              "license": "BSD-3-Clause", "version": astropy.__version__},
             {"name": "timezonefinder", "use": "Offline timezone for coordinates",
              "url": "https://github.com/jannikmi/timezonefinder", "license": "MIT"},
-            {"name": "Digitized Sky Surveys (STScI)", "use": "Sky images on target cards and details (red plates, cached locally)",
+            {"name": "Digitized Sky Surveys (STScI)", "use": "Sky images on target cards and details (red plates, cached by the server; may be turned off)",
              "url": "https://archive.stsci.edu/dss/acknowledging.html",
              "license": "© AURA and the plate copyright holders; non-profit use",
              "acknowledgment": DSS_ACKNOWLEDGMENT},

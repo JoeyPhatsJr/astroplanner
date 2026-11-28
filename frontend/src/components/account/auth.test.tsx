@@ -17,7 +17,6 @@ import { ConfirmProvider } from "../ui/ConfirmDialog";
 import { AccountSlot } from "./AccountSlot";
 
 const SIGN_IN_FAILED = "That email and password don’t match. Check them, or reset your password.";
-const RESET_COMMAND = "cd backend && .venv/bin/python -m app.accounts reset-password you@example.com";
 
 type Handler = (init?: RequestInit) => Response | Promise<Response>;
 let handlers: Record<string, Handler>;
@@ -222,11 +221,13 @@ describe("create account", () => {
 });
 
 describe("reset help", () => {
-  it("reset help shows the exact command", () => {
+  it("reset help sends people to the developer, with no terminal command on the hosted site", () => {
     renderApp("/login/reset-help", seedSignedOut);
     expect(screen.getByRole("heading", { level: 1, name: "Reset your password." })).toBeInTheDocument();
-    expect(screen.getByRole("code").textContent).toBe(RESET_COMMAND);
-    expect(screen.getByText("If sign-in was locked after wrong tries, wait 15 minutes or restart the backend.")).toBeInTheDocument();
+    expect(screen.queryByRole("code")).toBeNull();
+    expect(screen.getByRole("link", { name: "Open an issue on GitHub" })).toHaveAttribute("href", "https://github.com/JoeyPhatsJr/astroplanner/issues");
+    expect(screen.getByText(/issues are public/)).toBeInTheDocument();
+    expect(screen.getByText("If sign-in was locked after wrong tries, wait 15 minutes and try again.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Back to sign in" })).toHaveAttribute("href", "/login");
   });
 });

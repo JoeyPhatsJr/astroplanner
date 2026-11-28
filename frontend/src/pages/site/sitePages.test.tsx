@@ -60,14 +60,30 @@ describe("Privacy", () => {
   it("says what is kept and how to delete it", () => {
     const { container } = renderAt("/privacy");
     expect(screen.getByRole("heading", { level: 1, name: "Your pictures stay yours." })).toBeInTheDocument();
-    for (const name of ["Never leaves your computer", "What it keeps", "Sent to other services", "Not in AstroPlanner"]) {
+    for (const name of ["Read in your browser, sent only in part", "What it keeps", "Sent to other services", "Not in AstroPlanner"]) {
       expect(screen.getByRole("heading", { name })).toBeInTheDocument();
     }
-    expect(screen.getByText(/saved preferences in your browser/)).toHaveTextContent(/clearing this site's data in your browser/);
-    expect(screen.getByText(/DATABASE_URL/)).toBeInTheDocument();
+    expect(screen.getByText(/Clearing this site’s data in your browser/)).toHaveTextContent(/saved preferences in your browser/);
+    expect(screen.queryByText(/DATABASE_URL|on your own computer|one database file/)).toBeNull(); // no local-only wording left
     expect(screen.queryByText(/For the login design/)).toBeNull();
-    expect(screen.getByText(/Updated 11 Nov 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/as it runs at astroplanner-lake\.vercel\.app\. Updated 28 Nov 2026/)).toBeInTheDocument();
     noDashes(container);
+  });
+
+  it("names where data lives, every processor, the cookie, children and a contact", () => {
+    const { container } = renderAt("/privacy");
+    for (const name of ["Where it’s kept", "Without an account", "Cookies and browser storage", "How long it’s kept", "Security", "Children", "Questions and changes"]) {
+      expect(screen.getByRole("heading", { level: 2, name })).toBeInTheDocument();
+    }
+    const sent = screen.getByRole("heading", { name: "Sent to other services" }).closest("section")!;
+    for (const who of ["Open-Meteo", "Vercel", "Render", "Supabase"]) expect(within(sent).getByText(who)).toBeInTheDocument();
+    expect(within(sent).queryByText(/STScI/)).toBeNull(); // sky pictures are off on this host
+    expect(container.textContent).toMatch(/astroplanner_session/);
+    expect(container.textContent).toMatch(/under 13/);
+    const contact = screen.getByRole("link", { name: "open an issue on GitHub" });
+    expect(contact).toHaveAttribute("href", "https://github.com/JoeyPhatsJr/astroplanner/issues");
+    expect(contact).toHaveAttribute("rel", "noreferrer");
+    expect(container.textContent).not.toMatch(/encrypted/i);
   });
 
   it("says what an account stores and how deleting it works", () => {
@@ -76,10 +92,11 @@ describe("Privacy", () => {
     const keeps = screen.getByRole("heading", { name: "What it keeps" }).closest("section")!;
     const items = within(keeps).getAllByRole("listitem");
     expect(items[0]).toHaveTextContent(/^Your account: your email and a password hash$/);
+    expect(items[1]).toHaveTextContent(/^Your places and equipment, visible only to your account$/);
     const section = screen.getByText(/^An account stores your email/);
     expect(within(section).getByRole("link", { name: "Account page" })).toHaveAttribute("href", "/account");
     expect(section).toHaveTextContent(
-        "An account stores your email, a password hash (never the password itself) and your sign-in sessions, in the same local database as everything else. Deleting your account on the Account page removes it, its sign-in sessions, your session plans and nights, your AstroLog library, your processing notes and their previews. Your original files are never touched. Saved places and equipment are shared by everyone using the app, so they stay; remove them in Settings.",
+        "An account stores your email, a password hash (never the password itself) and your sign-in sessions, in AstroPlanner’s database. Deleting your account on the Account page removes it, its sign-in sessions, your places and equipment, your session plans and nights, your AstroLog library, your processing notes and their previews. Your original files are never touched.",
     );
     expect(screen.getAllByText(/password hash/).length).toBeGreaterThanOrEqual(2);
     // The section comes after "Pictures and stacks".
@@ -91,11 +108,17 @@ describe("Privacy", () => {
 });
 
 describe("Terms", () => {
-  it("is a dated draft", () => {
+  it("is dated, complete, and no longer a draft", () => {
     const { container } = renderAt("/terms");
     expect(screen.getByRole("heading", { level: 1, name: "Plain terms." })).toBeInTheDocument();
-    expect(screen.getByText(/Updated 10 Nov 2026/)).toBeInTheDocument();
-    expect(screen.getByText("Draft: plain-language summary, not legal advice. Review before a public launch.")).toBeInTheDocument();
+    expect(screen.getByText(/Updated 28 Nov 2026/)).toBeInTheDocument();
+    expect(screen.queryByText(/Draft:/)).toBeNull();
+    for (const name of ["Who can use it", "Fair use of a shared, free service", "Availability", "As it is", "Law, contact and changes"]) {
+      expect(screen.getByRole("heading", { name })).toBeInTheDocument();
+    }
+    expect(container.textContent).toMatch(/13 or older/);
+    expect(container.textContent).toMatch(/governed by the laws of Pennsylvania/);
+    expect(screen.getByRole("link", { name: "open an issue on GitHub" })).toHaveAttribute("href", "https://github.com/JoeyPhatsJr/astroplanner/issues");
     noDashes(container);
   });
 });

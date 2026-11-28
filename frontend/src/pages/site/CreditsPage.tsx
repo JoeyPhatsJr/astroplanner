@@ -15,6 +15,7 @@ interface Credit {
   license: string;
   text: string;
   link?: { href: string; label: string };
+  licenseLink?: { href: string; label: string };
 }
 
 const DATA: Credit[] = [
@@ -27,13 +28,20 @@ const DATA: Credit[] = [
   {
     name: "Open-Meteo",
     license: "Data CC BY 4.0 · free tier non-commercial",
-    text: "Hourly cloud and rain forecasts, and city search. Model forecasts, not measurements at your site.",
+    text: "Hourly cloud and rain forecasts, and city search. Model forecasts, not measurements at your site. Scores and windows are AstroPlanner’s own calculations from this data.",
     link: { href: "https://open-meteo.com", label: "open-meteo.com" },
+    licenseLink: { href: "https://creativecommons.org/licenses/by/4.0/", label: "CC BY 4.0 license" },
+  },
+  {
+    name: "GeoNames",
+    license: "CC BY 4.0",
+    text: "Location data based on GeoNames, through Open-Meteo’s city search.",
+    link: { href: "https://www.geonames.org/", label: "geonames.org" },
   },
   {
     name: "Digitized Sky Survey (STScI)",
     license: "Non-profit use, with credit",
-    text: "Red-plate survey pictures on target cards, fetched once per target and kept locally. © AURA and the plate copyright holders.",
+    text: "Red-plate survey pictures for target cards. Turned off on this site for now, so none are shown. © AURA and the plate copyright holders.",
     link: { href: "https://archive.stsci.edu/dss/", label: "archive.stsci.edu/dss" },
   },
   {
@@ -59,7 +67,7 @@ const EQUIPMENT: Credit[] = [
   {
     name: "ZWO Seestar S30",
     license: "Manufacturer specifications",
-    text: "30 mm aperture, 150 mm focal length, 2.46° field (axis not stated). The original S30, not the S30 Pro.",
+    text: "30 mm aperture, 150 mm focal length, 2.46° field (axis not stated). The original S30, not the S30 Pro. Seestar and ZWO are trademarks of their owner; AstroPlanner isn’t affiliated with or endorsed by ZWO.",
     link: { href: "https://us.seestar.com/products/seestar-s30-all-in-one-smart-telescope", label: "Manufacturer product page" },
   },
 ];
@@ -77,6 +85,14 @@ function CreditGroup({ title, items }: { title: string; items: Credit[] }) {
             <a href={c.link.href} target="_blank" rel="noreferrer">
               {c.link.label}
             </a>
+          )}
+          {c.licenseLink && (
+            <>
+              {" · "}
+              <a href={c.licenseLink.href} target="_blank" rel="noreferrer">
+                {c.licenseLink.label}
+              </a>
+            </>
           )}
         </div>
       ))}
