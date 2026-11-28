@@ -45,7 +45,7 @@ for (const { path, headline } of PAGES) {
       expect(Math.abs(mid(slot!) - mid(box!)), "slot and pill on one row").toBeLessThan(4);
       expect(Math.abs(mid(logo!) - mid(box!)), "logo and pill on one row").toBeLessThan(4);
       // The section links sit behind a Menu button on the same row, right of the pill and inside the screen.
-      const menu = page.getByRole("banner").getByRole("button", { name: "Menu" });
+      const menu = page.getByRole("banner").getByRole("button", { name: "Menu", exact: true });
       const m = (await menu.boundingBox())!;
       expect(m.x).toBeGreaterThanOrEqual(box!.x + box!.width);
       expect(m.x + m.width).toBeLessThanOrEqual(size.width);

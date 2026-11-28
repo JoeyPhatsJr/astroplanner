@@ -15,7 +15,7 @@ export function TargetLogPage() {
   const { targetId } = useParams();
   const q = useAstroLogTarget(targetId);
   const missing = isNotFound(q.error) || (!q.isLoading && !q.error && !q.data);
-  useDocTitle(q.data ? q.data.target.display_name : missing ? "Target not found" : q.error ? "AstroLog" : null);
+  useDocTitle(q.data ? q.data.target.display_name : missing ? "Target not found" : "AstroLog");
   if (q.isLoading)
     return (
       <div className="page-wide flex flex-col gap-3">

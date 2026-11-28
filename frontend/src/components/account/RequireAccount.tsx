@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { useAuthStatus } from "../../api/auth";
+import { DocTitle } from "../../lib/useDocTitle";
 import { PageLoading } from "../ui/PageLoading";
 import { AccountCheckError } from "./AccountCheckError";
 import { AstroLogSignedOut } from "./AstroLogSignedOut";
@@ -12,11 +13,19 @@ import { AstroLogSignedOut } from "./AstroLogSignedOut";
  */
 export function RequireAccount() {
   const status = useAuthStatus();
-  if (status === "loading") return <PageLoading />;
+  // While the account is unknown no page has mounted to name the tab, so it reads "AstroLog" meanwhile.
+  if (status === "loading")
+    return (
+      <>
+        <DocTitle title="AstroLog" />
+        <PageLoading />
+      </>
+    );
   if (status === "signedOut") return <AstroLogSignedOut />;
   if (status === "error") {
     return (
       <div className="page-wide pt-4 md:pt-10">
+        <DocTitle title="AstroLog" />
         <AccountCheckError />
       </div>
     );

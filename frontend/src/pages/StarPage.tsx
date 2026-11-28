@@ -18,7 +18,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 export function StarPage() {
   const { slug } = useParams();
   const q = useStar(slug);
-  useDocTitle(q.data ? q.data.star.name : isNotFound(q.error) ? "Star not found" : q.error ? "Variable Hunter" : null);
+  useDocTitle(q.data ? q.data.star.name : isNotFound(q.error) ? "Star not found" : "Variable Hunter");
   if (q.isLoading)
     return (
       <div className="page-wide flex flex-col gap-3">

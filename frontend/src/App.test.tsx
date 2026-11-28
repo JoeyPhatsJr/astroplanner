@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { seedSignedIn, seedSignedOut } from "./test/auth";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
@@ -98,6 +98,27 @@ describe("tab titles", () => {
       expect(await screen.findByRole("heading", { level: 1, name: "Your nights live in your account." })).toBeInTheDocument();
       expect(document.title).toBe("AstroLog · AstroPlanner");
       cleanup();
+    }
+  });
+
+  it("while the account check is still waiting (a sleeping server), AstroLog pages already read AstroLog", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => {})));
+    try {
+      const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={qc}>
+          <PrefsProvider initial={DEFAULT_PREFS}>
+            <ConfirmProvider>
+              <MemoryRouter initialEntries={["/astrolog/targets/t1"]}>
+                <App />
+              </MemoryRouter>
+            </ConfirmProvider>
+          </PrefsProvider>
+        </QueryClientProvider>,
+      );
+      await waitFor(() => expect(document.title).toBe("AstroLog · AstroPlanner"));
+    } finally {
+      vi.unstubAllGlobals();
     }
   });
 

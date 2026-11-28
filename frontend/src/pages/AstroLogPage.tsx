@@ -17,7 +17,7 @@ export function AstroLogPage() {
   const { sessionId } = useParams();
   const sessions = useSessions();
   const found = sessionId ? sessions.data?.find((x) => x.id === sessionId) : undefined;
-  useDocTitle(!sessionId ? "Nights" : found ? found.title : sessions.data ? "Session not found" : null);
+  useDocTitle(!sessionId ? "Nights" : found ? found.title : sessions.data ? "Session not found" : "Nights");
   if (sessions.isLoading)
     return (
       <div className="page-reading flex flex-col gap-3">
