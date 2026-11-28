@@ -111,14 +111,15 @@ def test_plans_are_private(two_users):
 
 def test_identical_imports_do_not_collide(two_users):
     alice, bob = two_users
-    loc = make_location(alice)
+    locs = {alice.user_id: make_location(alice), bob.user_id: make_location(bob)}  # places are private
+    loc = locs[alice.user_id]
     items = SUBS + [stack_item()]
     libs = {}
     for c in (alice, bob):
-        p = preview(c, items, location_id=loc)
+        p = preview(c, items, location_id=locs[c.user_id])
         assert [g["new_frames"] for g in p["groups"]] == [len(SUBS)]
         assert [st["new"] for st in p["stacks"]] == [True]
-        r = commit(c, items, loc, unsorted_groups=[p["groups"][0]["group_key"]])
+        r = commit(c, items, locs[c.user_id], unsorted_groups=[p["groups"][0]["group_key"]])
         assert r.status_code == 200, r.text
         assert (r.json()["inserted_frames"], r.json()["inserted_stacks"]) == (len(SUBS), 1)
         rows = lib_rows(c)
@@ -142,12 +143,13 @@ def test_import_attaches_only_own_plans(two_users):
     assert plan.status_code == 201, plan.text
     plan_id = plan.json()["id"]
     assert preview(alice, SUBS, location_id=loc)["groups"][0]["plan_session_ids"] == [plan_id]
-    assert preview(bob, SUBS, location_id=loc)["groups"][0]["plan_session_ids"] == []
+    bob_loc = make_location(bob)  # the same coordinates, Bob's own place
+    assert preview(bob, SUBS, location_id=bob_loc)["groups"][0]["plan_session_ids"] == []
 
-    bad = commit(bob, SUBS, loc, plan_session_id=plan_id)
+    bad = commit(bob, SUBS, bob_loc, plan_session_id=plan_id)
     assert (bad.status_code, bad.json()) == (422, {"detail": "plan_session_id does not exist."})
 
-    r = commit(bob, SUBS, loc)
+    r = commit(bob, SUBS, bob_loc)
     assert r.status_code == 200, r.text
     [bob_night] = r.json()["session_ids"]
     assert bob_night != plan_id
@@ -205,7 +207,7 @@ def test_stack_and_image_lookups_check_owner(two_users):
     a_stack = alice.get(f"/api/astrolog/targets/{a_row['id']}").json()["stacks"][0]["id"]
     a_img = alice.post(f"/api/astrolog/targets/{a_row['id']}/final-image",
                        files={"file": ("final.jpg", jpeg())}).json()["id"]
-    assert commit(bob, [sub("Blob B", "2026-09-12T03:11:24")], loc).status_code == 200
+    assert commit(bob, [sub("Blob B", "2026-09-12T03:11:24")], make_location(bob)).status_code == 200
     [b_row] = lib_rows(bob)
     b_img = bob.post(f"/api/astrolog/targets/{b_row['id']}/final-image", files={"file": ("final.jpg", jpeg())})
     assert b_img.status_code == 200, b_img.text
@@ -222,9 +224,8 @@ def test_stack_and_image_lookups_check_owner(two_users):
 
 def test_unsorted_is_per_owner(two_users):
     alice, bob = two_users
-    loc = make_location(alice)
     for c, name in ((alice, "Blob A"), (bob, "Blob B")):
-        assert commit(c, [sub(name, "2026-09-12T03:11:24")], loc).status_code == 200
+        assert commit(c, [sub(name, "2026-09-12T03:11:24")], make_location(c)).status_code == 200
         [row] = lib_rows(c)
         assert row["kind"] == "custom"
         r = c.patch(f"/api/astrolog/targets/{row['id']}", json={"kind": "unsorted"})

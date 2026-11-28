@@ -12,7 +12,7 @@ from sqlalchemy import func, select
 from app.accounts.models import User, UserSession
 from app.accounts.owned import OWNED_MODELS
 from app.astrolog.models import FinalImage
-from app.db import AppMeta, Database, ObservingSession, SessionTarget
+from app.db import AppMeta, Database, EquipmentProfile, ObservingLocation, ObservingSession, SessionTarget
 from app.processing.models import ProcessingRun, comparison_keys
 
 from .conftest import TEST_PASSWORD, client_for
@@ -91,9 +91,13 @@ def test_delete_removes_only_own_rows_and_files(two_users, tmp_path):
     alice, bob = two_users
     root = tmp_path / "previews"
     assert alice.app.state.storage.root == root
-    loc = make_location(alice)
-    a_urls, b_urls = populate(alice, loc), populate(bob, loc)
+    a_loc, b_loc = make_location(alice), make_location(bob)  # places are private: one each
+    a_urls, b_urls = populate(alice, a_loc), populate(bob, b_loc)
     a_id, b_id = alice.user_id, bob.user_id
+    a_eq = alice.post("/api/equipment/seestar-s30/duplicate").json()["id"]
+    assert bob.post("/api/equipment/seestar-s30/duplicate").status_code == 201
+    assert alice.patch(f"/api/sessions/{alice.get('/api/sessions').json()[0]['id']}",
+                       json={"equipment_id": a_eq}).status_code == 200  # in use by her own plan: still deleted
 
     before_files = stored_files(root)
     assert set(a_urls) | set(b_urls) <= before_files
@@ -120,6 +124,15 @@ def test_delete_removes_only_own_rows_and_files(two_users, tmp_path):
         assert got.status_code == 200 and got.headers["content-type"] == "image/jpeg", (key, url, got.text)
     assert bob.get("/api/locations").json() == locations
     assert bob.get("/api/equipment").json() == equipment
+    assert b_loc in {x["id"] for x in locations} and any(not x["is_preset"] for x in equipment)
+    with bob.app.state.db.session() as s:  # Alice's own place and profile went with her; the shared rows stayed
+        assert s.get(ObservingLocation, a_loc) is None and s.get(EquipmentProfile, a_eq) is None
+        assert s.scalar(select(func.count()).select_from(ObservingLocation)
+                        .where(ObservingLocation.owner_id == a_id)) == 0
+        assert s.scalar(select(func.count()).select_from(EquipmentProfile)
+                        .where(EquipmentProfile.owner_id == a_id)) == 0
+        assert s.get(ObservingLocation, "sample-location").is_sample
+        assert s.get(EquipmentProfile, "seestar-s30").is_preset
     assert app_meta(bob) == meta
 
     alice.cookies.clear()

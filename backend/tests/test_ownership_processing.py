@@ -88,7 +88,7 @@ def test_last_time_never_reads_another_users_run(two_users):
     loc = make_location(alice)
     seestar_night(alice, loc)
     a_run = start_run(alice)
-    forty_frame_night(bob, loc)
+    forty_frame_night(bob, make_location(bob))  # places are private: Bob uses his own
     b_run = start_run(bob)
     assert upload(bob, b_run["id"], night_files()).status_code == 200
     r = bob.patch(f"{RUNS}/{b_run['id']}", json={"choices": {"selection": "previous"}})
