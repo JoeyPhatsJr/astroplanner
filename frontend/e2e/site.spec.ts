@@ -44,6 +44,17 @@ for (const { path, headline } of PAGES) {
       const mid = (b: { y: number; height: number }) => b.y + b.height / 2;
       expect(Math.abs(mid(slot!) - mid(box!)), "slot and pill on one row").toBeLessThan(4);
       expect(Math.abs(mid(logo!) - mid(box!)), "logo and pill on one row").toBeLessThan(4);
+      // The section links sit behind a Menu button on the same row, right of the pill and inside the screen.
+      const menu = page.getByRole("banner").getByRole("button", { name: "Menu" });
+      const m = (await menu.boundingBox())!;
+      expect(m.x).toBeGreaterThanOrEqual(box!.x + box!.width);
+      expect(m.x + m.width).toBeLessThanOrEqual(size.width);
+      expect(Math.min(m.width, m.height)).toBeGreaterThanOrEqual(44);
+      expect(Math.abs(mid(m) - mid(box!)), "menu and pill on one row").toBeLessThan(4);
+      await menu.click();
+      await expect(page.getByRole("banner").getByRole("link", { name: "Explore" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(menu).toHaveAttribute("aria-expanded", "false");
     }
   });
 }

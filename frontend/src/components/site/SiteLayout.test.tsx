@@ -31,6 +31,32 @@ describe("SiteLayout", () => {
     expect(link).toHaveAttribute("href", "https://github.com/JoeyPhatsJr/astroplanner");
   });
 
+  it("phones: the Menu button discloses the section links; Escape closes it and returns focus; a link closes it", async () => {
+    renderAt("/");
+    const site = screen.getByRole("navigation", { name: "Site" });
+    const button = within(site).getByRole("button", { name: "Menu" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    // Closed, the links exist once (the desktop list); the panel adds no copies.
+    expect(within(site).getAllByRole("link", { name: "Explore" })).toHaveLength(1);
+
+    await userEvent.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    const panel = document.getElementById(button.getAttribute("aria-controls")!)!;
+    expect(within(panel).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
+      ["Explore", "/explore"],
+      ["AstroLog", "/astrolog"],
+      ["Variable stars", "/variables"],
+    ]);
+
+    await userEvent.keyboard("{Escape}");
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).toHaveFocus();
+
+    await userEvent.click(button);
+    await userEvent.click(within(document.getElementById(button.getAttribute("aria-controls")!)!).getByRole("link", { name: "Variable stars" }));
+    expect(await screen.findByRole("heading", { level: 1, name: "Variable Hunter" })).toBeInTheDocument();
+  });
+
   it("skip link targets the main landmark", () => {
     renderAt("/");
     expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#site-main");
