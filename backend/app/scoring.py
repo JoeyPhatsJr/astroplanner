@@ -178,9 +178,16 @@ def tonight_score(ctx: SkyContext, weather: dict[str, np.ndarray] | None, darkne
     c_mean, p_mean, m_mean = (round(float(x[sl].mean()), 1) for x in (cp, pp, moon_pts))
     total = round(c_mean + p_mean + m_mean + dark_pts, 1)
     partial = bool((dark & ~weather_ok).any())
-    return base | {
+    capped = clouded_out_cap(total, night_clear(ctx, weather, darkness) is None)
+    summary = (
+        "Some darkness hours lack forecast values and were excluded from the window search."
+        if partial else "Best 2-hour window of darkness using hourly forecast values."
+    )
+    if capped:
+        summary = f"Clouded out: no forecast-clear dark time, so the score is capped at {CLOUDED_OUT_CAP:.0f}. " + summary
+    return base | capped | {
         "status": "partial_weather" if partial else "ok",
-        "total": total,
+        "total": capped["total"] if capped else total,
         "window": _window(ctx, s, e),
         "components": [
             comp("cloud", "Cloud cover", c_mean, "forecast",
@@ -190,10 +197,29 @@ def tonight_score(ctx: SkyContext, weather: dict[str, np.ndarray] | None, darkne
             comp("moon", "Moonlight", m_mean, "calculated", _moon_detail(ctx, s, e)),
             darkness_comp,
         ],
-        "summary": (
-            "Some darkness hours lack forecast values and were excluded from the window search."
-            if partial else "Best 2-hour window of darkness using hourly forecast values."
-        ),
+        "summary": summary,
+    }
+
+
+# A night (or a target's window) with no forecast-clear dark time can't be "okay", however dark and moonless:
+# the additive weights would otherwise let rain, Moon and darkness carry an overcast night to 55/100.
+CLOUDED_OUT_CAP = 20.0
+CLOUDED_OUT_REASON = "No forecast-clear dark time (cloud ≤ {c:.0f}% and rain chance ≤ {p:.0f}%)"
+
+
+def clouded_out_cap(total: float, clouded_out: bool, max_total: float = 100.0) -> dict[str, Any]:
+    """When clouded out, the capped total plus what was capped and why; otherwise {} (nothing changes).
+
+    The components keep their own points, so the breakdown still explains the night; ``uncapped_total`` is what
+    they sum to.
+    """
+    if not clouded_out:
+        return {}
+    limit = round(CLOUDED_OUT_CAP / 100.0 * max_total, 1)
+    return {
+        "total": min(total, limit),
+        "uncapped_total": total,
+        "cap": {"value": limit, "reason": CLOUDED_OUT_REASON.format(c=FAVORABLE_CLOUD_PCT, p=FAVORABLE_PRECIP_PCT)},
     }
 
 
@@ -356,6 +382,8 @@ def target_score(
     scored = [c for c in comps if c["points"] is not None]
     total = round(sum(c["points"] for c in scored), 1)
     max_total = sum(c["max"] for c in scored)
+    weather_scored = any(c["key"] == "weather" and c["points"] is not None for c in comps)
+    capped = clouded_out_cap(total, weather_scored and forecast_window is None, max_total)
 
     why = [
         f"Above {min_alt_deg:.0f}° for {vis.best_window_minutes / 60:.1f} h of darkness "
@@ -379,11 +407,14 @@ def target_score(
     if vis.best_window_minutes < 90:
         cautions.append("Short window: limited total integration time.")
 
-    return {
+    shown = capped["total"] if capped else total
+    return capped | {
         "kind": "heuristic",
-        "total": total,
+        "total": shown,
         "max_total": max_total,
-        "normalized": round(total / max_total * 100, 1) if max_total else None,
+        "normalized": round(shown / max_total * 100, 1) if max_total else None,
+        # Ranking keeps using the geometry and Moon even on a clouded-out night, so the best target stays first.
+        "rank_normalized": round(total / max_total * 100, 1) if max_total else None,
         "components": comps,
         "why": why[:4],
         "cautions": cautions[:4],

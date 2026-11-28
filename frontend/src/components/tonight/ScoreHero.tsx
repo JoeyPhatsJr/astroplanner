@@ -80,6 +80,7 @@ export function ScoreHero({ score, tz, headline }: { score: TonightScore; tz: st
               for the best {score.window ? formatDuration(score.window.minutes) : "window"}{win ? `, ${win}` : ""}
             </span>
             <span className="badge">Heuristic</span>
+            {score.cap && <span className="badge text-warn" data-testid="score-capped">Clouded out</span>}
           </p>
         </div>
       ) : (
@@ -117,6 +118,7 @@ export function ScoreHero({ score, tz, headline }: { score: TonightScore; tz: st
             <p className="text-label text-muted">
               Components sum to {formatPoints(sum)}
               {score.status === "partial_weather" ? ". Some dark hours had no forecast values and were skipped." : "."}
+              {score.cap && ` ${score.cap.reason}, so the score is capped at ${formatPoints(score.cap.value)}.`}
             </p>
           )}
           <div>

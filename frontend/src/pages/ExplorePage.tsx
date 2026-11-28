@@ -163,7 +163,7 @@ export function Row({ rec, tz, minAlt, onOpen }: { rec: Recommendation; tz: stri
           <Sparkline values={rec.sparkline_alt_deg} minAlt={minAlt} width={100} height={28} />
         </span>
         <span className="w-14 text-right">
-          {score.total !== null ? <ScoreChip total={score.total} max={score.max_total} /> : <span className="text-xs text-muted">–</span>}
+          {score.total !== null ? <ScoreChip total={score.total} max={score.max_total} capped={!!score.cap} /> : <span className="text-xs text-muted">–</span>}
         </span>
       </button>
       <div className="mt-1 px-1 empty:hidden">

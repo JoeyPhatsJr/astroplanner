@@ -122,7 +122,7 @@ export function AccountPage() {
             Your data
           </h2>
           <p className="acct-p">
-            Your session plans, AstroLog library, final-picture previews and processing notes are stored with this account.{" "}
+            Your places, equipment, session plans, AstroLog library, final-picture previews and processing notes are stored with this account.{" "}
             <Link to="/privacy" className="acct-link">
               Privacy
             </Link>{" "}

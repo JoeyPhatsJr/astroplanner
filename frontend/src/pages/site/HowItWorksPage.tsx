@@ -112,6 +112,11 @@ export function HowItWorksPage() {
           <b className="site-strong">No forecast, no total.</b> If the weather can’t be fetched, you see the Moon and darkness parts on
           their own, out of {tonightNoForecast}, never a made-up 100. Missing forecast hours are skipped, not treated as clear.
         </p>
+        <p>
+          <b className="site-strong">Clouded out, capped at 20.</b> If no dark hour is forecast clear (cloud at most 40% and rain chance
+          at most 30%), the score can’t go above 20 and says “Clouded out”, however dark and moonless the night. Targets get the same cap
+          but keep their order, so the best one to try if it clears still comes first.
+        </p>
 
         <h2 id="ranking" className="landing-h2 site-h2">
           Ranking targets

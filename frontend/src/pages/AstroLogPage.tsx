@@ -17,7 +17,7 @@ export function AstroLogPage() {
   const { sessionId } = useParams();
   const sessions = useSessions();
   const found = sessionId ? sessions.data?.find((x) => x.id === sessionId) : undefined;
-  useDocTitle(!sessionId ? "Nights" : found ? found.title : sessions.data ? "Session not found" : "Nights");
+  useDocTitle(!sessionId ? "Nights" : found ? found.title : sessions.data ? "Night not found" : "Nights");
   if (sessions.isLoading)
     return (
       <div className="page-reading flex flex-col gap-3">
@@ -32,7 +32,7 @@ export function AstroLogPage() {
     const s = list.find((x) => x.id === sessionId);
     if (!s)
       return (
-        <EmptyState title="Session not found" action={<Link to="/astrolog/nights" className="btn">Back to nights</Link>}>
+        <EmptyState title="Night not found" action={<Link to="/astrolog/nights" className="btn">Back to nights</Link>}>
           It may have been deleted.
         </EmptyState>
       );

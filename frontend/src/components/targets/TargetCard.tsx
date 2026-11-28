@@ -11,9 +11,12 @@ import { Sparkline } from "./Sparkline";
 export function ScoreChip({
   total,
   max,
+  capped = false,
 }: {
   total: number | null;
   max: number | null;
+  /** Clouded out: no forecast-clear time in the window, so the score is capped. */
+  capped?: boolean;
 }) {
   if (total === null || max === null) return null;
   return (
@@ -22,8 +25,10 @@ export function ScoreChip({
         {Math.round(total)}
         <span className="font-sans text-xs text-muted">/{max}</span>
       </p>
-      {max < 100 && (
-        <p className="mt-0.5 text-micro text-warn">weather excluded</p>
+      {capped ? (
+        <p className="mt-0.5 text-micro text-warn">clouded out</p>
+      ) : (
+        max < 100 && <p className="mt-0.5 text-micro text-warn">weather excluded</p>
       )}
     </div>
   );
@@ -82,7 +87,7 @@ export function TargetCard({
               {t.name}
             </button>
           </h3>
-          <ScoreChip total={score.total} max={score.max_total} />
+          <ScoreChip total={score.total} max={score.max_total} capped={!!score.cap} />
         </div>
         <p className="mt-0.5 truncate text-label text-muted" title={sub}>
           {sub}

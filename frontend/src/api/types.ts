@@ -145,6 +145,15 @@ export interface TonightScore {
   window: { start_utc: string; end_utc: string; minutes: number } | null;
   components: ScoreComponent[];
   summary: string;
+  /** Present only when clouded out: `total` is capped, and the components sum to `uncapped_total`. */
+  cap?: ScoreCap;
+  uncapped_total?: number;
+}
+
+/** A clouded-out night or window: no forecast-clear dark time, so the score is capped. */
+export interface ScoreCap {
+  value: number;
+  reason: string;
 }
 
 export interface NightClear {
@@ -209,6 +218,8 @@ export interface TargetScore {
   why: string[];
   cautions: string[];
   forecast_window: (Interval & { minutes: number; rule: string }) | null;
+  cap?: ScoreCap;
+  uncapped_total?: number;
 }
 
 export interface Recommendation {

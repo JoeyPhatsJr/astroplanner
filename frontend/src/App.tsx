@@ -7,6 +7,7 @@ import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { PageLoading } from "./components/ui/PageLoading";
 import { EmptyState } from "./components/ui/States";
 import { DocTitle, useDocTitle } from "./lib/useDocTitle";
+import { useScrollToTop } from "./lib/useScrollToTop";
 import { LandingPage } from "./pages/LandingPage";
 import { AccountPage } from "./pages/account/AccountPage";
 import { ResetHelpPage } from "./pages/account/ResetHelpPage";
@@ -47,6 +48,7 @@ function NotFoundPage() {
 /** Every app page shares the shell (sidebar, header controls, tab bar); the landing page does not. */
 function ShellLayout() {
   const loc = useLocation();
+  useScrollToTop(); // without it, a page opened from far down another one starts at its bottom
   return (
     <AppShell>
       <ErrorBoundary resetKey={loc.pathname}>
