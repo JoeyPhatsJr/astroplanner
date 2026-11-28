@@ -4,6 +4,7 @@ import { collectErrors } from "./auth";
 const PAGES = [
   { path: "/how-it-works", headline: "Every number shows its work." },
   { path: "/privacy", headline: "Your pictures stay yours." },
+  { path: "/cookies", headline: "One cookie, no trackers." },
   { path: "/credits", headline: "Built on open science." },
   { path: "/terms", headline: "Plain terms." },
 ];

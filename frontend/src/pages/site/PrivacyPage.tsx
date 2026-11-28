@@ -111,7 +111,7 @@ export function PrivacyPage() {
           scripts on the page, is sent only over HTTPS, lasts 30 days and renews while you use the site. Your browser also keeps a few
           preferences in this site’s storage (your chosen place, equipment, night, minimum altitude, darkness, plan, night vision and
           sidebar), and a random id for this tab that lets the server hold the forecast your browser fetched for 30 minutes. There are no
-          tracking or advertising cookies.
+          tracking or advertising cookies. The <Link to="/cookies">Cookies</Link> page lists each item and how long it lasts.
         </p>
         <h2 className="landing-h2 site-h2">How long it’s kept</h2>
         <p>

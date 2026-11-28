@@ -87,7 +87,7 @@ function renderAppAt(path: string) {
   );
 }
 
-const SITE_PATHS = ["/", "/how-it-works", "/privacy", "/credits", "/terms"];
+const SITE_PATHS = ["/", "/how-it-works", "/privacy", "/cookies", "/credits", "/terms"];
 
 async function searchFor(text: string) {
   fireEvent.change(screen.getByLabelText("Your city"), { target: { value: text } });
@@ -128,7 +128,7 @@ describe("LandingPage content", () => {
 
   it.each(SITE_PATHS)("only links to real app routes, header and footer included (%s)", (path) => {
     const { container } = renderAppAt(path);
-    const routes = new Set(["/", "/tonight", "/explore", "/astrolog", "/variables", "/settings", "/account", "/how-it-works", "/privacy", "/credits", "/terms", "#site-main"]);
+    const routes = new Set(["/", "/tonight", "/explore", "/astrolog", "/variables", "/settings", "/account", "/how-it-works", "/privacy", "/cookies", "/credits", "/terms", "#site-main"]);
     const anchors = container.querySelectorAll<HTMLAnchorElement>("a[href]");
     expect(anchors.length).toBeGreaterThan(0);
     for (const a of anchors) {
