@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAstroLogTarget, useLinkVariable, useUpdateLibraryTarget, type TargetPage } from "../api/astrolog";
+import { isNotFound } from "../api/client";
 import { useVariables, type VariableListItem } from "../api/variables";
 import { FinalPicturePicker } from "../components/astrolog/FinalPicturePicker";
 import { headlineLabel, imageSrc } from "../components/astrolog/TargetTile";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate, formatExposures, formatIntegration, formatLocalSpan } from "../lib/time";
+import { useDocTitle } from "../lib/useDocTitle";
 import { PageHeader } from "../components/ui/PageHeader";
 
 export function TargetLogPage() {
   const { targetId } = useParams();
   const q = useAstroLogTarget(targetId);
+  const missing = isNotFound(q.error) || (!q.isLoading && !q.error && !q.data);
+  useDocTitle(q.data ? q.data.target.display_name : missing ? "Target not found" : "AstroLog");
   if (q.isLoading)
     return (
       <div className="page-wide flex flex-col gap-3">
@@ -19,8 +23,9 @@ export function TargetLogPage() {
         <Skeleton className="h-72" />
       </div>
     );
-  if (q.error) return <ErrorState error={q.error} onRetry={() => q.refetch()} title="Couldn't load this target" />;
-  if (!q.data)
+  // A 404 is an answer, not a failure: a retry would get the same one, so offer the way back instead.
+  if (q.error && !isNotFound(q.error)) return <ErrorState error={q.error} onRetry={() => q.refetch()} title="Couldn't load this target" />;
+  if (q.error || !q.data)
     return (
       <EmptyState title="Target not found" action={<Link to="/astrolog" className="btn">Back to library</Link>}>
         It may have been removed.

@@ -1,5 +1,6 @@
 import { useCallback, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
+import { AccountDeletedNotice } from "../components/account/AccountDeletedNotice";
 import { CitySearch } from "../components/landing/CitySearch";
 import { GALLERY, HERO_PHOTO, type Sky } from "../components/landing/content";
 import { StoryChapters } from "../components/landing/StoryChapters";
@@ -18,6 +19,7 @@ export function LandingPage() {
 
   return (
     <>
+      <AccountDeletedNotice />
       {/* 1 · Header first */}
       <section className="mx-auto max-w-[1160px] px-4 pt-14 text-center sm:px-10 sm:pt-24" aria-labelledby="landing-title">
         <p className="landing-eyebrow landing-rise">Astrophotography, made easy</p>

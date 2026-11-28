@@ -4,6 +4,7 @@ import { useVariables, type VariableListItem } from "../api/variables";
 import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Skeleton } from "../components/ui/States";
 import { PageHeader } from "../components/ui/PageHeader";
+import { useDocTitle } from "../lib/useDocTitle";
 
 export function vsxRange(v: VariableListItem["vsx"]): string {
   if (v.max_mag === null || v.min_mag === null) return "range not listed";
@@ -11,6 +12,7 @@ export function vsxRange(v: VariableListItem["vsx"]): string {
 }
 
 export function VariableHunterPage() {
+  useDocTitle("Variable Hunter");
   const q = useVariables();
   return (
     <div className="page-wide flex flex-col gap-5">

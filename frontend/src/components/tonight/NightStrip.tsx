@@ -234,7 +234,8 @@ export function NightStrip({ night, forecast, clear, bestWindow, tz }: Props) {
         {tip ??
           (hasHourly ? (
             <>
-              <span className="[@media(hover:none)]:hidden">Hover over the strip for hourly values.</span>
+              {/* Some touch screens report hover support, so only a device that says it can't hover drops "hover". */}
+              <span className="[@media(hover:none)]:hidden">Hover or tap the strip for hourly values.</span>
               <span className="hidden [@media(hover:none)]:inline">Tap the strip for hourly values.</span>
             </>
           ) : (

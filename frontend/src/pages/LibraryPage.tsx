@@ -5,8 +5,10 @@ import { useAstroLogLibrary } from "../api/astrolog";
 import { TargetTile } from "../components/astrolog/TargetTile";
 import { EmptyState, ErrorState, Skeleton } from "../components/ui/States";
 import { PageHeader } from "../components/ui/PageHeader";
+import { useDocTitle } from "../lib/useDocTitle";
 
 export function LibraryPage() {
+  useDocTitle("AstroLog");
   const lib = useAstroLogLibrary();
   const [filter, setFilter] = useState("all");
   const rows = lib.data ?? [];

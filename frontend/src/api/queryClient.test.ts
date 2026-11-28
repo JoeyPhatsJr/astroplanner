@@ -7,6 +7,10 @@ describe("query retries", () => {
     expect(shouldRetry(0, new ApiError(401, "Sign in"))).toBe(false);
   });
 
+  it("never retries a 404", () => {
+    expect(shouldRetry(0, new ApiError(404, "Target not found"))).toBe(false);
+  });
+
   it.each([0, 429, 502, 503, 504])("retries a transient %i up to three times with growing waits", (status) => {
     const e = new ApiError(status, "busy");
     expect([0, 1, 2, 3].map((n) => shouldRetry(n, e))).toEqual([true, true, true, false]);

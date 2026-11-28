@@ -89,6 +89,8 @@ describe("AstroLog gate", () => {
         "href",
         `/signup?next=${encodeURIComponent(path)}`,
       );
+      // The list's name is a visible heading, so sighted users read the checkmarks the same way.
+      expect(within(main).getByRole("heading", { level: 2, name: "Works without an account" })).toBeVisible();
       const works = within(main).getByRole("list", { name: "Works without an account" });
       expect(within(works).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
         "Tonight’s sky and score",
@@ -481,6 +483,21 @@ describe("Tonight signed out", () => {
     expect(within(plan).queryByRole("alert")).toBeNull();
     expect(within(plan).queryByText("Sign in to continue.")).toBeNull();
     expect(await screen.findByRole("link", { name: "Sign in to add Andromeda Galaxy to a session" })).toBeInTheDocument();
+  });
+});
+
+describe("Tonight's plan panel signed in", () => {
+  it("before any plan exists, All sessions goes to the nights list, not the library", async () => {
+    handlers["GET /api/locations"] = () => json([place]);
+    handlers["GET /api/equipment"] = () => json([]);
+    handlers["GET /api/tonight"] = () => json(tonight);
+    handlers["GET /api/recommendations"] = () => json(recommendations);
+    handlers["GET /api/astrolog/history"] = () => json({});
+    handlers["GET /api/sessions"] = () => json([]);
+    renderApp("/tonight", seedSignedIn);
+    const plan = await screen.findByRole("region", { name: "Session plan" });
+    expect(await within(plan).findByText(/No plan for this night yet/)).toBeInTheDocument();
+    expect(within(plan).getByRole("link", { name: "All sessions" })).toHaveAttribute("href", "/astrolog/nights");
   });
 });
 

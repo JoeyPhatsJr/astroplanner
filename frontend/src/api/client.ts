@@ -27,6 +27,9 @@ export class ApiError extends Error {
   }
 }
 
+/** The API answered 404: the thing asked for is not there, or does not belong to this account. */
+export const isNotFound = (e: unknown): boolean => e instanceof ApiError && e.status === 404;
+
 export function detailMessage(body: unknown, status: number): string {
   if (body && typeof body === "object" && "detail" in body) {
     const d = (body as { detail: unknown }).detail;

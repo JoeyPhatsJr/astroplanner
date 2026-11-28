@@ -17,6 +17,7 @@ import { batch, classifyFile, readExifSlice, readFitsHeader } from "../lib/heade
 import { clearImportStash, setImportStash, takeImportStash } from "../lib/importStash";
 import { mergeGroups } from "../lib/importMerge";
 import { formatCalendarDate, formatDateTime, formatIntegration, nightLabel } from "../lib/time";
+import { useDocTitle } from "../lib/useDocTitle";
 import { PageHeader } from "../components/ui/PageHeader";
 
 type PickedFile = { file: File; path: string };
@@ -65,6 +66,7 @@ async function walk(entry: FsEntry, out: PickedFile[]): Promise<void> {
 }
 
 export function AstroLogImportPage() {
+  useDocTitle("Import a folder");
   const navigate = useNavigate();
   const qc = useQueryClient();
   const locations = useLocations();

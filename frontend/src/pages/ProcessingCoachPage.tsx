@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { isNotFound } from "../api/client";
 import { usePatchRun, useRun, useStartRun, type RunOut } from "../api/processing";
 import { CoachRail } from "../components/processing/CoachRail";
 import { CompareStep } from "../components/processing/CompareStep";
@@ -11,6 +12,7 @@ import { StackUpload } from "../components/processing/StackUpload";
 import { StepPanel } from "../components/processing/StepPanel";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate } from "../lib/time";
+import { useDocTitle } from "../lib/useDocTitle";
 import { PageHeader } from "../components/ui/PageHeader";
 
 const CLEARED_TEXT = "Your frame choice was cleared because the Siril folder was re-read; the counts may have changed. Choose again in step 4.";
@@ -18,6 +20,7 @@ const CLEARED_TEXT = "Your frame choice was cleared because the Siril folder was
 export function ProcessingCoachPage() {
   const { captureSetId } = useParams();
   const start = useStartRun();
+  useDocTitle(isNotFound(start.error) ? "Night not found" : "Processing coach");
   const startedFor = useRef<string | null>(null);
   const { mutate } = start;
   useEffect(() => {
@@ -34,6 +37,13 @@ export function ProcessingCoachPage() {
     return (
       <EmptyState title="No night chosen" action={<Link to="/astrolog" className="btn">Back to library</Link>}>
         Open a Seestar S30 night from a target page to start the coach.
+      </EmptyState>
+    );
+  // A 404 is an answer, not a failure: a retry would get the same one, so offer the way back instead.
+  if (isNotFound(start.error))
+    return (
+      <EmptyState title="Night not found" action={<Link to="/astrolog" className="btn">Back to library</Link>}>
+        This night isn’t in your AstroLog. It may have been removed.
       </EmptyState>
     );
   if (start.error)

@@ -7,6 +7,7 @@ import { SessionTargetList } from "../components/session/SessionTargetList";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate, formatExposures, formatIntegration, formatLocalSpan, nightLabel } from "../lib/time";
+import { useDocTitle } from "../lib/useDocTitle";
 import { usePrefs } from "../state/prefs";
 import { PageHeader } from "../components/ui/PageHeader";
 
@@ -15,6 +16,8 @@ const STATUS_LABEL: Record<SessionStatus, string> = { planned: "Planned", comple
 export function AstroLogPage() {
   const { sessionId } = useParams();
   const sessions = useSessions();
+  const found = sessionId ? sessions.data?.find((x) => x.id === sessionId) : undefined;
+  useDocTitle(!sessionId ? "Nights" : found ? found.title : sessions.data ? "Session not found" : "Nights");
   if (sessions.isLoading)
     return (
       <div className="page-reading flex flex-col gap-3">

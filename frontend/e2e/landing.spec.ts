@@ -76,15 +76,32 @@ test("night vision turns the landing pictures red only", async ({ page }) => {
   expect(r).toBeGreaterThan(2.5 * Math.max(g, b));
 });
 
-test("city box opens Tonight for the chosen place (live geocoding, tolerated when offline)", async ({ page }) => {
+// The place search answer is stubbed: live Open-Meteo geocoding made this test flaky on CI (slow or rate-limited
+// answers timed out the second search). Everything after the search (saving the place, Tonight) is the real app.
+const DENVER = {
+  label: "Denver, Colorado, United States",
+  latitude: 39.73915,
+  longitude: -104.9847,
+  elevation_m: 1636,
+  timezone: "America/Denver",
+  country_code: "US",
+  population: 682545,
+};
+
+test("city box opens Tonight for the chosen place", async ({ page }) => {
+  const searches: string[] = [];
+  await page.route(/\/api\/geocode\?/, async (route) => {
+    searches.push(new URL(route.request().url()).searchParams.get("q") ?? "");
+    await route.fulfill({ json: { results: [DENVER], source: "Open-Meteo Geocoding API" } });
+  });
+
   await page.goto("/");
   await page.getByLabel("Your city").fill("Denver");
   await page.getByRole("button", { name: /Find out/ }).click();
 
   const firstPlace = page.getByRole("list", { name: /Places matching Denver/ }).getByRole("button").first();
-  const failed = page.getByText(/Couldn’t reach the place search/);
-  await expect(firstPlace.or(failed)).toBeVisible();
-  test.skip(await failed.isVisible(), "Open-Meteo geocoding unreachable from this machine");
+  await expect(firstPlace).toBeVisible();
+  expect(searches).toEqual(["Denver"]);
 
   await firstPlace.click();
   await expect(page).toHaveURL(/\/tonight$/);
@@ -104,4 +121,5 @@ test("city box opens Tonight for the chosen place (live geocoding, tolerated whe
     return list.filter((l) => l.label.includes("Denver")).length;
   });
   expect(denvers).toBe(1);
+  expect(searches, "both searches answered by the stub, none live").toEqual(["Denver", "Denver"]);
 });

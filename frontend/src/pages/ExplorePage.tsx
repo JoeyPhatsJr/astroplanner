@@ -12,10 +12,12 @@ import { EmptyState, ErrorState, Notice, Skeleton, SlowLoadHint } from "../compo
 import { weatherReason } from "../lib/forecastGap";
 import { formatDeg, formatSize } from "../lib/format";
 import { formatTime } from "../lib/time";
+import { useDocTitle } from "../lib/useDocTitle";
 import { usePrefs } from "../state/prefs";
 import { PageHeader } from "../components/ui/PageHeader";
 
 export function ExplorePage() {
+  useDocTitle("Explore");
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState(params.get("q") ?? "");
   const [debounced, setDebounced] = useState(query);
@@ -63,10 +65,13 @@ export function ExplorePage() {
       <PageHeader
         title="Explore"
         subtitle={
-          <>
-            {recs.data ? `${recs.data.observable_count} of ${results.length} matching targets` : "Targets"} are observable for the selected night above {prefs.minAltitudeDeg}°. Every target
-            shows why it is or isn’t.
-          </>
+          // Nothing matches: the empty state below says so, and "0 of 0 matching targets" would only repeat it.
+          recs.data && results.length === 0 ? undefined : (
+            <>
+              {recs.data ? `${recs.data.observable_count} of ${results.length} matching targets` : "Targets"} are observable for the selected night above {prefs.minAltitudeDeg}°. Every target
+              shows why it is or isn’t.
+            </>
+          )
         }
       />
 

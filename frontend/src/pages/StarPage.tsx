@@ -1,6 +1,7 @@
 import { Check, ExternalLink, LogIn, Plus } from "lucide-react";
 import { useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
+import { isNotFound } from "../api/client";
 import { useCurrentEquipment, useObserver } from "../api/hooks";
 import { useStar, useStarVisibility, type StarResponse } from "../api/variables";
 import { AccountCheckNote, useAccountCheckRetry } from "../components/account/AccountCheckError";
@@ -9,6 +10,7 @@ import { StarExplainer } from "../components/variables/StarExplainer";
 import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { loginHref } from "../lib/returnTo";
+import { useDocTitle } from "../lib/useDocTitle";
 import { useActiveSession } from "../state/activeSession";
 import { vsxRange } from "./VariableHunterPage";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -16,6 +18,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 export function StarPage() {
   const { slug } = useParams();
   const q = useStar(slug);
+  useDocTitle(q.data ? q.data.star.name : isNotFound(q.error) ? "Star not found" : "Variable Hunter");
   if (q.isLoading)
     return (
       <div className="page-wide flex flex-col gap-3">
@@ -24,8 +27,7 @@ export function StarPage() {
       </div>
     );
   if (q.error) {
-    const notFound = (q.error as { status?: number }).status === 404;
-    if (notFound)
+    if (isNotFound(q.error))
       return (
         <EmptyState title="Star not found" action={<Link to="/variables" className="btn">Back to Variable Hunter</Link>}>
           That star is not in the curated list.
@@ -97,9 +99,16 @@ function AddToPlan({ starId, slug }: { starId: string; slug: string }) {
   );
 }
 
+/** VSX's period exactly as published, in days; under a day, also in hours (the same number, converted). */
+function vsxPeriod(days: number): string {
+  const hours = days < 1 ? `, about ${(days * 24).toFixed(1)} hours` : "";
+  return `${days} ${days === 1 ? "day" : "days"}${hours} (VSX)`;
+}
+
 function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
   const eq = useCurrentEquipment();
   const { star } = data;
+  const period = typeof data.vsx.period_days === "number" ? data.vsx.period_days : null;
   return (
     <div className="page-wide flex flex-col gap-5">
       <PageHeader
@@ -110,7 +119,6 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
             <p>
               {data.type_label} · {star.constellation} · {vsxRange(data.vsx)}
             </p>
-            {data.period_note && <p className="mt-0.5 text-xs text-muted">{data.period_note}</p>}
           </>
         }
         actions={<AddToPlan starId={star.id} slug={slug} />}
@@ -131,6 +139,16 @@ function StarBody({ data, slug }: { data: StarResponse; slug: string }) {
           <>
             <dt className="text-sm font-semibold text-ink-2">Seestar fit{eq ? ` · ${eq.name}` : ""}</dt>
             <dd className="m-0 max-w-[62ch] text-sm text-ink-2">{data.seestar_fit.text}</dd>
+          </>
+        )}
+        {period !== null && (
+          <>
+            <dt className="text-sm font-semibold text-ink-2">Period</dt>
+            <dd className="m-0 max-w-[62ch] text-sm text-ink">
+              {vsxPeriod(period)}
+              {/* The note explains which period VSX lists, so it shows only beside that number. */}
+              {data.period_note && <p className="mt-0.5 text-xs text-muted">{data.period_note}</p>}
+            </dd>
           </>
         )}
         <dt className="text-sm font-semibold text-ink-2">Light curve</dt>

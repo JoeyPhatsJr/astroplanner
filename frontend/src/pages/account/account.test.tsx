@@ -191,14 +191,21 @@ describe("account page", () => {
     const sent = posts("/api/auth/delete");
     expect(sent).toHaveLength(2);
     expect(JSON.parse(String(sent[1].init?.body))).toEqual({ password: "correct horse battery staple", confirm: "DELETE" });
+
+    // Home says what happened, until dismissed.
+    const notice = await screen.findByText("Your account and its data were deleted.");
+    expect(notice.closest("[role=status]")).not.toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByText("Your account and its data were deleted.")).toBeNull();
   });
 
-  it("sign out from the account page goes home", async () => {
+  it("sign out from the account page goes home, with no deleted notice", async () => {
     handlers["POST /api/auth/logout"] = noContent;
     renderApp("/account", seedSignedIn);
     await userEvent.click(within(screen.getByRole("region", { name: "Your data" })).getByRole("button", { name: "Sign out" }));
     await waitFor(() => expect(location()).toBe("/"));
     expect(await within(screen.getByRole("banner")).findByRole("link", { name: "Sign in" })).toBeInTheDocument();
+    expect(screen.queryByText("Your account and its data were deleted.")).toBeNull();
   });
 
   it("too many wrong passwords and the server's rule messages show on their field", async () => {

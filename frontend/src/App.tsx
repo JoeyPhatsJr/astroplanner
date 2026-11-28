@@ -6,6 +6,7 @@ import { SiteLayout } from "./components/site/SiteLayout";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { PageLoading } from "./components/ui/PageLoading";
 import { EmptyState } from "./components/ui/States";
+import { DocTitle, useDocTitle } from "./lib/useDocTitle";
 import { LandingPage } from "./pages/LandingPage";
 import { AccountPage } from "./pages/account/AccountPage";
 import { ResetHelpPage } from "./pages/account/ResetHelpPage";
@@ -32,6 +33,15 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage").then((m) => ({ de
 function NightRedirect() {
   const { sessionId } = useParams();
   return <Navigate to={`/astrolog/nights/${sessionId ?? ""}`} replace />;
+}
+
+function NotFoundPage() {
+  useDocTitle("Page not found");
+  return (
+    <EmptyState title="Page not found" action={<Link to="/tonight" className="btn btn-primary">Go to Tonight</Link>}>
+      That address doesn’t match a page in AstroPlanner.
+    </EmptyState>
+  );
 }
 
 /** Every app page shares the shell (sidebar, header controls, tab bar); the landing page does not. */
@@ -79,15 +89,16 @@ export default function App() {
         </Route>
         {/* Signed out, the Account page sends you to sign in and back (it is not the AstroLog gate). */}
         <Route path="/account" element={<AccountPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
         <Route
-          path="*"
+          path="/settings"
           element={
-            <EmptyState title="Page not found" action={<Link to="/tonight" className="btn btn-primary">Go to Tonight</Link>}>
-              That address doesn’t match a page in AstroPlanner.
-            </EmptyState>
+            <>
+              <DocTitle title="Settings" />
+              <SettingsPage />
+            </>
           }
         />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );

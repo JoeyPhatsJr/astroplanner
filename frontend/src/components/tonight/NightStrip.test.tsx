@@ -146,6 +146,9 @@ describe("NightStrip", () => {
     expect(label.closest(".sr-only")).not.toBeNull();
     expect(label.textContent).toContain("3 h");
     expect(screen.getByText("Tap the strip for hourly values.")).toBeTruthy();
+    // Wherever the device reports hover (some touch screens do), the hint names both, since a tap works too.
+    expect(screen.getByText("Hover or tap the strip for hourly values.")).toBeTruthy();
+    expect(screen.queryByText(/Hover over the strip/)).toBeNull();
   });
 
   it("draws a Moon band only while the Moon is above the horizon", () => {
