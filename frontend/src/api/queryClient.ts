@@ -24,9 +24,9 @@ export function retryDelay(attempt: number, e: unknown): number {
 
 /**
  * A 401 means the session has ended: mark the account signed out, so pages show their signed-out screen
- * instead of a raw error. The AstroLog import's stashed files are dropped. Personal progress on open pages
- * (Variable Hunter) is reset and refetched, so the previous answer with the user's own counts does not stay on
- * screen. Returns true when `e` was a 401.
+ * instead of a raw error. The AstroLog import's stashed files are dropped. Open answers that included the user's
+ * own rows (their places and equipment, Variable Hunter progress) are reset and refetched, so they do not stay
+ * on screen. Returns true when `e` was a 401.
  *
  * TanStack queries and mutations go through this on their own (see `createQueryClient`); direct API calls
  * (the AstroLog import, script downloads) call it in their `catch` and stop there when it returns true.

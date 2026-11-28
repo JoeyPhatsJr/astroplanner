@@ -1,6 +1,38 @@
 # PROGRESS
 
-_Last updated: 2026-11-19 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
+_Last updated: 2026-11-28 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
+
+## Fix: saved places and equipment are private (branch `private-places-impl`, 2026-11-28)
+
+- **Bug:** places and equipment had no owner. `GET /api/locations` returned every saved place's label and
+  coordinates to anyone, signed-out visitors could add places, and any account could change or delete anyone's
+  place or profile. A saved "Home" exposed someone's home to every visitor.
+- **Migration `0008_private_places`:** nullable `owner_id` on `observing_locations` and `equipment_profiles`
+  (FK `users.id` RESTRICT, `fk_<table>_owner`, `ix_<table>_owner_id`, batch mode on SQLite), like 0007. Data step:
+  rows that are not a sample/preset and have no owner go to the `accounts_claimed` user if that user exists,
+  otherwise they stay ownerless for `claim_unowned` (which now claims places and equipment too, never samples or
+  presets, and without counting toward `claimed_existing`). On the live DB this gives the developer's account the
+  Canon T3 profile and any non-sample place.
+- **Rules:** lists show samples/presets plus the user's own (signed out: shared rows only). Creating needs sign-in
+  and sets the owner. Samples and presets are read-only (403); an edited sample no longer becomes the user's place.
+  Someone else's row answers the same 404 as a missing one wherever an id is accepted: PATCH/DELETE, duplicate,
+  plans (create/patch: now 404, was 422), `/api/recommendations` and target visibility `equipment_id`, AstroLog
+  import preview/commit (now 404, was 422) and the import's coordinate matching. The importer links the Canon
+  profile only for its owner. `seed()` keeps a sample place present (under `sample-philadelphia` if an edited
+  sample still holds `sample-location`). Account deletion removes the user's places and equipment after their plans.
+- **Frontend:** a browser-only guest place in prefs (id `guest`) for signed-out visitors; CitySearch keeps the
+  place there instead of POSTing; header and Settings show it with "Saved in this browser only" and, signed in,
+  "Save to my account". Plans never get `location_id: "guest"`. Places and equipment refetch on account change.
+  Planning requests send the equipment profile in use, not a stale preference. GeoNames credit beside geocoding.
+- **Tests:** `test_private_places.py` (two-user isolation, 403/404 rules, plans/recommendations/visibility/import,
+  Canon link, deletion with an old cross-account plan, claim, seed), `test_migrations.py` (0008 FK/index, downgrade,
+  data step on SQLite and Postgres); Vitest `currentLocation.test.tsx`, Landing and Settings guest-place tests.
+- **Known limitations:** the Privacy page (`pages/site/PrivacyPage.tsx`, owned by another change) still says
+  places and equipment are shared and stay after account deletion; it needs updating. A second account's Canon
+  import gets no equipment link (the seeded Canon profile belongs to the first account); a per-account Canon
+  preset would fix that. A browser-only place lasts as long as that browser's storage.
+- **Exact next step:** review and merge the PR, deploy (the migration runs on start), then confirm signed out that
+  `GET /api/locations` lists only the sample.
 
 ## Polish: calmer weather, loading and sample states (branch `polish/app-states`, 2026-11-22)
 
@@ -144,8 +176,8 @@ buttons measured 44 px tall and stack full width below 380 px.
 
 ### Known limitations (accounts)
 
-- Saved places and equipment stay shared and editable by anyone using the app. A night's computed times and the
-  coach's altitude numbers come from its place, so editing a place changes them. Revisit before deployment.
+- ~~Saved places and equipment stay shared and editable by anyone using the app.~~ Fixed 2026-11-28: they are
+  private to their account (see "Fix: saved places and equipment are private" above).
 - Sign-in lockout is per email (5 failures in 15 minutes): someone on the same machine can delay one person's sign-in
   by 15 minutes. Supabase Auth replaces it at deployment.
 - The throttle is in memory, so it resets when the backend restarts.

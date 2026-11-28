@@ -311,10 +311,12 @@ describe("query cache and accounts", () => {
   it("sign-out requests nothing owned and shows no previous user’s data", async () => {
     handlers["POST /api/auth/logout"] = () => new Response(null, { status: 204 });
     handlers["GET /api/sessions"] = () => json([{ id: "a-plan", title: "A’s plan" }]);
-    handlers["GET /api/locations"] = () => json([{ id: "home", label: "Back garden" }]);
-    handlers["GET /api/variables"] = () => json({ progress: calls.some((c) => c.path === "/api/auth/logout") ? null : 3 });
-    // Saved places are shared, not owned: signing out leaves them on screen. Variable Hunter is open but adds
-    // the user's own progress, so it refetches without it.
+    const signedOutNow = () => calls.some((c) => c.path === "/api/auth/logout");
+    handlers["GET /api/locations"] = () =>
+      json([{ id: "sample-location", label: "Philadelphia (sample)" }, ...(signedOutNow() ? [] : [{ id: "home", label: "Back garden" }])]);
+    handlers["GET /api/variables"] = () => json({ progress: signedOutNow() ? null : 3 });
+    // Places are open but private: the list adds the user's own to the shared samples, so like Variable Hunter's
+    // personal progress it refetches on sign-out, without them.
     function OpenProbe() {
       const places = useQuery({ queryKey: ["locations"], queryFn: () => request<{ label: string }[]>("/api/locations") });
       const vars = useQuery({ queryKey: ["variables", "UTC"], queryFn: () => request<{ progress: number | null }>("/api/variables") });
@@ -364,9 +366,10 @@ describe("query cache and accounts", () => {
     });
     expect(sessionFetches()).toBe(1);
     expect(qc.getQueryData(authKey)).toBeNull();
-    // Shared places stay as they were; personal progress is fetched again, now without A's.
-    expect(screen.getByTestId("open")).toHaveTextContent("Back garden");
-    expect(calls.filter((c) => c.path === "/api/locations")).toHaveLength(1);
+    // Places and personal progress are fetched again, now without A's own.
+    await waitFor(() => expect(screen.getByTestId("open")).toHaveTextContent("Philadelphia (sample)"));
+    expect(screen.getByTestId("open")).not.toHaveTextContent("Back garden");
+    expect(calls.filter((c) => c.path === "/api/locations")).toHaveLength(2);
     await waitFor(() => expect(screen.getByTestId("progress")).toHaveTextContent("null"));
   });
 

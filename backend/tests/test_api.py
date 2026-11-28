@@ -158,8 +158,13 @@ def test_location_validation_and_edit(client):
     loc = client.post("/api/locations", json={"label": "Backyard", "latitude_deg": 32.2, "longitude_deg": -110.9,
                                                "elevation_m": 760, "timezone": "America/Phoenix"}).json()
     assert loc["is_sample"] is False
-    sample = client.patch("/api/locations/sample-location", json={"label": "Home"}).json()
-    assert sample["is_sample"] is False and sample["label"] == "Home"
+    edited = client.patch(f"/api/locations/{loc['id']}", json={"label": "Home"})
+    assert edited.status_code == 200 and edited.json()["label"] == "Home"
+    # Samples are shared and read-only: editing one no longer turns it into the user's own place.
+    r = client.patch("/api/locations/sample-location", json={"label": "Home"})
+    assert (r.status_code, r.json()) == (403, {"detail": "Sample places can't be changed. Add your own place instead."})
+    sample = next(x for x in client.get("/api/locations").json() if x["id"] == "sample-location")
+    assert sample["is_sample"] is True and sample["label"] == "Philadelphia, PA (sample)"
 
 
 def test_session_lifecycle_persists_across_restart(make_client, clear_provider, tmp_path):
@@ -181,16 +186,19 @@ def test_session_lifecycle_persists_across_restart(make_client, clear_provider, 
         assert [t["target_id"] for t in s["targets"]] == ["m45", "m42"]
         assert [t["sort_order"] for t in s["targets"]] == [0, 1]
         c.patch(f"/api/sessions/{sid}", json={"notes": "bring dew heater"})
-        # In use. No count: plans belong to accounts, so a number would include other accounts' plans.
-        r = c.delete("/api/locations/sample-location")
-        assert r.status_code == 409
-        assert r.json() == {"detail": "This place is used by saved plans or nights (yours or another account’s)."}
+        r = c.delete("/api/locations/sample-location")  # a sample is never deleted, in use or not
+        assert (r.status_code, r.json()) == (403, {"detail": "Sample places can't be changed. Add your own place instead."})
+        # In use: only the user's own plans can name their own place or profile.
+        loc_id = c.post("/api/locations", json={"label": "Backyard", "latitude_deg": 40.0, "longitude_deg": -75.0,
+                                                "timezone": "America/New_York"}).json()["id"]
         eq_id = c.post("/api/equipment/seestar-s30/duplicate").json()["id"]
-        c.post("/api/sessions", json={"title": "Night of 3 Nov", "local_night_date": "2026-11-03",
-                                      "location_id": "sample-location", "equipment_id": eq_id})
+        r = c.post("/api/sessions", json={"title": "Night of 3 Nov", "local_night_date": "2026-11-03",
+                                          "location_id": loc_id, "equipment_id": eq_id})
+        assert r.status_code == 201, r.text
+        r = c.delete(f"/api/locations/{loc_id}")
+        assert (r.status_code, r.json()) == (409, {"detail": "This place is used by your saved plans or nights."})
         r = c.delete(f"/api/equipment/{eq_id}")
-        assert r.status_code == 409
-        assert r.json() == {"detail": "This equipment is used by saved plans or nights (yours or another account’s)."}
+        assert (r.status_code, r.json()) == (409, {"detail": "This equipment is used by your saved plans or nights."})
 
     with make_client(clear_provider, db_path) as c2:  # fresh app, same database file
         s = c2.get(f"/api/sessions/{sid}").json()
@@ -220,32 +228,37 @@ def test_app_starts_when_frontend_dist_exists_without_assets(tmp_path, monkeypat
         assert "AstroPlanner" in c.get("/tonight").text
 
 
-def test_shared_places_and_equipment_need_an_account_to_change(make_client, clear_provider):
-    """Signed out: reading and adding a place work (the homescreen search adds one); every other write is a 401."""
+def test_signed_out_reads_only_shared_places_and_equipment_and_writes_nothing(make_client, clear_provider):
+    """Signed out: the lists hold only the samples and presets, and every write (adding a place too) is a 401.
+    The homescreen keeps a signed-out visitor's place in the browser instead."""
     with make_client(clear_provider, account=None) as anon:
-        assert anon.get("/api/locations").status_code == 200
+        locs = anon.get("/api/locations").json()
+        assert [x["id"] for x in locs] == ["sample-location"] and locs[0]["is_sample"]
         equipment_before = anon.get("/api/equipment").json()
-        added = anon.post("/api/locations", json={"label": "Denver", "latitude_deg": 39.74, "longitude_deg": -104.99,
-                                                  "timezone": "America/Denver"})
-        assert added.status_code == 201
+        assert equipment_before and all(e["is_preset"] for e in equipment_before)
         blocked = [
+            anon.post("/api/locations", json={"label": "Denver", "latitude_deg": 39.74, "longitude_deg": -104.99,
+                                              "timezone": "America/Denver"}),
             anon.patch("/api/locations/sample-location", json={"label": "Mine now"}),
             anon.delete("/api/locations/sample-location"),
-            anon.patch(f"/api/locations/{added.json()['id']}", json={"label": "Moved"}),
-            anon.delete(f"/api/locations/{added.json()['id']}"),
             anon.post("/api/equipment", json={"name": "Scope", "aperture_mm": 80, "focal_length_mm": 480}),
             anon.post("/api/equipment/seestar-s30/duplicate"),
             anon.patch("/api/equipment/seestar-s30", json={"fov_deg": 3}),
             anon.delete("/api/equipment/seestar-s30"),
         ]
         assert [r.status_code for r in blocked] == [401] * len(blocked)
-        locs = {loc["id"]: loc for loc in anon.get("/api/locations").json()}
-        assert locs["sample-location"]["is_sample"] and locs[added.json()["id"]]["label"] == "Denver"
+        assert anon.get("/api/locations").json() == locs
         assert anon.get("/api/equipment").json() == equipment_before
 
 
-def test_signed_in_account_can_still_change_shared_places_and_equipment(client):
-    assert client.patch("/api/locations/sample-location", json={"label": "Home"}).status_code == 200
+def test_samples_and_presets_are_read_only_signed_in(client):
+    r = client.patch("/api/locations/sample-location", json={"label": "Home"})
+    assert (r.status_code, r.json()) == (403, {"detail": "Sample places can't be changed. Add your own place instead."})
+    r = client.delete("/api/locations/sample-location")
+    assert r.status_code == 403
+    preset = {"detail": "Built-in presets are read-only. Duplicate it to make a custom profile."}
+    for r in (client.patch("/api/equipment/seestar-s30", json={"fov_deg": 3}), client.delete("/api/equipment/seestar-s30")):
+        assert (r.status_code, r.json()) == (403, preset)
     copy = client.post("/api/equipment/seestar-s30/duplicate")
     assert copy.status_code == 201
     assert client.delete(f"/api/equipment/{copy.json()['id']}").status_code == 204

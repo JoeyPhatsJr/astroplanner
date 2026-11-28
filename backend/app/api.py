@@ -17,9 +17,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, object_session
 
 from . import catalog, geo, targets
-from .accounts.deps import current_user
+from .accounts.deps import current_user, optional_user
 from .accounts.models import User
-from .accounts.owned import get_owned
+from .accounts.owned import (EQUIPMENT_NOT_FOUND, get_own_equipment, get_own_location, get_owned,
+                             get_visible_equipment, get_visible_location, visible_equipment, visible_locations)
 from .astrolog.library import capture_info, session_capture_info
 from .astrolog.models import CaptureSet
 from .astronomy import DARKNESS_THRESHOLDS, darkness_intervals, iso_utc, night_bounds_utc, night_summary, sky_context
@@ -289,13 +290,11 @@ def tonight(
     }
 
 
-def _equipment_dict(db: Session, equipment_id: str | None) -> dict[str, Any] | None:
+def _equipment_dict(db: Session, equipment_id: str | None, user: User | None) -> dict[str, Any] | None:
+    """A preset or the signed-in user's own profile; anyone else's answers the same 404 as a missing one."""
     if not equipment_id:
         return None
-    eq = db.get(EquipmentProfile, equipment_id)
-    if eq is None:
-        raise HTTPException(404, f"Unknown equipment profile {equipment_id!r}")
-    return _equipment_out(eq)
+    return _equipment_out(get_visible_equipment(db, equipment_id, user, "Unknown equipment profile"))
 
 
 STATUS_ORDER = ["observable", "too_brief", "daylight_only", "below_threshold", "never_rises", "no_darkness"]
@@ -312,10 +311,11 @@ def recommendations(
     query: str | None = Query(None, max_length=60),
     provider: ClientWeather = Depends(get_weather),
     db: Session = Depends(get_db),
+    user: User | None = Depends(optional_user),
 ) -> dict[str, Any]:
+    eq = _equipment_dict(db, equipment_id, user)  # before any work: a foreign id is a 404
     ctx = _ctx(o)
     fc, grid = _weather_for(o, ctx, provider)
-    eq = _equipment_dict(db, equipment_id)
     night = night_summary(ctx, darkness)
     disp_s = datetime.fromisoformat(night["display_start_utc"].replace("Z", "+00:00")).timestamp()
     disp_e = datetime.fromisoformat(night["display_end_utc"].replace("Z", "+00:00")).timestamp()
@@ -360,10 +360,12 @@ def target_visibility(
     equipment_id: str | None = None,
     provider: ClientWeather = Depends(get_weather),
     db: Session = Depends(get_db),
+    user: User | None = Depends(optional_user),
 ) -> dict[str, Any]:
     t = catalog.get_target(target_id)
     if t is None:
         raise HTTPException(404, f"Unknown target {target_id!r}")
+    eq = _equipment_dict(db, equipment_id, user)
     ctx = _ctx(o)
     fc, grid = _weather_for(o, ctx, provider)
     idx = catalog.target_index(target_id)
@@ -376,7 +378,7 @@ def target_visibility(
         "computed_at_utc": iso_utc(_now().timestamp()),
         "target": _client_target(t, request),
         "visibility": payload,
-        "score": target_score(ctx, vis, t, grid, _equipment_dict(db, equipment_id), min_altitude_deg),
+        "score": target_score(ctx, vis, t, grid, eq, min_altitude_deg),
         "night": {k: night[k] for k in ("events", "dark_intervals", "display_start_utc", "display_end_utc",
                                         "has_darkness", "notes", "moon", "timezone", "night_date")},
         "weather_status": fc.status,
@@ -417,16 +419,21 @@ def _location_out(loc: ObservingLocation) -> dict[str, Any]:
                                          "timezone", "is_sample", "created_at")}
 
 
+# Places are private: a signed-in user sees the samples and their own, a signed-out visitor only the samples (the
+# browser keeps a signed-out visitor's place itself; planning needs only its coordinates). Samples are shared and
+# read-only. Saving, changing or deleting a place needs an account.
 @router.get("/locations")
-def list_locations(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
-    return [_location_out(x) for x in db.scalars(select(ObservingLocation).order_by(ObservingLocation.created_at))]
+def list_locations(db: Session = Depends(get_db),
+                   user: User | None = Depends(optional_user)) -> list[dict[str, Any]]:
+    rows = db.scalars(select(ObservingLocation).where(visible_locations(user))
+                      .order_by(ObservingLocation.is_sample.desc(), ObservingLocation.created_at))
+    return [_location_out(x) for x in rows]
 
 
-# Adding a place stays open: the homescreen's city search saves one for signed-out visitors. Changing or deleting
-# one, and every equipment write, needs an account, since these rows are shared by everyone on the server.
 @router.post("/locations", status_code=201)
-def create_location(body: LocationIn, db: Session = Depends(get_db)) -> dict[str, Any]:
-    loc = ObservingLocation(**body.model_dump(), is_sample=False)
+def create_location(body: LocationIn, db: Session = Depends(get_db),
+                    user: User = Depends(current_user)) -> dict[str, Any]:
+    loc = ObservingLocation(**body.model_dump(), is_sample=False, owner_id=user.id)
     db.add(loc)
     db.commit()
     return _location_out(loc)
@@ -434,28 +441,20 @@ def create_location(body: LocationIn, db: Session = Depends(get_db)) -> dict[str
 
 @router.patch("/locations/{location_id}")
 def update_location(location_id: str, body: LocationPatch, db: Session = Depends(get_db),
-                    _user: User = Depends(current_user)) -> dict[str, Any]:
-    loc = db.get(ObservingLocation, location_id)
-    if loc is None:
-        raise HTTPException(404, "Location not found")
-    data = body.model_dump(exclude_unset=True)
-    for k, v in data.items():
+                    user: User = Depends(current_user)) -> dict[str, Any]:
+    loc = get_own_location(db, location_id, user)
+    for k, v in body.model_dump(exclude_unset=True).items():
         setattr(loc, k, v)
-    if data:  # an edited sample is now the user's own location
-        loc.is_sample = False
     db.commit()
     return _location_out(loc)
 
 
 @router.delete("/locations/{location_id}", status_code=204)
-def delete_location(location_id: str, db: Session = Depends(get_db), _user: User = Depends(current_user)) -> Response:
-    loc = db.get(ObservingLocation, location_id)
-    if loc is None:
-        raise HTTPException(404, "Location not found")
+def delete_location(location_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> Response:
+    loc = get_own_location(db, location_id, user)
     in_use = db.scalar(select(func.count()).select_from(ObservingSession).where(ObservingSession.location_id == location_id))
     if in_use:
-        # No count: plans belong to accounts, and the number would include other accounts' plans.
-        raise HTTPException(409, "This place is used by saved plans or nights (yours or another account’s).")
+        raise HTTPException(409, "This place is used by your saved plans or nights.")
     db.delete(loc)
     db.commit()
     return Response(status_code=204)
@@ -499,33 +498,27 @@ def _equipment_out(eq: EquipmentProfile) -> dict[str, Any]:
     return out
 
 
+# Equipment follows the same rule as places: presets are shared and read-only, every other profile is private.
 @router.get("/equipment")
-def list_equipment(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
-    rows = db.scalars(select(EquipmentProfile).order_by(EquipmentProfile.is_preset.desc(), EquipmentProfile.created_at))
+def list_equipment(db: Session = Depends(get_db),
+                   user: User | None = Depends(optional_user)) -> list[dict[str, Any]]:
+    rows = db.scalars(select(EquipmentProfile).where(visible_equipment(user))
+                      .order_by(EquipmentProfile.is_preset.desc(), EquipmentProfile.created_at))
     return [_equipment_out(x) for x in rows]
 
 
 @router.post("/equipment", status_code=201)
-def create_equipment(body: EquipmentIn, db: Session = Depends(get_db), _user: User = Depends(current_user)) -> dict[str, Any]:
-    eq = EquipmentProfile(**body.model_dump(), is_verified=False, is_preset=False)
+def create_equipment(body: EquipmentIn, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict[str, Any]:
+    eq = EquipmentProfile(**body.model_dump(), is_verified=False, is_preset=False, owner_id=user.id)
     db.add(eq)
     db.commit()
     return _equipment_out(eq)
 
 
-def _custom_or_403(db: Session, equipment_id: str) -> EquipmentProfile:
-    eq = db.get(EquipmentProfile, equipment_id)
-    if eq is None:
-        raise HTTPException(404, "Equipment profile not found")
-    if eq.is_preset:
-        raise HTTPException(403, "Built-in presets are read-only. Duplicate it to make a custom profile.")
-    return eq
-
-
 @router.patch("/equipment/{equipment_id}")
 def update_equipment(equipment_id: str, body: EquipmentPatch, db: Session = Depends(get_db),
-                     _user: User = Depends(current_user)) -> dict[str, Any]:
-    eq = _custom_or_403(db, equipment_id)
+                     user: User = Depends(current_user)) -> dict[str, Any]:
+    eq = get_own_equipment(db, equipment_id, user)
     for k, v in body.model_dump(exclude_unset=True).items():
         setattr(eq, k, v)
     db.commit()
@@ -533,16 +526,14 @@ def update_equipment(equipment_id: str, body: EquipmentPatch, db: Session = Depe
 
 
 @router.post("/equipment/{equipment_id}/duplicate", status_code=201)
-def duplicate_equipment(equipment_id: str, db: Session = Depends(get_db), _user: User = Depends(current_user)) -> dict[str, Any]:
-    src = db.get(EquipmentProfile, equipment_id)
-    if src is None:
-        raise HTTPException(404, "Equipment profile not found")
+def duplicate_equipment(equipment_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> dict[str, Any]:
+    src = get_visible_equipment(db, equipment_id, user, EQUIPMENT_NOT_FOUND)
     copy = EquipmentProfile(
         name=f"{src.name} (custom copy)", manufacturer=src.manufacturer, aperture_mm=src.aperture_mm,
         focal_length_mm=src.focal_length_mm, fov_deg=src.fov_deg, fov_definition=src.fov_definition,
         wide_fov_deg=src.wide_fov_deg, sensor=src.sensor, mount_type=src.mount_type, source_url=src.source_url,
         notes=f"Copied from {src.name}. Edited values are not manufacturer-verified.",
-        is_verified=False, is_preset=False,
+        is_verified=False, is_preset=False, owner_id=user.id,
     )
     db.add(copy)
     db.commit()
@@ -550,12 +541,11 @@ def duplicate_equipment(equipment_id: str, db: Session = Depends(get_db), _user:
 
 
 @router.delete("/equipment/{equipment_id}", status_code=204)
-def delete_equipment(equipment_id: str, db: Session = Depends(get_db), _user: User = Depends(current_user)) -> Response:
-    eq = _custom_or_403(db, equipment_id)
+def delete_equipment(equipment_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)) -> Response:
+    eq = get_own_equipment(db, equipment_id, user)
     in_use = db.scalar(select(func.count()).select_from(ObservingSession).where(ObservingSession.equipment_id == equipment_id))
     if in_use:
-        # No count: plans belong to accounts, and the number would include other accounts' plans.
-        raise HTTPException(409, "This equipment is used by saved plans or nights (yours or another account’s).")
+        raise HTTPException(409, "This equipment is used by your saved plans or nights.")
     db.delete(eq)
     db.commit()
     return Response(status_code=204)
@@ -629,11 +619,13 @@ def _session_out(s: ObservingSession, with_targets: bool = True,
     return out
 
 
-def _check_refs(db: Session, location_id: str | None, equipment_id: str | None) -> None:
-    if location_id and db.get(ObservingLocation, location_id) is None:
-        raise HTTPException(422, "location_id does not exist")
-    if equipment_id and db.get(EquipmentProfile, equipment_id) is None:
-        raise HTTPException(422, "equipment_id does not exist")
+def _check_refs(db: Session, location_id: str | None, equipment_id: str | None, user: User) -> None:
+    """A plan may name a sample or the user's own place, and a preset or their own profile. Anything else, missing
+    or someone else's, answers the same 404."""
+    if location_id:
+        get_visible_location(db, location_id, user, "location_id does not exist")
+    if equipment_id:
+        get_visible_equipment(db, equipment_id, user, "equipment_id does not exist")
 
 
 def _get_session(db: Session, session_id: str, user: User) -> ObservingSession:
@@ -653,7 +645,7 @@ def list_sessions(db: Session = Depends(get_db), user: User = Depends(current_us
 @router.post("/sessions", status_code=201)
 def create_session(body: SessionIn, db: Session = Depends(get_db),
                    user: User = Depends(current_user)) -> dict[str, Any]:
-    _check_refs(db, body.location_id, body.equipment_id)
+    _check_refs(db, body.location_id, body.equipment_id, user)
     s = ObservingSession(owner_id=user.id, title=body.title, local_night_date=body.local_night_date.isoformat(),
                          location_id=body.location_id, equipment_id=body.equipment_id, notes=body.notes)
     db.add(s)
@@ -672,7 +664,7 @@ def update_session(session_id: str, body: SessionPatch, db: Session = Depends(ge
                    user: User = Depends(current_user)) -> dict[str, Any]:
     s = _get_session(db, session_id, user)
     data = body.model_dump(exclude_unset=True)
-    _check_refs(db, data.get("location_id"), data.get("equipment_id"))
+    _check_refs(db, data.get("location_id"), data.get("equipment_id"), user)
     for k, v in data.items():
         setattr(s, k, v.isoformat() if isinstance(v, date) else v)
     db.commit()

@@ -2,9 +2,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { MapPin, Search } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { authApi, authKey } from "../../api/auth";
 import { api } from "../../api/client";
 import { qk } from "../../api/hooks";
+import { markSignedOutIf401 } from "../../api/queryClient";
 import type { GeocodeResult } from "../../api/types";
+import { GUEST_ID } from "../../lib/guestPlace";
+import { GeoNamesCredit } from "../ui/GeoNamesCredit";
 import { findMatchingLocation } from "../../lib/locationMatch";
 import type { PrefillLocationState } from "../../pages/SettingsPage";
 import { usePrefs } from "../../state/prefs";
@@ -19,7 +23,9 @@ type State =
 
 /**
  * "Clear skies tonight?": find a place, make it the current location and open Tonight for it.
- * Choosing a place reuses a saved location at the same spot (within ~1 km) or saves a new one.
+ * Choosing a place reuses a listed place at the same spot (within ~1 km: a sample, or one of the account's own).
+ * Otherwise, signed in, it is saved to the account; signed out, it is kept in this browser only (the guest place,
+ * lib/guestPlace.ts), never sent to the server as a saved row.
  * The timezone is never guessed: if neither the search nor the coordinate lookup gives one,
  * the place is handed to Settings to finish by hand.
  */
@@ -50,6 +56,11 @@ export function CitySearch() {
   async function choose(r: GeocodeResult) {
     setState({ kind: "saving", label: r.label });
     try {
+      // Only a signed-in account saves the place; anything else (signed out, or the account check not answering)
+      // keeps it in this browser. Places are private, and nothing about a visitor's location goes to the server
+      // as a row without an account.
+      const signedIn = (await qc.ensureQueryData({ queryKey: authKey, queryFn: authApi.me }).catch(() => null)) != null;
+      // The list holds the samples, plus the user's own places when signed in.
       const saved = await qc.fetchQuery({ queryKey: qk.locations, queryFn: api.locations, staleTime: 0 });
       const match = findMatchingLocation(saved, r);
       if (match) {
@@ -65,13 +76,22 @@ export function CitySearch() {
         navigate("/settings", { state });
         return;
       }
-      const created = await api.createLocation({
-        label: r.label,
-        latitude_deg: r.latitude,
-        longitude_deg: r.longitude,
-        elevation_m: r.elevation_m,
-        timezone,
-      });
+      // Open-Meteo uses -9999 as a "no elevation" sentinel; never keep it as a real value.
+      const elevation = r.elevation_m != null && r.elevation_m >= -500 && r.elevation_m <= 9000 ? r.elevation_m : null;
+      const place = { label: r.label, latitude_deg: r.latitude, longitude_deg: r.longitude, elevation_m: elevation, timezone };
+      const keepInBrowser = () => {
+        update({ guestPlace: place, locationId: GUEST_ID, nightDate: null });
+        navigate("/tonight");
+      };
+      if (!signedIn) return keepInBrowser();
+      let created;
+      try {
+        created = await api.createLocation(place);
+      } catch (e) {
+        // The session ended since the account was checked: say so everywhere, and keep the place here instead.
+        if (markSignedOutIf401(qc, e)) return keepInBrowser();
+        throw e;
+      }
       // The place is saved at this point; a failed refresh of the list must not report a failed save.
       await qc.invalidateQueries({ queryKey: qk.locations }).catch(() => undefined);
       update({ locationId: created.id, nightDate: null });
@@ -152,7 +172,8 @@ export function CitySearch() {
               ))}
             </ul>
             <p className="m-0 border-t border-line-soft px-4 py-2 text-xs text-muted">
-              Place search by Open-Meteo Geocoding. Choosing a place saves it to your locations.
+              Place search by Open-Meteo Geocoding. <GeoNamesCredit />. Without an account, the place you choose is kept
+              in this browser only; signed in, it is saved to your account.
             </p>
           </div>
         )}

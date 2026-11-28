@@ -543,10 +543,16 @@ def _get_or_create_target(db: Session, ref: TargetRef, cache: dict[str, LibraryT
     return lt
 
 
-def _snapshot(db: Session, device: str) -> tuple[str | None, dict[str, Any] | None]:
+def _snapshot(db: Session, device: str, owner_id: str) -> tuple[str | None, dict[str, Any] | None]:
+    """The profile a device maps to, if the importer may see it: a preset, or a profile they own.
+
+    The Canon profile is an ordinary (owned) row, so someone else's copy is never linked or copied.
+    """
     eq_id = equipment_id_for(device)
     eq = db.get(EquipmentProfile, eq_id) if eq_id else None
-    return (eq.id, _equipment_out(eq)) if eq is not None else (None, None)
+    if eq is None or not (eq.is_preset or eq.owner_id == owner_id):
+        return None, None
+    return eq.id, _equipment_out(eq)
 
 
 class _Sessions:
@@ -695,7 +701,7 @@ def commit_import(db: Session, parsed: list[Parsed], location: ObservingLocation
             CaptureSet.session_id == s.id, CaptureSet.library_target_id == lt.id, CaptureSet.device == g.device)).first()
         lens = next((f.lens for f in new if f.lens), None)
         if cs is None:
-            eq_id, snap = _snapshot(db, g.device)
+            eq_id, snap = _snapshot(db, g.device, owner_id)
             cs = CaptureSet(owner_id=owner_id, session_id=s.id, library_target_id=lt.id, device=g.device,
                             equipment_id=eq_id, equipment_snapshot=snap, lens=lens)
             db.add(cs)

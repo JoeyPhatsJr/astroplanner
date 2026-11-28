@@ -424,7 +424,9 @@ def test_too_many_items_rejected(api):
 
 
 def test_unknown_location_id_rejected(api):
-    assert api.post(PREVIEW, json={"items": ngc_subs([11]), "location_id": "nope"}).status_code == 422
+    # 404, the same answer as someone else's place (test_private_places.py)
+    r = api.post(PREVIEW, json={"items": ngc_subs([11]), "location_id": "nope"})
+    assert (r.status_code, r.json()) == (404, {"detail": "location_id does not exist"})
 
 
 # ---- suggest-location --------------------------------------------------------------
