@@ -23,7 +23,10 @@ export function AstroLogSignedOut() {
             Create an account
           </Link>
         </div>
-        <ul aria-label="Works without an account" className="mt-6 flex flex-col gap-2 text-sm text-ink-2">
+        <h2 id="astrolog-open" className="mt-8 text-sm font-semibold text-ink">
+          Works without an account
+        </h2>
+        <ul aria-labelledby="astrolog-open" className="mt-2 flex flex-col gap-2 text-sm text-ink-2">
           {OPEN.map((item) => (
             <li key={item} className="flex items-center gap-2">
               <Check className="size-4 shrink-0 text-ok" aria-hidden />

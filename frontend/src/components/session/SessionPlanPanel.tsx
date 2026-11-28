@@ -22,7 +22,7 @@ export function SessionPlanPanel() {
           Session plan
         </h2>
         {auth === "signedIn" && (
-          <Link to={session ? `/astrolog/nights/${session.id}` : "/astrolog"} className="text-sm text-ice hover:underline">
+          <Link to={session ? `/astrolog/nights/${session.id}` : "/astrolog/nights"} className="text-sm text-ice hover:underline">
             {session ? "Open session" : "All sessions"}
           </Link>
         )}
