@@ -83,3 +83,19 @@ describe("Explore grouped list", () => {
     expect(screen.queryByRole("list", { name: "Not observable tonight" })).not.toBeInTheDocument();
   });
 });
+
+describe("Explore with no matches", () => {
+  it("shows only the empty state, not a '0 of 0 matching targets' count", () => {
+    mock.results = [];
+    renderPage();
+    expect(screen.getByText("No targets match")).toBeInTheDocument();
+    expect(screen.queryByText(/matching targets/)).toBeNull();
+    expect(screen.queryByText(/are observable for the selected night/)).toBeNull();
+  });
+
+  it("keeps the count when something matches", () => {
+    mock.results = [rec("M31", "Andromeda", true), rec("M81", "Bode", false)];
+    renderPage();
+    expect(screen.getByText(/2 of 2 matching targets are observable/)).toBeInTheDocument();
+  });
+});

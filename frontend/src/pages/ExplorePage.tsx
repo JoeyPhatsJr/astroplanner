@@ -63,10 +63,13 @@ export function ExplorePage() {
       <PageHeader
         title="Explore"
         subtitle={
-          <>
-            {recs.data ? `${recs.data.observable_count} of ${results.length} matching targets` : "Targets"} are observable for the selected night above {prefs.minAltitudeDeg}°. Every target
-            shows why it is or isn’t.
-          </>
+          // Nothing matches: the empty state below says so, and "0 of 0 matching targets" would only repeat it.
+          recs.data && results.length === 0 ? undefined : (
+            <>
+              {recs.data ? `${recs.data.observable_count} of ${results.length} matching targets` : "Targets"} are observable for the selected night above {prefs.minAltitudeDeg}°. Every target
+              shows why it is or isn’t.
+            </>
+          )
         }
       />
 
