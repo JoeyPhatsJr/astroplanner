@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LibraryRow, TargetPage } from "../../api/astrolog";
+import { ApiError } from "../../api/client";
 import type { ObservingSession } from "../../api/types";
 import { ConfirmProvider } from "../ui/ConfirmDialog";
 import { FinalPicturePicker } from "./FinalPicturePicker";
@@ -9,6 +10,7 @@ import { TargetTile } from "./TargetTile";
 
 const mocks = vi.hoisted(() => ({
   target: null as unknown,
+  targetError: null as unknown,
   sessions: null as unknown,
   removeSession: null as null | ((id: string) => Promise<unknown>),
 }));
@@ -18,7 +20,7 @@ vi.mock("../../api/astrolog", async (orig) => {
   const idle = { mutate: vi.fn(), mutateAsync: vi.fn(), isPending: false, error: null };
   return {
     ...mod,
-    useAstroLogTarget: () => ({ data: mocks.target, isLoading: false, error: null, refetch: vi.fn() }),
+    useAstroLogTarget: () => ({ data: mocks.target, isLoading: false, error: mocks.targetError, refetch: vi.fn() }),
     useUploadFinalImage: () => idle,
     useLinkStack: () => idle,
     useUpdateLibraryTarget: () => idle,
@@ -156,6 +158,30 @@ describe("FinalPicturePicker", () => {
     expect(select.value).toBe("");
     fireEvent.change(input, { target: { files: [new File(["x"], "final.tif")] } });
     expect(select.value).toBe("new");
+  });
+});
+
+describe("TargetLogPage not found", () => {
+  afterEach(() => {
+    mocks.targetError = null;
+  });
+
+  it("a 404 shows a not-found state with the way back, and no Try again", () => {
+    mocks.target = undefined;
+    mocks.targetError = new ApiError(404, "Target not found");
+    renderTarget();
+    expect(screen.getByText("Target not found")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to library" })).toHaveAttribute("href", "/astrolog");
+    expect(screen.queryByRole("button", { name: /Try again/ })).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("any other failure keeps the error with Try again", () => {
+    mocks.target = undefined;
+    mocks.targetError = new ApiError(500, "Something went wrong");
+    renderTarget();
+    expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load this target");
+    expect(screen.getByRole("button", { name: /Try again/ })).toBeInTheDocument();
   });
 });
 

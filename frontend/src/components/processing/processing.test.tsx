@@ -120,6 +120,15 @@ describe("AdviceList", () => {
 });
 
 describe("ProcessingCoachPage", () => {
+  it("a capture set that isn't there (404) shows a not-found state with the way back, and no Try again", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ detail: "Capture set not found" }), { status: 404 })));
+    renderPage();
+    expect(await screen.findByText("Night not found")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to library" })).toHaveAttribute("href", "/astrolog");
+    expect(screen.queryByRole("button", { name: /Try again/ })).toBeNull();
+    expect(screen.queryByText("Couldn't start the coach")).toBeNull();
+  });
+
   it("Done, next step PATCHes and advances; Back returns", async () => {
     renderPage();
     await screen.findByText("Step 1 of 10");

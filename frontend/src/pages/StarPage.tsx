@@ -1,6 +1,7 @@
 import { Check, ExternalLink, LogIn, Plus } from "lucide-react";
 import { useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
+import { isNotFound } from "../api/client";
 import { useCurrentEquipment, useObserver } from "../api/hooks";
 import { useStar, useStarVisibility, type StarResponse } from "../api/variables";
 import { AccountCheckNote, useAccountCheckRetry } from "../components/account/AccountCheckError";
@@ -24,8 +25,7 @@ export function StarPage() {
       </div>
     );
   if (q.error) {
-    const notFound = (q.error as { status?: number }).status === 404;
-    if (notFound)
+    if (isNotFound(q.error))
       return (
         <EmptyState title="Star not found" action={<Link to="/variables" className="btn">Back to Variable Hunter</Link>}>
           That star is not in the curated list.

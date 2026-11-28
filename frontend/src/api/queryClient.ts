@@ -1,7 +1,7 @@
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
 import { clearImportStash } from "../lib/importStash";
 import { authKey, PERSONAL_OPEN_QUERY_ROOTS, type Me } from "./auth";
-import { ApiError } from "./client";
+import { ApiError, isNotFound } from "./client";
 
 const isUnauthorized = (e: unknown) => e instanceof ApiError && e.status === 401;
 
@@ -11,9 +11,10 @@ const isTransient = (e: unknown) => e instanceof ApiError && TRANSIENT.has(e.sta
 /** Waits before each retry of a transient failure; a free host can take a while to wake or lift a rate limit. */
 export const TRANSIENT_RETRY_DELAYS_MS = [1_000, 3_000, 8_000];
 
-/** Retry a 401 never, a transient failure up to three times, anything else once. */
+/** Retry a 401 or a 404 never, a transient failure up to three times, anything else once. */
 export function shouldRetry(failures: number, e: unknown): boolean {
-  if (isUnauthorized(e)) return false;
+  // Neither answer changes on a second ask: the session has ended, or the thing asked for is not there.
+  if (isUnauthorized(e) || isNotFound(e)) return false;
   return failures < (isTransient(e) ? TRANSIENT_RETRY_DELAYS_MS.length : 1);
 }
 

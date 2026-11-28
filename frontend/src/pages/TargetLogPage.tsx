@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAstroLogTarget, useLinkVariable, useUpdateLibraryTarget, type TargetPage } from "../api/astrolog";
+import { isNotFound } from "../api/client";
 import { useVariables, type VariableListItem } from "../api/variables";
 import { FinalPicturePicker } from "../components/astrolog/FinalPicturePicker";
 import { headlineLabel, imageSrc } from "../components/astrolog/TargetTile";
@@ -19,8 +20,9 @@ export function TargetLogPage() {
         <Skeleton className="h-72" />
       </div>
     );
-  if (q.error) return <ErrorState error={q.error} onRetry={() => q.refetch()} title="Couldn't load this target" />;
-  if (!q.data)
+  // A 404 is an answer, not a failure: a retry would get the same one, so offer the way back instead.
+  if (q.error && !isNotFound(q.error)) return <ErrorState error={q.error} onRetry={() => q.refetch()} title="Couldn't load this target" />;
+  if (q.error || !q.data)
     return (
       <EmptyState title="Target not found" action={<Link to="/astrolog" className="btn">Back to library</Link>}>
         It may have been removed.
