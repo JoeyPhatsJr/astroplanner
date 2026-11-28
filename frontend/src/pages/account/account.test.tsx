@@ -75,7 +75,7 @@ describe("account page", () => {
     const data = screen.getByRole("region", { name: "Your data" });
     expect(within(data).getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
     expect(data).toHaveTextContent(
-      "Your session plans, AstroLog library, final-picture previews and processing notes are stored with this account. Privacy lists everything.",
+      "Your places, equipment, session plans, AstroLog library, final-picture previews and processing notes are stored with this account. Privacy lists everything.",
     );
     expect(screen.getByText("Change it here; you’ll stay signed in on this device.")).toBeInTheDocument();
     expect(screen.getByText("Removes your account and everything stored with it. This can’t be undone.")).toBeInTheDocument();
@@ -147,7 +147,7 @@ describe("account page", () => {
     await userEvent.click(trigger);
     let dialog = screen.getByRole("alertdialog", { name: "Delete your account?" });
     expect(dialog).toHaveAccessibleDescription(
-      "This permanently removes your session plans, AstroLog library, final-picture previews and processing notes. Your original files on your computer are not touched.",
+      "This permanently removes your places, equipment, session plans, AstroLog library, final-picture previews and processing notes. Your original files on your computer are not touched.",
     );
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());

@@ -79,7 +79,7 @@ export function DeleteAccountDialog({ open, onDismiss, onClosed, onDeleted }: Pr
             Delete your account?
           </h2>
           <p id="delete-account-desc" className="acct-dialog-desc">
-            This permanently removes your session plans, AstroLog library, final-picture previews and processing notes. Your original files
+            This permanently removes your places, equipment, session plans, AstroLog library, final-picture previews and processing notes. Your original files
             on your computer are not touched.
           </p>
         </div>
