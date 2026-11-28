@@ -15,6 +15,7 @@ Conventions (documented in docs/ASTRONOMY.md):
 
 from __future__ import annotations
 
+import threading
 import warnings
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
@@ -154,7 +155,10 @@ def altitude_deg(ra_deg: float, dec_deg: float, lat_deg: float, lon_deg: float, 
     return np.asarray(alt.alt.deg, dtype=float)
 
 
-@lru_cache(maxsize=48)
+_inflight_guard = threading.Lock()
+_inflight: dict[tuple, threading.Lock] = {}
+
+
 def sky_context(
     latitude: float,
     longitude: float,
@@ -163,11 +167,39 @@ def sky_context(
     tz_name: str,
     coords: tuple[tuple[float, ...], tuple[float, ...]] | None = None,
 ) -> SkyContext:
-    """Sun/Moon/target positions for one night.
+    """Sun/Moon/target positions for one night (cached).
 
     ``coords`` is ``(ra_deg_tuple, dec_deg_tuple)`` (tuples keep the call hashable for the cache);
     ``None`` means the bundled DSO catalog, in catalog order.
+
+    Single-flight: a page asks for a night's forecast, score and recommendations at once. Without this, each
+    request that misses the cache computes the same night in parallel, which on a small shared CPU makes all of
+    them several times slower. Callers of the same night wait for the one computation and share its result.
     """
+    key = (latitude, longitude, elevation_m, night_date, tz_name, coords)
+    with _inflight_guard:
+        lock = _inflight.setdefault(key, threading.Lock())
+    try:
+        with lock:
+            return _sky_context_cached(*key)
+    finally:
+        with _inflight_guard:
+            if _inflight.get(key) is lock:
+                del _inflight[key]  # the result is cached now; later callers need no lock
+
+
+sky_context.cache_clear = lambda: _sky_context_cached.cache_clear()  # type: ignore[attr-defined]
+
+
+@lru_cache(maxsize=48)
+def _sky_context_cached(
+    latitude: float,
+    longitude: float,
+    elevation_m: float,
+    night_date: date,
+    tz_name: str,
+    coords: tuple[tuple[float, ...], tuple[float, ...]] | None = None,
+) -> SkyContext:
     t = build_grid(night_date, tz_name)
     times = Time(t, format="unix", scale="utc")
     loc = EarthLocation.from_geodetic(lon=longitude * u.deg, lat=latitude * u.deg, height=elevation_m * u.m)
