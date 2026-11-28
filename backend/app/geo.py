@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 
 GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search"
-USER_AGENT = "AstroPlanner/0.1 (local non-commercial prototype)"
+USER_AGENT = "AstroPlanner/0.1 (non-commercial; +https://github.com/JoeyPhatsJr/astroplanner)"
 
 
 class GeocodeError(Exception):
