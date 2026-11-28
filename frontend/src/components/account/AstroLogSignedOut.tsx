@@ -1,11 +1,13 @@
 import { Check } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { loginHref, signupHref } from "../../lib/returnTo";
+import { useDocTitle } from "../../lib/useDocTitle";
 
 const OPEN = ["Tonight’s sky and score", "Explore and target details", "Variable Hunter star pages"];
 
 /** AstroLog signed out: what it is, the way in (which comes back to this very page), and what works without one. */
 export function AstroLogSignedOut() {
+  useDocTitle("AstroLog");
   const loc = useLocation();
   const here = loc.pathname + loc.search;
   return (

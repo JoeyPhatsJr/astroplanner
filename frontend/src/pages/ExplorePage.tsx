@@ -12,10 +12,12 @@ import { EmptyState, ErrorState, Notice, Skeleton, SlowLoadHint } from "../compo
 import { weatherReason } from "../lib/forecastGap";
 import { formatDeg, formatSize } from "../lib/format";
 import { formatTime } from "../lib/time";
+import { useDocTitle } from "../lib/useDocTitle";
 import { usePrefs } from "../state/prefs";
 import { PageHeader } from "../components/ui/PageHeader";
 
 export function ExplorePage() {
+  useDocTitle("Explore");
   const [params, setParams] = useSearchParams();
   const [query, setQuery] = useState(params.get("q") ?? "");
   const [debounced, setDebounced] = useState(query);

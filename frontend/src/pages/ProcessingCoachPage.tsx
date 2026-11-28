@@ -12,6 +12,7 @@ import { StackUpload } from "../components/processing/StackUpload";
 import { StepPanel } from "../components/processing/StepPanel";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate } from "../lib/time";
+import { useDocTitle } from "../lib/useDocTitle";
 import { PageHeader } from "../components/ui/PageHeader";
 
 const CLEARED_TEXT = "Your frame choice was cleared because the Siril folder was re-read; the counts may have changed. Choose again in step 4.";
@@ -19,6 +20,7 @@ const CLEARED_TEXT = "Your frame choice was cleared because the Siril folder was
 export function ProcessingCoachPage() {
   const { captureSetId } = useParams();
   const start = useStartRun();
+  useDocTitle(isNotFound(start.error) ? "Night not found" : "Processing coach");
   const startedFor = useRef<string | null>(null);
   const { mutate } = start;
   useEffect(() => {

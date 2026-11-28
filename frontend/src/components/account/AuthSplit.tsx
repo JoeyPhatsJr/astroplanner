@@ -1,15 +1,7 @@
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 
-/** Sets the tab title while the page is mounted, as the site pages do. */
-export function useDocTitle(title: string) {
-  useEffect(() => {
-    const previous = document.title;
-    document.title = `${title} · AstroPlanner`;
-    return () => {
-      document.title = previous;
-    };
-  }, [title]);
-}
+/** The sign-in pages import the tab-title hook from here; it lives in lib so every app page can use it. */
+export { useDocTitle } from "../../lib/useDocTitle";
 
 interface Props {
   title: string;

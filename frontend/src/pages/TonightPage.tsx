@@ -15,6 +15,7 @@ import { formatLatLon } from "../lib/format";
 import { forecastReason } from "../lib/forecastGap";
 import { darkForecastGaps, nightHeadline } from "../lib/nightHeadline";
 import { nightPageTitle, tzAbbrev } from "../lib/time";
+import { useDocTitle } from "../lib/useDocTitle";
 import { useActiveSession } from "../state/activeSession";
 import { usePrefs } from "../state/prefs";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -22,6 +23,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 const TOP_N = 9;
 
 export function TonightPage() {
+  useDocTitle("Tonight");
   const { prefs, update } = usePrefs();
   const { location, isLoading: locLoading, error: locError, refetch } = useCurrentLocation();
   const tonight = useTonight();

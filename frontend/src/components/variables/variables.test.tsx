@@ -241,6 +241,11 @@ describe("Star page", () => {
     expect(heading.closest("section")?.querySelector("ul")?.className).toContain("max-w-[68ch]");
   });
 
+  it("titles the tab with the star's name", async () => {
+    open();
+    await waitFor(() => expect(document.title).toBe("SS Cygni · AstroPlanner"));
+  });
+
   it("shows the VSX period beside the note that explains it", async () => {
     const NOTE = "The VSX period is the binary orbital period, not an outburst or eruption interval.";
     routes["GET /api/variables/ss-cyg"] = () => starBody({ vsx: { ...vsx, period_days: 0.27513 }, period_note: NOTE });

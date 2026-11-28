@@ -8,11 +8,14 @@ import { headlineLabel, imageSrc } from "../components/astrolog/TargetTile";
 import { useConfirm } from "../components/ui/ConfirmDialog";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { formatCalendarDate, formatExposures, formatIntegration, formatLocalSpan } from "../lib/time";
+import { useDocTitle } from "../lib/useDocTitle";
 import { PageHeader } from "../components/ui/PageHeader";
 
 export function TargetLogPage() {
   const { targetId } = useParams();
   const q = useAstroLogTarget(targetId);
+  const missing = isNotFound(q.error) || (!q.isLoading && !q.error && !q.data);
+  useDocTitle(q.data ? q.data.target.display_name : missing ? "Target not found" : q.error ? "AstroLog" : null);
   if (q.isLoading)
     return (
       <div className="page-wide flex flex-col gap-3">

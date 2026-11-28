@@ -10,6 +10,7 @@ import { StarExplainer } from "../components/variables/StarExplainer";
 import { TonightWindow } from "../components/variables/TonightWindow";
 import { EmptyState, ErrorState, Notice, Skeleton } from "../components/ui/States";
 import { loginHref } from "../lib/returnTo";
+import { useDocTitle } from "../lib/useDocTitle";
 import { useActiveSession } from "../state/activeSession";
 import { vsxRange } from "./VariableHunterPage";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -17,6 +18,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 export function StarPage() {
   const { slug } = useParams();
   const q = useStar(slug);
+  useDocTitle(q.data ? q.data.star.name : isNotFound(q.error) ? "Star not found" : q.error ? "Variable Hunter" : null);
   if (q.isLoading)
     return (
       <div className="page-wide flex flex-col gap-3">

@@ -174,6 +174,7 @@ describe("TargetLogPage not found", () => {
     expect(screen.getByRole("link", { name: "Back to library" })).toHaveAttribute("href", "/astrolog");
     expect(screen.queryByRole("button", { name: /Try again/ })).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
+    expect(document.title).toBe("Target not found · AstroPlanner");
   });
 
   it("any other failure keeps the error with Try again", () => {
@@ -191,6 +192,7 @@ describe("TargetLogPage", () => {
     renderTarget();
     expect(screen.getByText(/frames used/)).toHaveTextContent("654 of 1,015 frames used (64%) · 2 h 49 m captured");
     expect(screen.getByText("FILTER")).toBeInTheDocument();
+    expect(document.title).toBe("Bubble Nebula · AstroPlanner");
   });
 
   it("uses frames_in_stack_range (not frames_total) as the denominator", () => {

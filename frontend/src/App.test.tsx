@@ -1,8 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import App from "./App";
+import { seedSignedIn, seedSignedOut } from "./test/auth";
 import { ConfirmProvider } from "./components/ui/ConfirmDialog";
 import { DEFAULT_PREFS, PrefsProvider } from "./state/prefs";
 
@@ -49,5 +50,61 @@ describe("routes", () => {
   it("points the not-found page back to Tonight", () => {
     renderAt("/no-such-page");
     expect(screen.getByRole("link", { name: "Go to Tonight" })).toHaveAttribute("href", "/tonight");
+  });
+});
+
+describe("tab titles", () => {
+  beforeEach(() => {
+    document.title = "AstroPlanner";
+  });
+  afterEach(cleanup);
+
+  function renderSeeded(path: string, signedIn: boolean) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    if (signedIn) seedSignedIn(qc);
+    else seedSignedOut(qc);
+    return render(
+      <QueryClientProvider client={qc}>
+        <PrefsProvider initial={DEFAULT_PREFS}>
+          <ConfirmProvider>
+            <MemoryRouter initialEntries={[path]}>
+              <App />
+            </MemoryRouter>
+          </ConfirmProvider>
+        </PrefsProvider>
+      </QueryClientProvider>,
+    );
+  }
+
+  it.each([
+    ["/tonight", "Tonight · AstroPlanner"],
+    ["/explore", "Explore · AstroPlanner"],
+    ["/variables", "Variable Hunter · AstroPlanner"],
+    ["/settings", "Settings · AstroPlanner"],
+    ["/account", "Account · AstroPlanner"],
+    ["/astrolog", "AstroLog · AstroPlanner"],
+    ["/astrolog/nights", "Nights · AstroPlanner"],
+    ["/astrolog/import", "Import a folder · AstroPlanner"],
+    ["/astrolog/process/cs1", "Processing coach · AstroPlanner"],
+    ["/no-such-page", "Page not found · AstroPlanner"],
+  ])("signed in, %s is titled %s", async (path, title) => {
+    renderSeeded(path, true);
+    await waitFor(() => expect(document.title).toBe(title));
+  });
+
+  it("signed out, the AstroLog gate is titled AstroLog on every AstroLog route", async () => {
+    for (const path of ["/astrolog", "/astrolog/targets/t1", "/astrolog/process/cs1"]) {
+      renderSeeded(path, false);
+      expect(await screen.findByRole("heading", { level: 1, name: "Your nights live in your account." })).toBeInTheDocument();
+      expect(document.title).toBe("AstroLog · AstroPlanner");
+      cleanup();
+    }
+  });
+
+  it("puts the title back when the page goes", async () => {
+    const view = renderSeeded("/explore", true);
+    await waitFor(() => expect(document.title).toBe("Explore · AstroPlanner"));
+    view.unmount();
+    expect(document.title).toBe("AstroPlanner");
   });
 });
