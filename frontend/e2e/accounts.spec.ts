@@ -142,6 +142,11 @@ test("delete account", async ({ page }) => {
   await del.click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole("banner").getByRole("link", { name: "Sign in", exact: true })).toBeVisible();
+  // Home confirms it, once: a reload does not show it again.
+  await expect(page.getByRole("status").getByText("Your account and its data were deleted.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByText("Your account and its data were deleted.")).toHaveCount(0);
 
   await page.goto("/astrolog");
   await expect(page.getByRole("heading", { level: 1, name: GATE })).toBeVisible();

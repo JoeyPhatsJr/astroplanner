@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuthStatus, useMe, useSignOut } from "../../api/auth";
 import { AccountCheckError } from "../../components/account/AccountCheckError";
+import { ACCOUNT_DELETED_STATE } from "../../components/account/AccountDeletedNotice";
 import { useDocTitle } from "../../components/account/AuthSplit";
 import { ChangePasswordForm } from "../../components/account/ChangePasswordForm";
 import { DeleteAccountDialog } from "../../components/account/DeleteAccountDialog";
@@ -23,11 +24,11 @@ export function AccountPage() {
   // Sign out and delete go home. The page navigates first, then the app switches to signed out; until the
   // route changes, this guard keeps the signed-out redirect to sign in from racing the trip home.
   const leaving = useRef(false);
-  const goHome = () => {
+  const goHome = (state?: typeof ACCOUNT_DELETED_STATE) => {
     leaving.current = true;
-    navigate("/", { replace: true });
+    navigate("/", { replace: true, state });
   };
-  const signOut = useSignOut({ onSignedOut: goHome });
+  const signOut = useSignOut({ onSignedOut: () => goHome() });
   const [changing, setChanging] = useState(false);
   const [changed, setChanged] = useState(false);
   const [dialog, setDialog] = useState<"open" | "closing" | null>(null);
@@ -163,7 +164,7 @@ export function AccountPage() {
             setDialog(null);
             deleteButton.current?.focus();
           }}
-          onDeleted={goHome}
+          onDeleted={() => goHome(ACCOUNT_DELETED_STATE)}
         />
       )}
     </div>
