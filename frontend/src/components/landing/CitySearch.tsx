@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { authApi, authKey } from "../../api/auth";
 import { api } from "../../api/client";
 import { qk } from "../../api/hooks";
+import { markSignedOutIf401 } from "../../api/queryClient";
 import type { GeocodeResult } from "../../api/types";
 import { GUEST_ID } from "../../lib/guestPlace";
 import { GeoNamesCredit } from "../ui/GeoNamesCredit";
@@ -78,12 +79,19 @@ export function CitySearch() {
       // Open-Meteo uses -9999 as a "no elevation" sentinel; never keep it as a real value.
       const elevation = r.elevation_m != null && r.elevation_m >= -500 && r.elevation_m <= 9000 ? r.elevation_m : null;
       const place = { label: r.label, latitude_deg: r.latitude, longitude_deg: r.longitude, elevation_m: elevation, timezone };
-      if (!signedIn) {
+      const keepInBrowser = () => {
         update({ guestPlace: place, locationId: GUEST_ID, nightDate: null });
         navigate("/tonight");
-        return;
+      };
+      if (!signedIn) return keepInBrowser();
+      let created;
+      try {
+        created = await api.createLocation(place);
+      } catch (e) {
+        // The session ended since the account was checked: say so everywhere, and keep the place here instead.
+        if (markSignedOutIf401(qc, e)) return keepInBrowser();
+        throw e;
       }
-      const created = await api.createLocation(place);
       // The place is saved at this point; a failed refresh of the list must not report a failed save.
       await qc.invalidateQueries({ queryKey: qk.locations }).catch(() => undefined);
       update({ locationId: created.id, nightDate: null });

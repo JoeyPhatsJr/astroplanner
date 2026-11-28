@@ -16,7 +16,7 @@ const api = vi.hoisted(() => ({
   timezoneAt: vi.fn(),
   createLocation: vi.fn(),
 }));
-vi.mock("../api/client", () => ({ api }));
+vi.mock("../api/client", async (orig) => ({ ...(await orig<typeof import("../api/client")>()), api }));
 
 const philly: GeocodeResult = {
   label: "Philadelphia, Pennsylvania, US",
@@ -292,6 +292,18 @@ describe("city box without an account", () => {
       ).toBeInTheDocument();
     });
   }
+
+  it("a session that ended since the check: keeps the place in this browser instead of failing", async () => {
+    const { ApiError } = await import("../api/client");
+    api.geocode.mockResolvedValue({ results: [tucson], source: "x" });
+    api.createLocation.mockRejectedValue(new ApiError(401, "Sign in to continue."));
+    renderLanding("signedIn");
+    await searchFor("Tucson");
+    fireEvent.click(await screen.findByRole("button", { name: /Tucson, Arizona, US/ }));
+    expect(await screen.findByText("Tonight route")).toBeInTheDocument();
+    expect(api.createLocation).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("locationId:guest")).toBeInTheDocument();
+  });
 
   it("signed out: reuses a sample at the same place instead of keeping a copy", async () => {
     api.geocode.mockResolvedValue({ results: [philly], source: "x" });

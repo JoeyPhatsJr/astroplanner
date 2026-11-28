@@ -149,7 +149,8 @@ function Controls({ stacked = false }: { stacked?: boolean }) {
         {guestInUse && signedIn && (
           <button
             type="button"
-            className={`btn btn-ghost text-ice ${stacked ? "mt-2 self-start" : "shrink-0 whitespace-nowrap"}`}
+            // Inline it fits only on wide screens (like the night label below); Settings always offers it too.
+            className={`btn btn-ghost text-ice ${stacked ? "mt-2 self-start" : "hidden shrink-0 whitespace-nowrap 2xl:inline-flex"}`}
             disabled={saveGuest.isPending}
             onClick={() => saveGuest.mutate()}
           >

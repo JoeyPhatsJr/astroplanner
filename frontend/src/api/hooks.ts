@@ -147,13 +147,15 @@ export function useRecommendations(filters: { category?: Category; query?: strin
     category: filters.category ?? "all",
     query: filters.query?.trim() || undefined,
   };
-  return useQuery({
+  const q = useQuery({
     queryKey: ["recommendations", o, opts],
     queryFn: () => api.recommendations(o!, opts),
     enabled: !!o && ready,
     placeholderData: keepPreviousData,
     staleTime: 5 * 60_000,
   });
+  // Waiting for the equipment list reads as loading, so pages show their skeleton rather than nothing.
+  return { ...q, isLoading: q.isLoading || (!!o && !ready && q.data === undefined) };
 }
 
 export function useVisibility(targetId: string | null) {
@@ -161,12 +163,13 @@ export function useVisibility(targetId: string | null) {
   const { prefs } = usePrefs();
   const { equipmentId, ready } = useEquipmentParam();
   const opts = { equipment_id: equipmentId, min_altitude_deg: prefs.minAltitudeDeg, darkness: prefs.darkness };
-  return useQuery({
+  const q = useQuery({
     queryKey: ["visibility", targetId, o, opts],
     queryFn: () => api.visibility(targetId!, o!, opts),
     enabled: !!o && !!targetId && ready,
     staleTime: 5 * 60_000,
   });
+  return { ...q, isLoading: q.isLoading || (!!o && !!targetId && !ready && q.data === undefined) };
 }
 
 /**
@@ -185,6 +188,8 @@ export function useSaveGuestPlace() {
       return findMatchingLocation(own, { latitude: p.latitude_deg, longitude: p.longitude_deg }) ?? (await api.createLocation(p));
     },
     onSuccess: async (saved) => {
+      // Into the list first, so switching to it never shows another place while the list refetches.
+      qc.setQueryData<ObservingLocation[]>(qk.locations, (old) => (old && !old.some((l) => l.id === saved.id) ? [...old, saved] : old));
       update({ locationId: saved.id, guestPlace: null });
       await qc.invalidateQueries({ queryKey: qk.locations }).catch(() => undefined);
     },
