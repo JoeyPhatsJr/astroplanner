@@ -2,6 +2,28 @@
 
 _Last updated: 2026-11-19 · Phase plan and process: see [ROADMAP.md](ROADMAP.md)_
 
+## Polish: live QA pass before judging (branch `polish-qa`, 2026-11-28)
+
+- **Not-found pages:** `/astrolog/targets/<bad-id>` and `/astrolog/process/<bad-id>` showed an error with "Try again".
+  A 404 now shows "Target not found" / "Night not found" with "Back to library", like the nights and star pages.
+  `shouldRetry` never retries a 404 (the target was requested twice). Shared `isNotFound` in `api/client.ts`.
+- **Delete account:** home now shows a dismissible "Your account and its data were deleted." (router state,
+  cleared once read so a reload does not repeat it). Sign out still goes home with no notice.
+- **Night strip hint:** "Hover or tap the strip for hourly values." wherever the device reports hover (some
+  touch screens do); `(hover: none)` devices keep "Tap the strip for hourly values.".
+- **Explore with no matches:** no "0 of 0 matching targets" subtitle above the empty state.
+- **Signed-out AstroLog:** the three checkmarks sit under a visible heading, "Works without an account".
+- **Tonight's plan panel:** "All sessions" (no plan yet) goes to `/astrolog/nights`, not the library.
+- **Tab titles:** every app page sets "<Page> · AstroPlanner" (`lib/useDocTitle`); star, target and night pages
+  use their own names; Settings and the 404 page are titled from `App.tsx`.
+- **SS Cygni:** the star page now shows VSX's period as published ("0.27513 days, about 6.6 hours (VSX)") with
+  the orbital-period note beside it; the note shows only when a period is shown.
+- **Phone site header:** a Menu button (right of the pill) discloses Explore, AstroLog and Variable stars below
+  md; it shares the account menu's look and keyboard behaviour. Fits one row at 320 px.
+- **E2E:** the city-box test stubs `/api/geocode` (it flaked on CI against live Open-Meteo).
+- **Known limitation:** after dismissing the deleted-account notice, keyboard focus is not moved anywhere
+  specific (the button that had it is gone).
+
 ## Polish: calmer weather, loading and sample states (branch `polish/app-states`, 2026-11-22)
 
 - **One weather notice, in plain words:** with no forecast, Tonight repeated Open-Meteo's raw "Daily API request
