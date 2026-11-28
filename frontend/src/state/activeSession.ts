@@ -3,6 +3,7 @@ import { useAuthStatus } from "../api/auth";
 import { ApiError } from "../api/client";
 import { useCurrentEquipment, useCurrentLocation, useNightDate, useSessionMutations, useSessions } from "../api/hooks";
 import type { ObservingSession } from "../api/types";
+import { serverLocationId } from "../lib/guestPlace";
 import { formatCalendarDate } from "../lib/time";
 import { usePrefs } from "./prefs";
 
@@ -49,7 +50,7 @@ export function useActiveSession() {
         s = await m.create.mutateAsync({
           title: sessionTitleForNight(nightDate),
           local_night_date: nightDate,
-          location_id: location?.id ?? null,
+          location_id: serverLocationId(location), // a browser-only place has no server row: no location
           equipment_id: equipment?.id ?? null,
         });
       }

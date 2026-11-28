@@ -1,5 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
+import { guestLocation, isGuestId } from "../lib/guestPlace";
+import { findMatchingLocation } from "../lib/locationMatch";
 import { defaultNightDate } from "../lib/time";
 import { usePrefs } from "../state/prefs";
 import { useAuthStatus } from "./auth";
@@ -51,7 +53,11 @@ export function useLimits() {
   return useQuery({ queryKey: qk.limits, queryFn: fetchLimits, staleTime: Infinity });
 }
 
-/** The selected location (falls back to the first saved one). */
+/**
+ * The selected location. The browser-only guest place (lib/guestPlace.ts) when it is chosen, or when the chosen
+ * saved place is not in the list (for example someone's own place after they signed out); then the first place
+ * in the list (the sample, signed out). While the list loads, a chosen guest place is already available.
+ */
 export function useCurrentLocation(): {
   location: ObservingLocation | null;
   isLoading: boolean;
@@ -60,11 +66,19 @@ export function useCurrentLocation(): {
 } {
   const { prefs } = usePrefs();
   const q = useLocations();
+  const guest = useMemo(() => (prefs.guestPlace ? guestLocation(prefs.guestPlace) : null), [prefs.guestPlace]);
+  const guestChosen = !!guest && isGuestId(prefs.locationId);
   const location = useMemo(() => {
-    const list = q.data ?? [];
-    return list.find((l) => l.id === prefs.locationId) ?? list[0] ?? null;
-  }, [q.data, prefs.locationId]);
-  return { location, isLoading: q.isLoading, error: q.error, refetch: () => void q.refetch() };
+    if (guestChosen) return guest;
+    if (!q.data) return q.isError ? guest : null; // still loading: wait, rather than flash another place
+    return q.data.find((l) => l.id === prefs.locationId) ?? guest ?? q.data[0] ?? null;
+  }, [guestChosen, guest, q.data, q.isError, prefs.locationId]);
+  return {
+    location,
+    isLoading: !guestChosen && q.isLoading,
+    error: location ? null : q.error,
+    refetch: () => void q.refetch(),
+  };
 }
 
 export function useCurrentEquipment(): EquipmentProfile | null {
@@ -74,6 +88,16 @@ export function useCurrentEquipment(): EquipmentProfile | null {
     const list = q.data ?? [];
     return list.find((e) => e.id === prefs.equipmentId) ?? list[0] ?? null;
   }, [q.data, prefs.equipmentId]);
+}
+
+/**
+ * The equipment id planning requests send: the profile actually in use, never the raw preference (which can be
+ * another account's private profile after a sign-out, and would answer 404). `ready` once the list has answered.
+ */
+function useEquipmentParam(): { equipmentId: string | null; ready: boolean } {
+  const q = useEquipmentList();
+  const eq = useCurrentEquipment();
+  return { equipmentId: eq?.id ?? null, ready: q.data !== undefined || q.isError };
 }
 
 /** Night date in effect: the user's explicit choice, else the default night for the location. */
@@ -115,8 +139,9 @@ export function useTonight() {
 export function useRecommendations(filters: { category?: Category; query?: string } = {}) {
   const o = useObserver();
   const { prefs } = usePrefs();
+  const { equipmentId, ready } = useEquipmentParam();
   const opts = {
-    equipment_id: prefs.equipmentId,
+    equipment_id: equipmentId,
     min_altitude_deg: prefs.minAltitudeDeg,
     darkness: prefs.darkness,
     category: filters.category ?? "all",
@@ -125,7 +150,7 @@ export function useRecommendations(filters: { category?: Category; query?: strin
   return useQuery({
     queryKey: ["recommendations", o, opts],
     queryFn: () => api.recommendations(o!, opts),
-    enabled: !!o,
+    enabled: !!o && ready,
     placeholderData: keepPreviousData,
     staleTime: 5 * 60_000,
   });
@@ -134,12 +159,35 @@ export function useRecommendations(filters: { category?: Category; query?: strin
 export function useVisibility(targetId: string | null) {
   const o = useObserver();
   const { prefs } = usePrefs();
-  const opts = { equipment_id: prefs.equipmentId, min_altitude_deg: prefs.minAltitudeDeg, darkness: prefs.darkness };
+  const { equipmentId, ready } = useEquipmentParam();
+  const opts = { equipment_id: equipmentId, min_altitude_deg: prefs.minAltitudeDeg, darkness: prefs.darkness };
   return useQuery({
     queryKey: ["visibility", targetId, o, opts],
     queryFn: () => api.visibility(targetId!, o!, opts),
-    enabled: !!o && !!targetId,
+    enabled: !!o && !!targetId && ready,
     staleTime: 5 * 60_000,
+  });
+}
+
+/**
+ * "Save to my account" for the browser-only guest place (signed in). Reuses one of the user's own places at the
+ * same spot (within ~1 km) instead of saving a second. The saved place becomes the current one, and the browser
+ * copy is dropped: it lives on the account now.
+ */
+export function useSaveGuestPlace() {
+  const qc = useQueryClient();
+  const { prefs, update } = usePrefs();
+  return useMutation({
+    mutationFn: async (): Promise<ObservingLocation> => {
+      const p = prefs.guestPlace;
+      if (!p) throw new Error("There is no place in this browser to save.");
+      const own = (await qc.fetchQuery({ queryKey: qk.locations, queryFn: api.locations, staleTime: 0 })).filter((l) => !l.is_sample);
+      return findMatchingLocation(own, { latitude: p.latitude_deg, longitude: p.longitude_deg }) ?? (await api.createLocation(p));
+    },
+    onSuccess: async (saved) => {
+      update({ locationId: saved.id, guestPlace: null });
+      await qc.invalidateQueries({ queryKey: qk.locations }).catch(() => undefined);
+    },
   });
 }
 

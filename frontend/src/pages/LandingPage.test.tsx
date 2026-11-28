@@ -7,6 +7,7 @@ import { CHAPTERS, GALLERY, HERO_PHOTO } from "../components/landing/content";
 import App from "../App";
 import { ConfirmProvider } from "../components/ui/ConfirmDialog";
 import { DEFAULT_PREFS, PrefsProvider, usePrefs } from "../state/prefs";
+import { seedSignedIn, seedSignedOut } from "../test/auth";
 import { LandingPage } from "./LandingPage";
 
 const api = vi.hoisted(() => ({
@@ -45,13 +46,17 @@ function Probe({ name }: { name: string }) {
     <div>
       <p>{name} route</p>
       <p>locationId:{prefs.locationId ?? "none"}</p>
+      <p>guestPlace:{JSON.stringify(prefs.guestPlace)}</p>
       <p>state:{JSON.stringify(loc.state)}</p>
     </div>
   );
 }
 
-function renderLanding() {
+/** `auth`: the account state CitySearch finds (`unknown`: the account check fails, as with the backend down). */
+function renderLanding(auth: "signedIn" | "signedOut" | "unknown" = "signedIn") {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  if (auth === "signedIn") seedSignedIn(qc);
+  if (auth === "signedOut") seedSignedOut(qc);
   return render(
     <QueryClientProvider client={qc}>
       <PrefsProvider initial={DEFAULT_PREFS}>
@@ -254,5 +259,57 @@ describe("Clear skies tonight? city box", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Philadelphia/ }));
     await waitFor(() => expect(screen.getByText(/Couldn’t save Philadelphia, Pennsylvania, US/)).toBeInTheDocument());
     expect(screen.queryByText("Tonight route")).not.toBeInTheDocument();
+  });
+
+  it("credits GeoNames beside the results", async () => {
+    api.geocode.mockResolvedValue({ results: [philly], source: "x" });
+    renderLanding();
+    await searchFor("Philadelphia");
+    const link = await screen.findByRole("link", { name: "GeoNames" });
+    expect(link).toHaveAttribute("href", "https://www.geonames.org/");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noreferrer");
+    expect(link.parentElement).toHaveTextContent(/Location data based on GeoNames/);
+  });
+});
+
+describe("city box without an account", () => {
+  const tucson: GeocodeResult = { ...philly, label: "Tucson, Arizona, US", latitude: 32.2217, longitude: -110.9265, elevation_m: 728, timezone: "America/Phoenix" };
+
+  for (const auth of ["signedOut", "unknown"] as const) {
+    it(`${auth}: keeps the place in this browser, saves nothing on the server, and opens Tonight`, async () => {
+      api.geocode.mockResolvedValue({ results: [tucson], source: "x" });
+      renderLanding(auth);
+      await searchFor("Tucson");
+      fireEvent.click(await screen.findByRole("button", { name: /Tucson, Arizona, US/ }));
+      expect(await screen.findByText("Tonight route")).toBeInTheDocument();
+      expect(api.createLocation).not.toHaveBeenCalled();
+      expect(screen.getByText("locationId:guest")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          `guestPlace:${JSON.stringify({ label: "Tucson, Arizona, US", latitude_deg: 32.2217, longitude_deg: -110.9265, elevation_m: 728, timezone: "America/Phoenix" })}`,
+        ),
+      ).toBeInTheDocument();
+    });
+  }
+
+  it("signed out: reuses a sample at the same place instead of keeping a copy", async () => {
+    api.geocode.mockResolvedValue({ results: [philly], source: "x" });
+    api.locations.mockResolvedValue([saved({ id: "sample-location", is_sample: true })]);
+    renderLanding("signedOut");
+    await searchFor("Philadelphia");
+    fireEvent.click(await screen.findByRole("button", { name: /Philadelphia, Pennsylvania, US/ }));
+    expect(await screen.findByText("Tonight route")).toBeInTheDocument();
+    expect(screen.getByText("locationId:sample-location")).toBeInTheDocument();
+    expect(screen.getByText("guestPlace:null")).toBeInTheDocument();
+    expect(api.createLocation).not.toHaveBeenCalled();
+  });
+
+  it("signed out: never keeps Open-Meteo's -9999 'no elevation' as an elevation", async () => {
+    api.geocode.mockResolvedValue({ results: [{ ...tucson, elevation_m: -9999 }], source: "x" });
+    renderLanding("signedOut");
+    await searchFor("Tucson");
+    fireEvent.click(await screen.findByRole("button", { name: /Tucson/ }));
+    expect(await screen.findByText(/"elevation_m":null/)).toBeInTheDocument();
   });
 });
